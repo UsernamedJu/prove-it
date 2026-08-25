@@ -7,12 +7,12 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   :root{
-    --bg1:#120B2E; --bg2:#271457; --bg3:#2A3FA5;
+    --bg1:#120505; --bg2:#2A2426; --bg3:#7A0E0E;
     --glass:rgba(255,255,255,0.08); --glassBright:rgba(255,255,255,0.14);
     --border:rgba(255,255,255,0.14); --border2:rgba(255,255,255,0.24);
     --ink:#FFFFFF; --ink2:rgba(255,255,255,0.72); --ink3:rgba(255,255,255,0.50);
-    --purple:#8B5CF6; --purpleDeep:#4C1D95; --blue:#3B82F6; --pink:#F472B6;
-    --cyan:#22D3EE; --lime:#84CC16; --gold:#FBBF24; --coral:#FB7185;
+    --purple:#BB0000; --purpleDeep:#5C0000; --blue:#A7A9AC; --pink:#9B2242;
+    --cyan:#D8DADD; --lime:#84CC16; --gold:#FBBF24; --coral:#8B8D8E;
     --r-sm:10px; --r-md:16px; --r-lg:20px; --r-card:24px;
   }
   *{box-sizing:border-box;}
@@ -64,7 +64,7 @@
   @keyframes orbit-spin{ from{ transform:translate(-50%,-50%) rotate(0deg);} to{ transform:translate(-50%,-50%) rotate(360deg);} }
   @keyframes orbit-counter-spin{ from{ transform:rotate(0deg);} to{ transform:rotate(-360deg);} }
   @keyframes ring-pulse{ 0%,100%{ opacity:0.5; } 50%{ opacity:1; } }
-  @keyframes you-pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(139,92,246,0.5); } 50%{ box-shadow:0 0 0 14px rgba(139,92,246,0); } }
+  @keyframes you-pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(187,0,0,0.5); } 50%{ box-shadow:0 0 0 14px rgba(187,0,0,0); } }
   .orbit-ring{ animation:orbit-spin linear infinite; }
   .orbit-counter{ animation:orbit-counter-spin linear infinite; }
   .orbit-you{ border-radius:50%; animation:you-pulse 2.4s ease-out infinite; }
@@ -76,11 +76,11 @@
   .celebrate-burst{ animation:celebrate-pop 0.6s cubic-bezier(.34,1.56,.64,1); }
   @keyframes celebrate-pop{ 0%{ transform:scale(0.3) rotate(-15deg); opacity:0; } 60%{ transform:scale(1.15) rotate(5deg); opacity:1; } 100%{ transform:scale(1) rotate(0); opacity:1; } }
   @keyframes celebrate-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-  .card.tint-purple{border-color:rgba(139,92,246,0.45);}
-  .card.tint-pink{border-color:rgba(244,114,182,0.45);}
-  .card.tint-blue{border-color:rgba(59,130,246,0.45);}
+  .card.tint-purple{border-color:rgba(187,0,0,0.45);}
+  .card.tint-pink{border-color:rgba(155,34,66,0.45);}
+  .card.tint-blue{border-color:rgba(167,169,172,0.45);}
   .card.tint-gold{border-color:rgba(251,191,36,0.5);}
-  .card.tint-cyan{border-color:rgba(34,211,238,0.45);}
+  .card.tint-cyan{border-color:rgba(216,218,221,0.45);}
 
   .btn{
     display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:52px;
@@ -88,7 +88,7 @@
     font-family:inherit; transition:transform .1s ease;
   }
   .btn-primary{background:linear-gradient(90deg,var(--purple),var(--blue),var(--cyan),var(--pink)); color:#fff;
-    box-shadow:0 8px 22px rgba(139,92,246,0.45);}
+    box-shadow:0 8px 22px rgba(187,0,0,0.45);}
   .btn-primary:active{transform:scale(0.97);}
   .btn-outline{
     background:rgba(255,255,255,0.07); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
@@ -188,9 +188,9 @@
 </head>
 <body>
 <div class="bg-decor">
-  <div class="glow" style="width:70%;height:32%;left:-20%;top:-4%;background:radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);filter:blur(40px);"></div>
-  <div class="glow" style="width:60%;height:28%;right:-15%;top:8%;background:radial-gradient(circle, rgba(34,211,238,0.22), transparent 70%);filter:blur(40px);"></div>
-  <div class="glow" style="width:65%;height:30%;left:5%;top:45%;background:radial-gradient(circle, rgba(244,114,182,0.18), transparent 70%);filter:blur(45px);"></div>
+  <div class="glow" style="width:70%;height:32%;left:-20%;top:-4%;background:radial-gradient(circle, rgba(187,0,0,0.35), transparent 70%);filter:blur(40px);"></div>
+  <div class="glow" style="width:60%;height:28%;right:-15%;top:8%;background:radial-gradient(circle, rgba(216,218,221,0.16), transparent 70%);filter:blur(40px);"></div>
+  <div class="glow" style="width:65%;height:30%;left:5%;top:45%;background:radial-gradient(circle, rgba(155,34,66,0.22), transparent 70%);filter:blur(45px);"></div>
 </div>
 <div class="noise"></div>
 <div class="shell" id="shell"></div>
@@ -261,7 +261,7 @@ const IMG = {
 };
 
 // ---------- Data ----------
-const SWATCH = ['#8B5CF6','#F472B6','#22D3EE','#FBBF24','#84CC16','#3B82F6','#FB7185'];
+const SWATCH = ['#BB0000','#9B2242','#D8DADD','#FBBF24','#84CC16','#A7A9AC','#8B8D8E'];
 function hashName(s){let h=0>>>0; for(const c of s) h=(h*31+c.charCodeAt(0))>>>0; return h;}
 function colorFor(name){return SWATCH[hashName(name)%SWATCH.length];}
 
@@ -312,8 +312,8 @@ function pactMark(size=32){
   const s=size, r=s/2-s*0.055, cx=s*0.75, cy=s/2, off=s*0.22, gid='pactGrad'+Math.round(s*10);
   return `<svg width="${s*1.5}" height="${s}" viewBox="0 0 ${s*1.5} ${s}" style="display:block;">
     <defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#8B5CF6"/><stop offset="33%" stop-color="#3B82F6"/>
-      <stop offset="66%" stop-color="#22D3EE"/><stop offset="100%" stop-color="#F472B6"/>
+      <stop offset="0%" stop-color="#BB0000"/><stop offset="33%" stop-color="#A7A9AC"/>
+      <stop offset="66%" stop-color="#D8DADD"/><stop offset="100%" stop-color="#9B2242"/>
     </linearGradient></defs>
     <circle cx="${cx-off}" cy="${cy}" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="${s*0.11}"/>
     <circle cx="${cx+off}" cy="${cy}" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="${s*0.11}"/>
@@ -462,8 +462,8 @@ function mountMap(divId, coords, markers){
     const map = L.map(divId, {zoomControl:false, attributionControl:false, dragging:true, scrollWheelZoom:false});
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {maxZoom:16}).addTo(map);
     const latlngs = coords.map(c=>[c[0],c[1]]);
-    L.polyline(latlngs, {color:'#8B5CF6', weight:5, opacity:0.95}).addTo(map);
-    L.polyline(latlngs, {color:'#22D3EE', weight:2, opacity:0.9}).addTo(map);
+    L.polyline(latlngs, {color:'#BB0000', weight:5, opacity:0.95}).addTo(map);
+    L.polyline(latlngs, {color:'#D8DADD', weight:2, opacity:0.9}).addTo(map);
     map.fitBounds(L.latLngBounds(latlngs), {padding:[24,24]});
     (markers||[]).forEach(m=>{
       L.circleMarker([m.lat,m.lng], {radius:8, color:'#fff', weight:2, fillColor:m.color, fillOpacity:1}).addTo(map).bindTooltip(m.name, {permanent:false});
@@ -649,7 +649,7 @@ function renderOnboarding(){
       <p class="body-text" style="margin-bottom:20px;">Pick what fits best — it shapes what we suggest.</p>
       <div class="stack gap-sm" style="margin-bottom:24px;">
         ${MOTIVATIONS.map(m=>{const on=S.obMotivation===m.id;
-          return `<div onclick="S.obMotivation='${m.id}';render()" class="row gap-sm" style="padding:14px;border-radius:16px;cursor:pointer;background:${on?'rgba(139,92,246,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
+          return `<div onclick="S.obMotivation='${m.id}';render()" class="row gap-sm" style="padding:14px;border-radius:16px;cursor:pointer;background:${on?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
             <span style="color:${on?'var(--purple)':'var(--ink2)'};">${icon(m.icon,16)}</span><span class="body-text" style="color:var(--ink);flex:1;">${m.label}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('circle',18)+'</span>'}</div>`;
         }).join('')}
       </div>
@@ -770,7 +770,7 @@ function renderMoodBubble(){
   const sub = S.mood.logged ? `${S.moodStreak}d streak — tap to see it` : 'Tap for the 10-second check-in';
   return `<div class="card tint-pink" style="margin-bottom:20px;cursor:pointer;" onclick="openMood()">
     <div class="row gap-sm">
-      <div style="width:44px;height:44px;border-radius:50%;background:rgba(244,114,182,0.22);display:flex;align-items:center;justify-content:center;color:var(--pink);">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(155,34,66,0.22);display:flex;align-items:center;justify-content:center;color:var(--pink);">
         ${icon(S.mood.logged?'circle-check':'smile', 20)}
       </div>
       <div style="flex:1;"><div class="h3">${label}</div><div class="caption">${sub}</div></div>
@@ -853,7 +853,7 @@ function challengeRow(c){
       </div>
       <div class="progress" style="height:8px;margin-bottom:10px;"><div style="width:${(mine?mine.progress:0)*100}%;background:${tint};"></div></div>
       <div class="row between">
-        ${c.blind && c.status==='active' ? `<span class="tag" style="background:rgba(244,114,182,0.18);color:var(--pink);">${icon('eye-off',12)} Blind Reveal</span>` : '<span></span>'}
+        ${c.blind && c.status==='active' ? `<span class="tag" style="background:rgba(155,34,66,0.18);color:var(--pink);">${icon('eye-off',12)} Blind Reveal</span>` : '<span></span>'}
         ${footer}
       </div>
     </div>`;
@@ -889,7 +889,7 @@ function renderContacts(){
     <div class="stack gap-sm" style="margin-bottom:12px;">
       ${S.groups.map(g=>`<div class="card tint-cyan" style="cursor:pointer;" onclick="openGroup('${g.name}')">
         <div class="row gap-sm">
-          <div style="width:40px;height:40px;border-radius:50%;background:rgba(34,211,238,0.2);display:flex;align-items:center;justify-content:center;color:var(--cyan);">${icon('users-round',20)}</div>
+          <div style="width:40px;height:40px;border-radius:50%;background:rgba(216,218,221,0.2);display:flex;align-items:center;justify-content:center;color:var(--cyan);">${icon('users-round',20)}</div>
           <div style="flex:1;"><div class="h3">${g.name}</div><div class="caption">${g.members.join(', ')}</div></div>
           <span style="color:var(--ink3);">${icon('chevron-right',18)}</span>
         </div>
@@ -1006,7 +1006,7 @@ function renderNewGroupSheet(){
     <input class="textfield" placeholder="Group name" value="${S.newGroupName}" oninput="S.newGroupName=this.value" style="margin-bottom:10px;">
     <div class="stack gap-xs" style="margin-bottom:12px;">
       ${S.crew.map(m=>{const on=S.newGroupSelected.has(m.name);
-        return `<div onclick="toggleGroupMember('${m.name}')" class="row gap-sm" style="padding:8px;border-radius:10px;cursor:pointer;background:${on?'rgba(139,92,246,0.22)':'var(--glass)'};">
+        return `<div onclick="toggleGroupMember('${m.name}')" class="row gap-sm" style="padding:8px;border-radius:10px;cursor:pointer;background:${on?'rgba(187,0,0,0.22)':'var(--glass)'};">
           ${badge(m.name,30)}<span class="body-text" style="color:var(--ink);flex:1;">${m.name}</span>${on?icon('circle-check',18):''}</div>`;
       }).join('')}
     </div>
@@ -1090,7 +1090,7 @@ function detailBoard(c){
       <div class="row gap-sm" style="margin-bottom:10px;">
         <span style="width:28px;text-align:center;">${medalIcon(s.rank)}</span>
         ${badge(dn(s.name),38,sc)}
-        <div style="flex:1;"><div class="h3">${dn(s.name)}${isMe?` <span class="tag" style="background:rgba(59,130,246,0.18);color:var(--blue);font-size:10px;padding:2px 8px;vertical-align:middle;">You</span>`:''}</div><div class="caption">${s.delta} this week</div></div>
+        <div style="flex:1;"><div class="h3">${dn(s.name)}${isMe?` <span class="tag" style="background:rgba(167,169,172,0.18);color:var(--blue);font-size:10px;padding:2px 8px;vertical-align:middle;">You</span>`:''}</div><div class="caption">${s.delta} this week</div></div>
         <div style="text-align:right;"><div class="num" style="font-size:19px;color:${sc};${hide?'filter:blur(6px);':''}">${Math.round(s.progress*100)}%</div><div class="caption">progress</div></div>
       </div>
       <div class="progress ${hide?'blind':''}" style="height:8px;"><div style="width:${s.progress*100}%;background:${sc};"></div></div>
@@ -1185,7 +1185,7 @@ function detailDetails(c){
     <details class="card accordion" style="margin-bottom:12px;">
       <summary><span>Who's In (${c.standings.length})</span><span class="chev">${icon('chevron-right',16)}</span></summary>
       <div class="acc-body">
-        ${c.standings.map(s=>`<div class="row gap-sm" style="padding:6px 0;">${badge(dn(s.name),34)}<span class="body-text" style="color:var(--ink);flex:1;">${dn(s.name)}</span>${s.name==='You'?`<span class="tag" style="background:rgba(59,130,246,0.18);color:var(--blue);">You</span>`:''}</div>`).join('')}
+        ${c.standings.map(s=>`<div class="row gap-sm" style="padding:6px 0;">${badge(dn(s.name),34)}<span class="body-text" style="color:var(--ink);flex:1;">${dn(s.name)}</span>${s.name==='You'?`<span class="tag" style="background:rgba(167,169,172,0.18);color:var(--blue);">You</span>`:''}</div>`).join('')}
       </div>
     </details>
     ${c.status==='revealReady'?`<button class="btn btn-primary" style="margin-top:4px;" onclick="resolveChallenge('${c.id}')">${icon('sparkles',18)} Reveal Results</button>`:''}
@@ -1259,9 +1259,9 @@ function renderCreate(){
       <div class="pill-row" style="margin-bottom:20px;">${DURATIONS.map(d=>`<button class="pill ${cr.duration===d?'on':''}" onclick="S.create.duration=${d};render()">${d}d</button>`).join('')}</div>
       <label class="caption" style="display:block;margin-bottom:6px;">THE DEAL — winner vs. loser, no cash involved</label>
       <div class="stack gap-xs" style="margin-bottom:12px;">
-        ${PAYOFFS.map((p,i)=>`<div onclick="S.create.useCustomPayoff=false;S.create.payoffIdx=${i};render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'rgba(139,92,246,0.22)':'var(--glass)'};border:1px solid ${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'var(--purple)':'var(--border)'};">
+        ${PAYOFFS.map((p,i)=>`<div onclick="S.create.useCustomPayoff=false;S.create.payoffIdx=${i};render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'var(--purple)':'var(--border)'};">
           <span style="color:var(--purple);">${icon(p.icon,18)}</span><span class="body-text" style="color:var(--ink);flex:1;">${p.text}</span>${(!cr.useCustomPayoff&&cr.payoffIdx===i)?icon('circle-check',18):''}</div>`).join('')}
-        <div onclick="S.create.useCustomPayoff=true;render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${cr.useCustomPayoff?'rgba(139,92,246,0.22)':'var(--glass)'};border:1px solid ${cr.useCustomPayoff?'var(--purple)':'var(--border)'};">
+        <div onclick="S.create.useCustomPayoff=true;render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${cr.useCustomPayoff?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${cr.useCustomPayoff?'var(--purple)':'var(--border)'};">
           <span style="color:var(--purple);">${icon('sparkles',18)}</span><span class="body-text" style="color:var(--ink);flex:1;">Write your own</span>${cr.useCustomPayoff?icon('circle-check',18):''}</div>
       </div>
       ${cr.useCustomPayoff?`<input class="textfield" value="${cr.customPayoff}" oninput="S.create.customPayoff=this.value;" placeholder="e.g. Loser walks the dog for a month"
@@ -1276,7 +1276,7 @@ function renderCreate(){
       <label class="caption" style="display:block;margin-bottom:6px;">PEOPLE</label>
       <div class="stack gap-xs" style="margin-bottom:20px;">
         ${S.crew.map(m=>{const on=cr.invitees.has(m.name);
-          return `<div onclick="toggleInvitee('${m.name}')" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${on?'rgba(139,92,246,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
+          return `<div onclick="toggleInvitee('${m.name}')" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${on?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
             ${badge(m.name,36)}<span class="body-text" style="color:var(--ink);flex:1;">${m.name}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('plus',16)+'</span>'}</div>`;
         }).join('')}
       </div>

@@ -1,21 +1,20 @@
 import SwiftUI
 
-/// Design tokens for Pact — a dark, glassy "prediction-market" look (deep
-/// indigo→violet→blue gradient, frosted translucent cards, bold white
-/// numerals, a live-data feel) carrying Y2K DNA through its holographic
-/// gradient and saturated accent palette rather than through bubble-arcade
-/// chrome. Everything here is a token; screens should never hardcode a hex
-/// or a font size directly.
+/// Design tokens for Pact — a dark, glassy "prediction-market" look (near-
+/// black→charcoal→scarlet gradient, frosted translucent cards, bold white
+/// numerals, a live-data feel), tuned to an Ohio State scarlet-and-gray
+/// identity. Everything here is a token; screens should never hardcode a
+/// hex or a font size directly.
 enum Theme {
 
     enum Surface {
-        /// The deep gradient every screen sits on.
+        /// The deep gradient every screen sits on — black to charcoal to scarlet.
         static let bg = LinearGradient(
-            colors: [Color(hex: 0x120B2E), Color(hex: 0x271457), Color(hex: 0x2A3FA5)],
+            colors: [Color(hex: 0x120505), Color(hex: 0x2A2426), Color(hex: 0x7A0E0E)],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         /// Flat fallback (status bar scrims, etc.) — the gradient's midpoint.
-        static let bgFlat = Color(hex: 0x1D1140)
+        static let bgFlat = Color(hex: 0x431010)
         /// Glass card fill — layered over the gradient with a blur material.
         static let glass = Color.white.opacity(0.08)
         static let glassBright = Color.white.opacity(0.14)
@@ -31,14 +30,17 @@ enum Theme {
     }
 
     enum Brand {
-        static let purple = Color(hex: 0x8B5CF6)
-        static let purpleDeep = Color(hex: 0x4C1D95)
-        static let blue = Color(hex: 0x3B82F6)
-        static let pink = Color(hex: 0xF472B6)
-        static let cyan = Color(hex: 0x22D3EE)
-        static let lime = Color(hex: 0x84CC16)
-        static let gold = Color(hex: 0xFBBF24)
-        static let coral = Color(hex: 0xFB7185)
+        // Names kept as-is (every call site references these by name) — only
+        // the hex values moved, from the old purple/blue Y2K set to Ohio
+        // State's scarlet-and-gray identity.
+        static let purple = Color(hex: 0xBB0000)     // Scarlet — primary
+        static let purpleDeep = Color(hex: 0x5C0000) // Deep scarlet
+        static let blue = Color(hex: 0xA7A9AC)        // Steel gray
+        static let pink = Color(hex: 0x9B2242)        // Maroon/rose
+        static let cyan = Color(hex: 0xD8DADD)        // Bright silver
+        static let lime = Color(hex: 0x84CC16)        // Unchanged — semantic "win"
+        static let gold = Color(hex: 0xFBBF24)        // Unchanged — semantic reward/streak
+        static let coral = Color(hex: 0x8B8D8E)       // Medium gray — was red, moved off-brand for "loss"
 
         /// Fixed cycle used to color-tag members and challenges — no avatar
         /// generation, just a deterministic swatch per identity.

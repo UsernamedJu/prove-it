@@ -38,7 +38,8 @@ struct SettingsView: View {
                                 Circle()
                                     .fill(Theme.Brand.swatch[i])
                                     .frame(width: 36, height: 36)
-                                    .overlay(Circle().stroke(.white, lineWidth: colorIndex == i ? 3 : 0))
+                                    .overlay(Image(systemName: "checkmark").font(.system(size: 13, weight: .black)).foregroundStyle(.white).opacity(colorIndex == i ? 1 : 0))
+                                    .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: colorIndex == i ? 3 : 0).padding(-4))
                                     .onTapGesture { withAnimation(Theme.Motion.pop) { colorIndex = i } }
                             }
                         }

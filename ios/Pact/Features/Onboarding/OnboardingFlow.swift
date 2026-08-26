@@ -81,16 +81,35 @@ struct OnboardingFlow: View {
                     Circle()
                         .fill(Theme.Brand.swatch[i])
                         .frame(width: 36, height: 36)
-                        .overlay(Circle().stroke(.white, lineWidth: colorIndex == i ? 3 : 0))
+                        .overlay(Image(systemName: "checkmark").font(.system(size: 13, weight: .black)).foregroundStyle(.white).opacity(colorIndex == i ? 1 : 0))
+                        .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: colorIndex == i ? 3 : 0).padding(-4))
                         .onTapGesture { withAnimation(Theme.Motion.pop) { colorIndex = i } }
                 }
             }
 
-            PactDropdown(
-                label: "Fair Play age band",
-                options: AgeBand.allCases.map { (value: $0, title: $0.rawValue, subtitle: "\($0.fairPlayStepTarget.formatted()) steps/day target") },
-                selection: $ageBand
-            )
+            Text("YOUR AGE BAND").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+            VStack(spacing: Theme.Space.xs) {
+                ForEach(AgeBand.allCases) { band in
+                    let on = ageBand == band
+                    Button {
+                        withAnimation(Theme.Motion.pop) { ageBand = band }
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(band.rawValue).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                                Text("\(band.fairPlayStepTarget.formatted()) steps/day target").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                            }
+                            Spacer()
+                            Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 22)).foregroundStyle(on ? Theme.Brand.purple : Theme.Ink.tertiary)
+                        }
+                        .padding(Theme.Space.md)
+                        .frame(minHeight: 56)
+                        .glassSurface(cornerRadius: Theme.Radius.md, tint: on ? Theme.Brand.purple : nil)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             Text("Fair Play races everyone against their own personalized target, so people of any age can compete evenly.")
                 .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 

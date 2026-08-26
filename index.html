@@ -7,25 +7,22 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   :root{
-    --bg1:#120505; --bg2:#2A2426; --bg3:#7A0E0E;
-    --glass:rgba(255,255,255,0.08); --glassBright:rgba(255,255,255,0.14);
-    --border:rgba(255,255,255,0.14); --border2:rgba(255,255,255,0.24);
-    --ink:#FFFFFF; --ink2:rgba(255,255,255,0.72); --ink3:rgba(255,255,255,0.50);
-    --purple:#BB0000; --purpleDeep:#5C0000; --blue:#A7A9AC; --pink:#9B2242;
-    --cyan:#D8DADD; --lime:#84CC16; --gold:#FBBF24; --coral:#8B8D8E;
-    --r-sm:10px; --r-md:16px; --r-lg:20px; --r-card:24px;
+    --bg1:#F7F4EE; --bg2:#F7F4EE; --bg3:#F7F4EE;
+    --glass:rgba(0,0,0,0.035); --glassBright:rgba(0,0,0,0.06);
+    --border:rgba(0,0,0,0.08); --border2:rgba(0,0,0,0.14);
+    --ink:#18181B; --ink2:#5C5C63; --ink3:#96969C;
+    --card:#FFFFFF;
+    --purple:#7CB518; --purpleDeep:#527A0E; --blue:#3AA6D9; --pink:#FF5C77;
+    --cyan:#1A1A1D; --lime:#2FA84F; --gold:#FBBF24; --coral:#9C97A3;
+    --r-sm:12px; --r-md:18px; --r-lg:22px; --r-card:26px;
   }
   *{box-sizing:border-box;}
   body{
-    margin:0; background:linear-gradient(160deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    margin:0; background:var(--bg1); color:var(--ink);
     font-family:-apple-system,'SF Pro Rounded',system-ui,sans-serif;
     display:flex; justify-content:center; min-height:100vh;
   }
   .shell{ width:100%; max-width:430px; min-height:100vh; position:relative; overflow-x:hidden; z-index:2; }
-  .bg-decor{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:100vh;overflow:hidden;z-index:0;pointer-events:none;}
-  .glow{position:absolute;border-radius:50%;}
-  .noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.05;mix-blend-mode:overlay;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   h1,h2,h3,p{margin:0;}
   .icon{color:inherit;}
   .eyebrow{font-size:12px; font-weight:800; color:var(--purple); letter-spacing:.3px;}
@@ -36,7 +33,7 @@
   .caption{font-size:12px; font-weight:500; color:var(--ink3);}
   .num{font-weight:900; color:var(--ink);}
   .holo{
-    background:linear-gradient(90deg,var(--purple),var(--blue),var(--cyan),var(--pink));
+    background:linear-gradient(90deg,var(--purple),var(--gold),var(--pink));
     -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:900;
   }
 
@@ -46,15 +43,21 @@
   .gap-xs{gap:8px;} .gap-sm{gap:12px;} .gap-md{gap:16px;}
   .stack{display:flex; flex-direction:column;}
 
+  /* Flat white card + soft shadow — no blur. Legible first: thin frosted
+     borders read poorly for older eyes. Real glass-blur is reserved for
+     .photo-overlay, used only where something floats over a real photo. */
   .glass{
-    background:rgba(255,255,255,0.07); backdrop-filter:blur(26px) saturate(160%); -webkit-backdrop-filter:blur(26px) saturate(160%);
-    border:1px solid rgba(255,255,255,0.14);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25), inset 0 0 0 1px rgba(255,255,255,0.04), 0 14px 30px rgba(0,0,0,0.35);
+    background:var(--card); border:1px solid var(--border);
+    box-shadow:0 8px 20px rgba(0,0,0,0.06);
   }
   .card{
-    background:rgba(255,255,255,0.07); backdrop-filter:blur(26px) saturate(160%); -webkit-backdrop-filter:blur(26px) saturate(160%);
-    border-radius:var(--r-card); padding:16px; border:1px solid rgba(255,255,255,0.16);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25), 0 14px 30px rgba(0,0,0,0.35);
+    background:var(--card); border-radius:var(--r-card); padding:16px 16px 16px 20px;
+    border:1px solid var(--border); border-left:4px solid var(--purple);
+    box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  }
+  .photo-overlay{
+    background:rgba(0,0,0,0.32); backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+    border:1px solid rgba(255,255,255,0.35); color:#fff;
   }
   .accordion summary{ cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; font-weight:800; color:var(--ink); gap:10px; }
   .accordion summary::-webkit-details-marker{ display:none; }
@@ -64,7 +67,7 @@
   @keyframes orbit-spin{ from{ transform:translate(-50%,-50%) rotate(0deg);} to{ transform:translate(-50%,-50%) rotate(360deg);} }
   @keyframes orbit-counter-spin{ from{ transform:rotate(0deg);} to{ transform:rotate(-360deg);} }
   @keyframes ring-pulse{ 0%,100%{ opacity:0.5; } 50%{ opacity:1; } }
-  @keyframes you-pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(187,0,0,0.5); } 50%{ box-shadow:0 0 0 14px rgba(187,0,0,0); } }
+  @keyframes you-pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(124,181,24,0.5); } 50%{ box-shadow:0 0 0 14px rgba(124,181,24,0); } }
   .orbit-ring{ animation:orbit-spin linear infinite; }
   .orbit-counter{ animation:orbit-counter-spin linear infinite; }
   .orbit-you{ border-radius:50%; animation:you-pulse 2.4s ease-out infinite; }
@@ -76,63 +79,61 @@
   .celebrate-burst{ animation:celebrate-pop 0.6s cubic-bezier(.34,1.56,.64,1); }
   @keyframes celebrate-pop{ 0%{ transform:scale(0.3) rotate(-15deg); opacity:0; } 60%{ transform:scale(1.15) rotate(5deg); opacity:1; } 100%{ transform:scale(1) rotate(0); opacity:1; } }
   @keyframes celebrate-fade{ 0%{ opacity:0; } 15%{ opacity:1; } 80%{ opacity:1; } 100%{ opacity:0; } }
-  .card.tint-purple{border-color:rgba(187,0,0,0.45);}
-  .card.tint-pink{border-color:rgba(155,34,66,0.45);}
-  .card.tint-blue{border-color:rgba(167,169,172,0.45);}
-  .card.tint-gold{border-color:rgba(251,191,36,0.5);}
-  .card.tint-cyan{border-color:rgba(216,218,221,0.45);}
+  .card.tint-purple{border-left-color:var(--purple);}
+  .card.tint-pink{border-left-color:var(--pink);}
+  .card.tint-blue{border-left-color:var(--blue);}
+  .card.tint-gold{border-left-color:var(--gold);}
+  .card.tint-cyan{border-left-color:var(--cyan);}
+  .card.no-accent{border-left:1px solid var(--border); padding-left:16px;}
 
   .btn{
     display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:52px;
     border:none; border-radius:var(--r-md); font-size:16px; font-weight:700; cursor:pointer;
     font-family:inherit; transition:transform .1s ease;
   }
-  .btn-primary{background:linear-gradient(90deg,var(--purple),var(--blue),var(--cyan),var(--pink)); color:#fff;
-    box-shadow:0 8px 22px rgba(187,0,0,0.45);}
+  .btn-primary{background:var(--purple); color:#fff;
+    box-shadow:0 8px 20px rgba(124,181,24,0.35);}
   .btn-primary:active{transform:scale(0.97);}
   .btn-outline{
-    background:rgba(255,255,255,0.07); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-    color:var(--ink); border:1px solid rgba(255,255,255,0.18); box-shadow:inset 0 1px 0 rgba(255,255,255,0.25);
+    background:var(--card);
+    color:var(--ink); border:1px solid var(--border); box-shadow:0 4px 12px rgba(0,0,0,0.05);
   }
   .btn-outline:active{transform:scale(0.97);}
-  .btn-lime{background:var(--lime); color:#0c1a02; box-shadow:0 8px 20px rgba(132,204,22,0.4);}
+  .btn-lime{background:rgba(47,168,79,0.14); color:var(--lime); box-shadow:none; border:1.2px solid rgba(47,168,79,0.3);}
   .btn:disabled{opacity:.4; cursor:default;}
   .btn-icon{
-    width:52px; height:52px; border-radius:var(--r-md); border:1px solid rgba(255,255,255,0.18);
-    background:rgba(255,255,255,0.07); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25);
+    width:52px; height:52px; border-radius:var(--r-md); border:1px solid var(--border);
+    background:var(--card); box-shadow:0 4px 12px rgba(0,0,0,0.05);
     display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink);
   }
 
   .pill-row{display:flex; gap:8px; overflow-x:auto; padding:4px 0;}
   .pill{
     flex:0 0 auto; height:44px; padding:0 16px; border-radius:999px;
-    border:1px solid rgba(255,255,255,0.18);
-    background:rgba(255,255,255,0.07); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.3);
+    border:1px solid var(--border);
+    background:var(--card);
     font-weight:700; font-size:14px; color:var(--ink2); cursor:pointer;
     font-family:inherit; white-space:nowrap; display:flex; align-items:center; gap:6px;
   }
   .pill.on{background:var(--purple); color:#fff; border-color:transparent; box-shadow:none;}
 
   select.dropdown, input.textfield{
-    width:100%; height:50px; border-radius:var(--r-md); border:1px solid rgba(255,255,255,0.18);
-    background:rgba(255,255,255,0.07); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25);
+    width:100%; height:50px; border-radius:var(--r-md); border:1px solid var(--border);
+    background:var(--card);
     color:var(--ink); padding:0 14px; font-size:15px; font-weight:600;
     font-family:inherit; -webkit-appearance:none; appearance:none;
   }
 
   .badge{
     border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff;
-    font-weight:800; flex:0 0 auto; border:1px solid rgba(255,255,255,0.25); overflow:hidden;
+    font-weight:800; flex:0 0 auto; border:1px solid rgba(0,0,0,0.08); overflow:hidden;
   }
   @keyframes badge-breathe{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.045); } }
   .badge.breathe{ animation:badge-breathe 2.4s ease-in-out infinite; }
 
   .tag{ display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
 
-  .progress{background:rgba(255,255,255,0.14); border-radius:999px; overflow:hidden;}
+  .progress{background:rgba(0,0,0,0.08); border-radius:999px; overflow:hidden;}
   .progress > div{height:100%; border-radius:999px;}
   .progress.blind{filter:blur(6px);}
 
@@ -150,31 +151,36 @@
   .flow-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
   .back-link{background:none; border:none; color:var(--ink2); font-weight:700; font-size:15px; cursor:pointer; padding:8px 0; display:flex; align-items:center; gap:4px;}
 
+  /* Floating pill tab bar — only the active tab shows its label, in a dark
+     capsule; everything else is icon-only so the bar stays quiet. */
   .tabbar{
-    position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; z-index:1000;
-    background:rgba(15,8,35,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-    border-top:1px solid var(--border); display:flex; padding:10px 8px calc(10px + env(safe-area-inset-bottom));
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%); width:calc(100% - 40px); max-width:390px; z-index:1000;
+    background:var(--card); border-radius:999px; border:1px solid var(--border);
+    display:flex; gap:2px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,0.14);
   }
   .tabbtn{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none;
-    color:var(--ink3); font-size:11px; font-weight:700; cursor:pointer; font-family:inherit;
+    flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:none; border:none;
+    color:var(--ink3); font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;
+    height:44px; border-radius:999px; padding:0 10px; transition:background .15s ease, color .15s ease;
   }
-  .tabbtn.active{color:var(--purple);}
+  .tabbtn .tablabel{ display:none; white-space:nowrap; }
+  .tabbtn.active{ color:#fff; background:var(--cyan); }
+  .tabbtn.active .tablabel{ display:inline; }
 
   .hero{ margin:-20px -20px 0; padding:56px 20px 20px; color:#fff; position:relative; }
   .banner{ padding:14px 20px; background:var(--glassBright); }
 
   .maptile{
     height:150px; border-radius:var(--r-card); overflow:hidden; position:relative;
-    background:linear-gradient(160deg,var(--bg1),var(--bg2) 60%,var(--bg3));
+    background:var(--bg1);
   }
   .maptile::before{
     content:''; position:absolute; inset:0; z-index:5; pointer-events:none; border-radius:inherit;
-    box-shadow:inset 0 0 0 1.2px rgba(255,255,255,0.4);
+    box-shadow:inset 0 0 0 1.2px rgba(0,0,0,0.08);
   }
   .maptile::after{
     content:''; position:absolute; inset:0; z-index:4; pointer-events:none;
-    background:linear-gradient(180deg, rgba(91,45,190,0.5) 0%, rgba(42,63,165,0.4) 45%, rgba(10,6,28,0.55) 100%);
+    background:linear-gradient(180deg, rgba(0,0,0,0.12) 0%, transparent 45%, rgba(0,0,0,0.4) 100%);
   }
   .map-cap{
     position:absolute; left:10px; bottom:10px; z-index:401; width:fit-content;
@@ -187,12 +193,6 @@
 </style>
 </head>
 <body>
-<div class="bg-decor">
-  <div class="glow" style="width:70%;height:32%;left:-20%;top:-4%;background:radial-gradient(circle, rgba(187,0,0,0.35), transparent 70%);filter:blur(40px);"></div>
-  <div class="glow" style="width:60%;height:28%;right:-15%;top:8%;background:radial-gradient(circle, rgba(216,218,221,0.16), transparent 70%);filter:blur(40px);"></div>
-  <div class="glow" style="width:65%;height:30%;left:5%;top:45%;background:radial-gradient(circle, rgba(155,34,66,0.22), transparent 70%);filter:blur(45px);"></div>
-</div>
-<div class="noise"></div>
 <div class="shell" id="shell"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -261,7 +261,7 @@ const IMG = {
 };
 
 // ---------- Data ----------
-const SWATCH = ['#BB0000','#9B2242','#D8DADD','#FBBF24','#84CC16','#A7A9AC','#8B8D8E'];
+const SWATCH = ['#7CB518','#FF5C77','#3AA6D9','#FBBF24','#2FA84F','#1A1A1D','#9C97A3'];
 function hashName(s){let h=0>>>0; for(const c of s) h=(h*31+c.charCodeAt(0))>>>0; return h;}
 function colorFor(name){return SWATCH[hashName(name)%SWATCH.length];}
 
@@ -290,8 +290,14 @@ function quoteOfTheDay(){
 // A minimal, calm face — just eyes and a mouth, no other detail. Borrowed
 // from meditation/breathing-app avatars rather than a literal illustration;
 // the gentle scale animation (see .badge.breathe) is the same idea.
+function isLightHex(hex){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16)/255, g = parseInt(h.substring(2,4),16)/255, b = parseInt(h.substring(4,6),16)/255;
+  return (0.299*r + 0.587*g + 0.114*b) > 0.68;
+}
 function badge(name, size=40, color=null){
   const c = color || colorFor(name);
+  const faceColor = isLightHex(c) ? '#18181B' : '#fff';
   const eyeR = Math.max(1, size*0.045);
   const eyeGap = size*0.24;
   const eyeY = size*0.44;
@@ -301,9 +307,9 @@ function badge(name, size=40, color=null){
   const sw = Math.max(1, size*0.045);
   return `<div class="badge breathe" style="width:${size}px;height:${size}px;background:${c};">
     <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;">
-      <circle cx="${cx-eyeGap/2}" cy="${eyeY}" r="${eyeR}" fill="#fff"/>
-      <circle cx="${cx+eyeGap/2}" cy="${eyeY}" r="${eyeR}" fill="#fff"/>
-      <path d="M ${mx} ${my} Q ${cx} ${my+mouthH} ${mx+mouthW} ${my}" stroke="#fff" stroke-width="${sw}" fill="none" stroke-linecap="round"/>
+      <circle cx="${cx-eyeGap/2}" cy="${eyeY}" r="${eyeR}" fill="${faceColor}"/>
+      <circle cx="${cx+eyeGap/2}" cy="${eyeY}" r="${eyeR}" fill="${faceColor}"/>
+      <path d="M ${mx} ${my} Q ${cx} ${my+mouthH} ${mx+mouthW} ${my}" stroke="${faceColor}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>
     </svg>
   </div>`;
 }
@@ -312,8 +318,8 @@ function pactMark(size=32){
   const s=size, r=s/2-s*0.055, cx=s*0.75, cy=s/2, off=s*0.22, gid='pactGrad'+Math.round(s*10);
   return `<svg width="${s*1.5}" height="${s}" viewBox="0 0 ${s*1.5} ${s}" style="display:block;">
     <defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#BB0000"/><stop offset="33%" stop-color="#A7A9AC"/>
-      <stop offset="66%" stop-color="#D8DADD"/><stop offset="100%" stop-color="#9B2242"/>
+      <stop offset="0%" stop-color="#7CB518"/><stop offset="33%" stop-color="#3AA6D9"/>
+      <stop offset="66%" stop-color="#FBBF24"/><stop offset="100%" stop-color="#FF5C77"/>
     </linearGradient></defs>
     <circle cx="${cx-off}" cy="${cy}" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="${s*0.11}"/>
     <circle cx="${cx+off}" cy="${cy}" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="${s*0.11}"/>
@@ -462,8 +468,8 @@ function mountMap(divId, coords, markers){
     const map = L.map(divId, {zoomControl:false, attributionControl:false, dragging:true, scrollWheelZoom:false});
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {maxZoom:16}).addTo(map);
     const latlngs = coords.map(c=>[c[0],c[1]]);
-    L.polyline(latlngs, {color:'#BB0000', weight:5, opacity:0.95}).addTo(map);
-    L.polyline(latlngs, {color:'#D8DADD', weight:2, opacity:0.9}).addTo(map);
+    L.polyline(latlngs, {color:'#7CB518', weight:5, opacity:0.95}).addTo(map);
+    L.polyline(latlngs, {color:'#FBBF24', weight:2, opacity:0.9}).addTo(map);
     map.fitBounds(L.latLngBounds(latlngs), {padding:[24,24]});
     (markers||[]).forEach(m=>{
       L.circleMarker([m.lat,m.lng], {radius:8, color:'#fff', weight:2, fillColor:m.color, fillOpacity:1}).addTo(map).bindTooltip(m.name, {permanent:false});
@@ -635,7 +641,7 @@ function renderOnboarding(){
           oninput="S.obName=this.value;syncNameStep();">
       </div>
       <div class="row gap-sm" style="margin-bottom:24px;">
-        ${SWATCH.map((c,i)=>`<div onclick="S.obColorIdx=${i};render()" style="width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${i===S.obColorIdx?'#fff':'transparent'};"></div>`).join('')}
+        ${SWATCH.map((c,i)=>{const on=i===S.obColorIdx; return `<div onclick="S.obColorIdx=${i};render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
       </div>
       <label class="caption" style="display:block;margin-bottom:6px;">FAIR PLAY AGE BAND</label>
       <select class="dropdown" style="margin-bottom:10px;" onchange="S.obAgeBand=this.value">
@@ -649,7 +655,7 @@ function renderOnboarding(){
       <p class="body-text" style="margin-bottom:20px;">Pick what fits best — it shapes what we suggest.</p>
       <div class="stack gap-sm" style="margin-bottom:24px;">
         ${MOTIVATIONS.map(m=>{const on=S.obMotivation===m.id;
-          return `<div onclick="S.obMotivation='${m.id}';render()" class="row gap-sm" style="padding:14px;border-radius:16px;cursor:pointer;background:${on?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
+          return `<div onclick="S.obMotivation='${m.id}';render()" class="row gap-sm" style="padding:14px;border-radius:16px;cursor:pointer;background:${on?'rgba(124,181,24,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
             <span style="color:${on?'var(--purple)':'var(--ink2)'};">${icon(m.icon,16)}</span><span class="body-text" style="color:var(--ink);flex:1;">${m.label}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('circle',18)+'</span>'}</div>`;
         }).join('')}
       </div>
@@ -770,7 +776,7 @@ function renderMoodBubble(){
   const sub = S.mood.logged ? `${S.moodStreak}d streak — tap to see it` : 'Tap for the 10-second check-in';
   return `<div class="card tint-pink" style="margin-bottom:20px;cursor:pointer;" onclick="openMood()">
     <div class="row gap-sm">
-      <div style="width:44px;height:44px;border-radius:50%;background:rgba(155,34,66,0.22);display:flex;align-items:center;justify-content:center;color:var(--pink);">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,92,119,0.16);display:flex;align-items:center;justify-content:center;color:var(--pink);">
         ${icon(S.mood.logged?'circle-check':'smile', 20)}
       </div>
       <div style="flex:1;"><div class="h3">${label}</div><div class="caption">${sub}</div></div>
@@ -801,23 +807,28 @@ function renderHome(){
 
     ${renderMoodBubble()}
 
-    <div class="card tint-purple" style="margin-bottom:20px;">
-      <img src="${photoOf(s.photo)}" style="width:100%;height:120px;object-fit:cover;border-radius:16px;margin-bottom:10px;">
-      <div class="row between" style="margin-bottom:6px;">
-        <span class="tag" style="background:var(--purple);color:#fff;">SUGGESTED FOR YOU</span>
-        <span style="color:var(--purple);">${icon(s.icon,24)}</span>
-      </div>
-      <h2 class="h1" style="margin-bottom:2px;">${s.title}</h2>
-      <p class="caption" style="color:var(--cyan);margin-bottom:8px;">${s.venue}</p>
-      <p class="body-text" style="margin-bottom:14px;">${s.line}</p>
-      <div class="row gap-sm" style="margin-bottom:10px;">
-        <div class="card" style="flex:1;text-align:center;padding:10px;"><div class="num" style="color:var(--blue);font-size:19px;">${s.duration}d</div><div class="caption">DURATION</div></div>
-        <div class="card" style="flex:1;text-align:center;padding:10px;"><div class="num" style="color:var(--cyan);font-size:19px;">${s.kind}</div><div class="caption">KIND</div></div>
-      </div>
-      <div class="row gap-sm" style="margin-bottom:14px;color:var(--gold);">${icon(s.payoffIcon,15)}<span class="caption" style="color:var(--gold);">${s.payoff}</span></div>
-      <div class="row gap-sm">
-        <button class="btn btn-primary" onclick="openCreate(${JSON.stringify(s).replace(/"/g,'&quot;')})">Start This Challenge</button>
-        <button class="btn-icon" onclick="S.suggestionIdx++;render()">${icon('trending-up',18)}</button>
+    <div style="margin-bottom:20px;border-radius:var(--r-card);overflow:hidden;position:relative;box-shadow:0 14px 30px rgba(0,0,0,0.16);
+      background:linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.78)), url('${photoOf(s.photo)}'); background-size:cover; background-position:center;">
+      <div style="padding:18px;min-height:300px;display:flex;flex-direction:column;">
+        <div class="row between" style="margin-bottom:6px;">
+          <span class="tag" style="background:rgba(255,255,255,0.25);color:#fff;">SUGGESTED FOR YOU</span>
+          <span style="color:#fff;">${icon(s.icon,26)}</span>
+        </div>
+        <div style="flex:1;"></div>
+        <h2 class="h1" style="margin-bottom:2px;color:#fff;">${s.title}</h2>
+        <p class="caption" style="color:rgba(255,255,255,.8);margin-bottom:8px;">${s.venue}</p>
+        <p class="body-text" style="margin-bottom:14px;color:rgba(255,255,255,.92);">${s.line}</p>
+        <div class="row gap-sm" style="margin-bottom:10px;">
+          ${heroStat(s.duration+'d','Duration')}
+          ${heroStat(s.kind,'Kind')}
+        </div>
+        <div class="row gap-sm photo-overlay" style="margin-bottom:14px;padding:8px 12px;border-radius:999px;width:fit-content;">
+          <span style="color:var(--gold);">${icon(s.payoffIcon,15)}</span><span class="caption" style="color:#fff;">${s.payoff}</span>
+        </div>
+        <div class="row gap-sm">
+          <button class="btn btn-primary" style="flex:1;width:auto;" onclick="openCreate(${JSON.stringify(s).replace(/"/g,'&quot;')})">Start This Challenge</button>
+          <button class="btn-icon photo-overlay" style="flex:0 0 52px;" onclick="S.suggestionIdx++;render()">${icon('trending-up',18)}</button>
+        </div>
       </div>
     </div>
 
@@ -840,7 +851,7 @@ function challengeRow(c){
   const footer = c.status==='active'
     ? `<span class="caption" style="color:var(--purple);font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;" onclick="event.stopPropagation();logToday('${c.id}')">${icon('trending-up',13)} Log Today</span>`
     : c.status==='revealReady' ? `<span class="tag" style="background:var(--lime);color:#0c1a02;">${icon('sparkles',12)} Reveal!</span>`
-    : `<span class="tag" style="background:rgba(255,255,255,0.14);color:var(--ink3);">${icon('circle-check',12)} Complete</span>`;
+    : `<span class="tag" style="background:rgba(0,0,0,0.08);color:var(--ink3);">${icon('circle-check',12)} Complete</span>`;
   return `
     <div class="card" style="border-color:${tint}70;cursor:pointer;" onclick="openChallenge('${c.id}')">
       <div class="row gap-sm" style="margin-bottom:10px;">
@@ -853,7 +864,7 @@ function challengeRow(c){
       </div>
       <div class="progress" style="height:8px;margin-bottom:10px;"><div style="width:${(mine?mine.progress:0)*100}%;background:${tint};"></div></div>
       <div class="row between">
-        ${c.blind && c.status==='active' ? `<span class="tag" style="background:rgba(155,34,66,0.18);color:var(--pink);">${icon('eye-off',12)} Blind Reveal</span>` : '<span></span>'}
+        ${c.blind && c.status==='active' ? `<span class="tag" style="background:rgba(255,92,119,0.14);color:var(--pink);">${icon('eye-off',12)} Blind Reveal</span>` : '<span></span>'}
         ${footer}
       </div>
     </div>`;
@@ -889,7 +900,7 @@ function renderContacts(){
     <div class="stack gap-sm" style="margin-bottom:12px;">
       ${S.groups.map(g=>`<div class="card tint-cyan" style="cursor:pointer;" onclick="openGroup('${g.name}')">
         <div class="row gap-sm">
-          <div style="width:40px;height:40px;border-radius:50%;background:rgba(216,218,221,0.2);display:flex;align-items:center;justify-content:center;color:var(--cyan);">${icon('users-round',20)}</div>
+          <div style="width:40px;height:40px;border-radius:50%;background:rgba(26,26,29,0.10);display:flex;align-items:center;justify-content:center;color:var(--cyan);">${icon('users-round',20)}</div>
           <div style="flex:1;"><div class="h3">${g.name}</div><div class="caption">${g.members.join(', ')}</div></div>
           <span style="color:var(--ink3);">${icon('chevron-right',18)}</span>
         </div>
@@ -1006,7 +1017,7 @@ function renderNewGroupSheet(){
     <input class="textfield" placeholder="Group name" value="${S.newGroupName}" oninput="S.newGroupName=this.value" style="margin-bottom:10px;">
     <div class="stack gap-xs" style="margin-bottom:12px;">
       ${S.crew.map(m=>{const on=S.newGroupSelected.has(m.name);
-        return `<div onclick="toggleGroupMember('${m.name}')" class="row gap-sm" style="padding:8px;border-radius:10px;cursor:pointer;background:${on?'rgba(187,0,0,0.22)':'var(--glass)'};">
+        return `<div onclick="toggleGroupMember('${m.name}')" class="row gap-sm" style="padding:8px;border-radius:10px;cursor:pointer;background:${on?'rgba(124,181,24,0.22)':'var(--glass)'};">
           ${badge(m.name,30)}<span class="body-text" style="color:var(--ink);flex:1;">${m.name}</span>${on?icon('circle-check',18):''}</div>`;
       }).join('')}
     </div>
@@ -1031,6 +1042,13 @@ function addContact(){
   if(v){ S.crew.push({name:v, ageBand:'20–39'}); S.newContactName=''; render(); }
 }
 
+function heroStat(value,label){
+  return `<div class="photo-overlay" style="flex:1;text-align:center;padding:8px 4px;border-radius:var(--r-md);">
+    <div class="h3" style="color:#fff;">${value}</div>
+    <div class="caption" style="color:rgba(255,255,255,.75);font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;">${label}</div>
+  </div>`;
+}
+
 // ---------- Challenge detail ----------
 function renderDetail(){
   const c = S.challenges.find(c=>c.id===S.detailId);
@@ -1038,6 +1056,7 @@ function renderDetail(){
   const tint = colorFor(c.title);
   const tabs = ['board','progress','stats','details']; if(c.isMap) tabs.push('map');
   const loser = [...c.standings].sort((a,b)=>b.rank-a.rank)[0];
+  const mine = c.standings.find(s=>s.name==='You');
   let banner = '';
   if(c.status==='revealReady'){
     banner = `<div class="banner row between">
@@ -1062,10 +1081,15 @@ function renderDetail(){
       <div style="color:#fff;">${icon(c.icon,36)}</div>
       <h1 style="font-size:24px;font-weight:800;color:#fff;margin:6px 0 4px;">${c.title}</h1>
       <p style="color:rgba(255,255,255,.85);font-weight:600;margin-bottom:10px;font-size:14px;">${c.venue} · ${c.standings.length} people · ${c.daysLeft}d left</p>
-      <div class="row gap-xs">
+      <div class="row gap-xs" style="margin-bottom:14px;">
         <span class="tag" style="background:${tint};color:#fff;">${icon(c.icon,12)} ${c.kind}</span>
         ${c.blind?`<span class="tag" style="background:rgba(255,255,255,.25);color:#fff;">${icon('eye-off',12)} Blind Reveal</span>`:''}
         ${c.fair?`<span class="tag" style="background:rgba(255,255,255,.25);color:#fff;">${icon('scale',12)} Fair Play</span>`:''}
+      </div>
+      <div class="row gap-sm">
+        ${heroStat(mine?('#'+mine.rank):'—','Rank')}
+        ${heroStat(mine?(Math.round(mine.progress*100)+'%'):'0%','Progress')}
+        ${heroStat(String(c.standings.length),'People')}
       </div>
     </div>
     ${banner}
@@ -1259,9 +1283,9 @@ function renderCreate(){
       <div class="pill-row" style="margin-bottom:20px;">${DURATIONS.map(d=>`<button class="pill ${cr.duration===d?'on':''}" onclick="S.create.duration=${d};render()">${d}d</button>`).join('')}</div>
       <label class="caption" style="display:block;margin-bottom:6px;">THE DEAL — winner vs. loser, no cash involved</label>
       <div class="stack gap-xs" style="margin-bottom:12px;">
-        ${PAYOFFS.map((p,i)=>`<div onclick="S.create.useCustomPayoff=false;S.create.payoffIdx=${i};render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'var(--purple)':'var(--border)'};">
+        ${PAYOFFS.map((p,i)=>`<div onclick="S.create.useCustomPayoff=false;S.create.payoffIdx=${i};render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'rgba(124,181,24,0.22)':'var(--glass)'};border:1px solid ${(!cr.useCustomPayoff&&cr.payoffIdx===i)?'var(--purple)':'var(--border)'};">
           <span style="color:var(--purple);">${icon(p.icon,18)}</span><span class="body-text" style="color:var(--ink);flex:1;">${p.text}</span>${(!cr.useCustomPayoff&&cr.payoffIdx===i)?icon('circle-check',18):''}</div>`).join('')}
-        <div onclick="S.create.useCustomPayoff=true;render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${cr.useCustomPayoff?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${cr.useCustomPayoff?'var(--purple)':'var(--border)'};">
+        <div onclick="S.create.useCustomPayoff=true;render()" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${cr.useCustomPayoff?'rgba(124,181,24,0.22)':'var(--glass)'};border:1px solid ${cr.useCustomPayoff?'var(--purple)':'var(--border)'};">
           <span style="color:var(--purple);">${icon('sparkles',18)}</span><span class="body-text" style="color:var(--ink);flex:1;">Write your own</span>${cr.useCustomPayoff?icon('circle-check',18):''}</div>
       </div>
       ${cr.useCustomPayoff?`<input class="textfield" value="${cr.customPayoff}" oninput="S.create.customPayoff=this.value;" placeholder="e.g. Loser walks the dog for a month"
@@ -1276,7 +1300,7 @@ function renderCreate(){
       <label class="caption" style="display:block;margin-bottom:6px;">PEOPLE</label>
       <div class="stack gap-xs" style="margin-bottom:20px;">
         ${S.crew.map(m=>{const on=cr.invitees.has(m.name);
-          return `<div onclick="toggleInvitee('${m.name}')" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${on?'rgba(187,0,0,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
+          return `<div onclick="toggleInvitee('${m.name}')" class="row gap-sm" style="padding:10px;border-radius:12px;cursor:pointer;background:${on?'rgba(124,181,24,0.22)':'var(--glass)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
             ${badge(m.name,36)}<span class="body-text" style="color:var(--ink);flex:1;">${m.name}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('plus',16)+'</span>'}</div>`;
         }).join('')}
       </div>
@@ -1425,7 +1449,7 @@ function renderSettings(){
     </div>
     <label class="caption" style="display:block;margin-bottom:6px;">COLOR</label>
     <div class="row gap-sm" style="margin-bottom:20px;">
-      ${SWATCH.map((c,i)=>`<div onclick="S.settingsColorIdx=${i};render()" style="width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${i===S.settingsColorIdx?'#fff':'transparent'};"></div>`).join('')}
+      ${SWATCH.map((c,i)=>{const on=i===S.settingsColorIdx; return `<div onclick="S.settingsColorIdx=${i};render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
     </div>
     <label class="caption" style="display:block;margin-bottom:6px;">FAIR PLAY AGE BAND</label>
     <select class="dropdown" style="margin-bottom:24px;" onchange="S.settingsAgeBand=this.value">
@@ -1446,7 +1470,7 @@ function renderTabbar(){
   const items = [['home','house','Home'],['challenges','flag','Challenges'],['map','map-pin','Map'],['contacts','users','Crew'],['profile','circle-user','Me']];
   return `<div class="tabbar">${items.map(([id,ic,label])=>`
     <button class="tabbtn ${S.tab===id?'active':''}" onclick="go('${id}')">
-      ${icon(ic,19)}<span>${label}</span>
+      ${icon(ic,18)}<span class="tablabel">${label}</span>
     </button>`).join('')}</div>`;
 }
 

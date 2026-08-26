@@ -8,7 +8,7 @@ struct PactApp: App {
         WindowGroup {
             RootView()
                 .environment(app)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
         }
     }
 }
@@ -29,32 +29,29 @@ struct RootView: View {
     }
 }
 
+/// Hand-rolled tab switch instead of `TabView`, so the bottom bar can be the
+/// floating pill from `PillTabBar` rather than a system tab bar — mirrors
+/// the web build's own state-driven tab switch.
 struct MainTabView: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
         @Bindable var app = app
-        TabView(selection: $app.tab) {
-            NavigationStack { HomeView() }
-                .tabItem { Label(Tab.home.rawValue, systemImage: Tab.home.icon) }
-                .tag(Tab.home)
-
-            NavigationStack { ChallengesListView() }
-                .tabItem { Label(Tab.challenges.rawValue, systemImage: Tab.challenges.icon) }
-                .tag(Tab.challenges)
-
-            NavigationStack { MapExploreView() }
-                .tabItem { Label(Tab.map.rawValue, systemImage: Tab.map.icon) }
-                .tag(Tab.map)
-
-            NavigationStack { ContactsView() }
-                .tabItem { Label(Tab.contacts.rawValue, systemImage: Tab.contacts.icon) }
-                .tag(Tab.contacts)
-
-            NavigationStack { ProfileView() }
-                .tabItem { Label(Tab.me.rawValue, systemImage: Tab.me.icon) }
-                .tag(Tab.me)
+        Group {
+            switch app.tab {
+            case .home: NavigationStack { HomeView() }
+            case .challenges: NavigationStack { ChallengesListView() }
+            case .map: NavigationStack { MapExploreView() }
+            case .contacts: NavigationStack { ContactsView() }
+            case .me: NavigationStack { ProfileView() }
+            }
         }
+        .safeAreaInset(edge: .bottom) {
+            PillTabBar(selection: $app.tab)
+                .padding(.horizontal, Theme.Space.lg)
+                .padding(.bottom, Theme.Space.xs)
+        }
+        .background(Theme.Surface.bg.ignoresSafeArea())
         .tint(Theme.Brand.purple)
     }
 }

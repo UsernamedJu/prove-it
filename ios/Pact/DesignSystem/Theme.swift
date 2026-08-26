@@ -1,53 +1,56 @@
 import SwiftUI
 
-/// Design tokens for Pact — a dark, glassy "prediction-market" look (near-
-/// black→charcoal→scarlet gradient, frosted translucent cards, bold white
-/// numerals, a live-data feel), tuned to an Ohio State scarlet-and-gray
-/// identity. Everything here is a token; screens should never hardcode a
-/// hex or a font size directly.
+/// Design tokens for Pact 2.0 — a light, high-contrast base built for
+/// legibility (big type, flat white cards, soft shadows — no glass-blur on
+/// standard surfaces, since thin frosted borders are hard to read for older
+/// eyes) with two reserved "hero" moments (challenge photos, onboarding)
+/// where a warm dark scrim + real frosted glass carries the excitement.
+/// Everything here is a token; screens should never hardcode a hex or a
+/// font size directly.
 enum Theme {
 
     enum Surface {
-        /// The deep gradient every screen sits on — black to charcoal to scarlet.
-        static let bg = LinearGradient(
-            colors: [Color(hex: 0x120505), Color(hex: 0x2A2426), Color(hex: 0x7A0E0E)],
-            startPoint: .topLeading, endPoint: .bottomTrailing
-        )
-        /// Flat fallback (status bar scrims, etc.) — the gradient's midpoint.
-        static let bgFlat = Color(hex: 0x431010)
-        /// Glass card fill — layered over the gradient with a blur material.
-        static let glass = Color.white.opacity(0.08)
-        static let glassBright = Color.white.opacity(0.14)
-        static let border = Color.white.opacity(0.14)
-        static let border2 = Color.white.opacity(0.22)
+        /// Warm paper base every screen sits on — flat, not a gradient.
+        static let bg = Color(hex: 0xF7F4EE)
+        static let bgFlat = Color(hex: 0xF7F4EE)
+        /// Card fill — solid white, not a blur material. Legible first.
+        static let card = Color.white
+        static let glass = Color.black.opacity(0.035)
+        static let glassBright = Color.black.opacity(0.06)
+        static let border = Color.black.opacity(0.08)
+        static let border2 = Color.black.opacity(0.14)
+        /// The dark scrim laid over a hero photo (challenge detail, hero cards).
+        static let heroScrimTop = Color.black.opacity(0.05)
+        static let heroScrimBottom = Color.black.opacity(0.68)
     }
 
     enum Ink {
-        static let primary = Color.white
-        static let secondary = Color.white.opacity(0.72)
-        static let tertiary = Color.white.opacity(0.48)
+        static let primary = Color(hex: 0x18181B)
+        static let secondary = Color(hex: 0x5C5C63)
+        static let tertiary = Color(hex: 0x96969C)
+        /// Text/icons on a filled accent surface (buttons) or a photo hero.
         static let onBrand = Color.white
     }
 
     enum Brand {
-        // Names kept as-is (every call site references these by name) — only
-        // the hex values moved, from the old purple/blue Y2K set to Ohio
-        // State's scarlet-and-gray identity.
-        static let purple = Color(hex: 0xBB0000)     // Scarlet — primary
-        static let purpleDeep = Color(hex: 0x5C0000) // Deep scarlet
-        static let blue = Color(hex: 0xA7A9AC)        // Steel gray
-        static let pink = Color(hex: 0x9B2242)        // Maroon/rose
-        static let cyan = Color(hex: 0xD8DADD)        // Bright silver
-        static let lime = Color(hex: 0x84CC16)        // Unchanged — semantic "win"
-        static let gold = Color(hex: 0xFBBF24)        // Unchanged — semantic reward/streak
-        static let coral = Color(hex: 0x8B8D8E)       // Medium gray — was red, moved off-brand for "loss"
+        // Every call site references these by name, so only the values
+        // moved — "purple" is now the app's primary lime, "cyan" is now the
+        // near-black structural ink used for the tab bar and dark chrome.
+        static let purple = Color(hex: 0x7CB518)     // Primary — lime, CTAs & active states
+        static let purpleDeep = Color(hex: 0x527A0E) // Deep lime — pressed/gradient shade
+        static let blue = Color(hex: 0x3AA6D9)        // Sky — secondary data accent
+        static let pink = Color(hex: 0xFF5C77)        // Coral — competitive/energy accent
+        static let cyan = Color(hex: 0x1A1A1D)        // Ink black — structural chrome (tab bar, dark buttons)
+        static let lime = Color(hex: 0x2FA84F)        // Win green — distinct from primary, "ahead/won"
+        static let gold = Color(hex: 0xFBBF24)        // Unchanged — reward/streak
+        static let coral = Color(hex: 0x9C97A3)       // Muted slate — "loss/behind", desaturated on purpose
 
         /// Fixed cycle used to color-tag members and challenges — no avatar
         /// generation, just a deterministic swatch per identity.
-        static let swatch: [Color] = [purple, pink, cyan, gold, lime, blue, coral]
+        static let swatch: [Color] = [purple, pink, blue, gold, lime, cyan, coral]
 
         static let holo = LinearGradient(
-            colors: [purple, blue, cyan, pink],
+            colors: [purple, gold, pink],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
     }
@@ -59,19 +62,19 @@ enum Theme {
     }
 
     enum Font {
-        static func display(_ size: CGFloat = 34) -> SwiftUI.Font {
+        static func display(_ size: CGFloat = 36) -> SwiftUI.Font {
             .system(size: size, weight: .black, design: .rounded)
         }
-        static func h1() -> SwiftUI.Font { .system(size: 26, weight: .bold, design: .rounded) }
-        static func h2() -> SwiftUI.Font { .system(size: 19, weight: .bold, design: .rounded) }
-        static func h3() -> SwiftUI.Font { .system(size: 16, weight: .semibold, design: .rounded) }
+        static func h1() -> SwiftUI.Font { .system(size: 28, weight: .bold, design: .rounded) }
+        static func h2() -> SwiftUI.Font { .system(size: 20, weight: .bold, design: .rounded) }
+        static func h3() -> SwiftUI.Font { .system(size: 17, weight: .semibold, design: .rounded) }
         static func number(_ size: CGFloat = 22) -> SwiftUI.Font {
             .system(size: size, weight: .black, design: .rounded)
         }
-        static func body() -> SwiftUI.Font { .system(size: 15, weight: .medium, design: .rounded) }
-        static func caption() -> SwiftUI.Font { .system(size: 13, weight: .medium, design: .rounded) }
-        static func eyebrow() -> SwiftUI.Font { .system(size: 11, weight: .bold, design: .rounded) }
-        static func button() -> SwiftUI.Font { .system(size: 16, weight: .bold, design: .rounded) }
+        static func body() -> SwiftUI.Font { .system(size: 16, weight: .medium, design: .rounded) }
+        static func caption() -> SwiftUI.Font { .system(size: 14, weight: .medium, design: .rounded) }
+        static func eyebrow() -> SwiftUI.Font { .system(size: 12, weight: .bold, design: .rounded) }
+        static func button() -> SwiftUI.Font { .system(size: 17, weight: .bold, design: .rounded) }
     }
 
     enum Space {
@@ -85,10 +88,10 @@ enum Theme {
     }
 
     enum Radius {
-        static let sm: CGFloat = 10
-        static let md: CGFloat = 16
-        static let lg: CGFloat = 20
-        static let card: CGFloat = 24
+        static let sm: CGFloat = 12
+        static let md: CGFloat = 18
+        static let lg: CGFloat = 22
+        static let card: CGFloat = 26
         static let pill: CGFloat = 999
     }
 

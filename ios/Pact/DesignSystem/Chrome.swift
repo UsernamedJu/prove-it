@@ -15,7 +15,16 @@ func swatchColor(for name: String) -> Color {
     Theme.Brand.swatch[stableHash(name) % Theme.Brand.swatch.count]
 }
 
-// MARK: - InitialBadge — replaces an avatar with a colored circle + initials
+/// True if white content would read poorly on this fill — used to keep
+/// `SimpleFace` legible across every swatch color, including light ones
+/// like gold.
+private func isLightColor(_ color: Color) -> Bool {
+    let resolved = color.resolve(in: EnvironmentValues())
+    let luminance = 0.299 * Double(resolved.red) + 0.587 * Double(resolved.green) + 0.114 * Double(resolved.blue)
+    return luminance > 0.68
+}
+
+// MARK: - InitialBadge — replaces an avatar with a colored circle + face
 
 struct InitialBadge: View {
     let name: String
@@ -24,12 +33,14 @@ struct InitialBadge: View {
 
     @State private var breathe = false
 
+    private var fill: Color { overrideColor ?? swatchColor(for: name) }
+
     var body: some View {
         Circle()
-            .fill(overrideColor ?? swatchColor(for: name))
+            .fill(fill)
             .frame(width: size, height: size)
-            .overlay(SimpleFace(size: size))
-            .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
+            .overlay(SimpleFace(size: size, dark: isLightColor(fill)))
+            .overlay(Circle().stroke(Theme.Ink.primary.opacity(0.08), lineWidth: 1))
             .scaleEffect(breathe ? 1.045 : 1.0)
             .onAppear {
                 withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { breathe = true }
@@ -40,8 +51,11 @@ struct InitialBadge: View {
 /// A minimal, calm face — just eyes and a mouth, no other detail. The look
 /// (and the gentle breathing scale on `InitialBadge`) is deliberately borrowed
 /// from meditation/breathing apps rather than a literal illustrated avatar.
+/// `dark` flips the face to near-black on the handful of light swatch colors
+/// (gold) where a white face would wash out.
 private struct SimpleFace: View {
     var size: CGFloat
+    var dark: Bool = false
 
     var body: some View {
         ZStack {
@@ -52,11 +66,11 @@ private struct SimpleFace: View {
             .offset(y: -size * 0.07)
 
             SmileShape()
-                .stroke(Color.white, style: StrokeStyle(lineWidth: max(1, size * 0.045), lineCap: .round))
+                .stroke(dark ? Theme.Ink.primary : Color.white, style: StrokeStyle(lineWidth: max(1, size * 0.045), lineCap: .round))
                 .frame(width: size * 0.34, height: size * 0.15)
                 .offset(y: size * 0.13)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(dark ? Theme.Ink.primary : Color.white)
     }
 }
 
@@ -88,10 +102,10 @@ struct PactButtonStyle: ButtonStyle {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
-                    .background(Theme.Brand.holo)
+                    .background(Theme.Brand.purple)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
-                    .shadow(color: Theme.Brand.purple.opacity(0.55),
-                            radius: configuration.isPressed ? 4 : 10, y: configuration.isPressed ? 1 : 4)
+                    .shadow(color: Theme.Brand.purple.opacity(0.35),
+                            radius: configuration.isPressed ? 4 : 12, y: configuration.isPressed ? 2 : 6)
             case .outline:
                 configuration.label
                     .font(Theme.Font.button())
@@ -102,13 +116,12 @@ struct PactButtonStyle: ButtonStyle {
             case .tinted(let c):
                 configuration.label
                     .font(Theme.Font.button())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(c)
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
-                    .glassSurface(cornerRadius: Theme.Radius.md, tint: c)
-                    .background(c.opacity(0.35))
+                    .background(c.opacity(0.14))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
-                    .shadow(color: c.opacity(0.5), radius: configuration.isPressed ? 4 : 10, y: configuration.isPressed ? 1 : 4)
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous).stroke(c.opacity(0.3), lineWidth: 1.2))
             }
         }
         .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -133,9 +146,11 @@ extension View {
     func pressable() -> some View { modifier(Pressable()) }
 }
 
-// MARK: - Glassmorphism surface — real blur material + the signature
-// top-lit edge highlight, shared by every card/pill/input in the app so the
-// glass effect reads as one consistent material rather than a flat tint.
+// MARK: - Card surface — flat white fill + a soft shadow, no blur. Legible
+// first: thin frosted borders read poorly for older eyes, so blur-glass is
+// reserved for the few moments something floats over a real photo (see
+// `PhotoOverlaySurface` below). Every list row, input, and pill in the app
+// shares this one recipe so it reads as one consistent material.
 
 struct GlassSurface: ViewModifier {
     var cornerRadius: CGFloat = Theme.Radius.md
@@ -144,18 +159,13 @@ struct GlassSurface: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(.ultraThinMaterial)
-            .background((tint ?? .white).opacity(tint == nil ? 0.06 : 0.10))
+            .background(tint?.opacity(0.08) ?? Theme.Surface.card)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(colors: [.white.opacity(0.55), (tint ?? .white).opacity(0.12)],
-                                       startPoint: .top, endPoint: .bottom),
-                        lineWidth: 1.2
-                    )
+                    .stroke(tint?.opacity(0.25) ?? Theme.Surface.border, lineWidth: 1.2)
             )
-            .shadow(color: .black.opacity(shadow ? 0.28 : 0), radius: shadow ? 18 : 0, y: shadow ? 10 : 0)
+            .shadow(color: .black.opacity(shadow ? 0.08 : 0), radius: shadow ? 16 : 0, y: shadow ? 6 : 0)
     }
 }
 extension View {
@@ -164,14 +174,48 @@ extension View {
     }
 }
 
+/// The one place real frosted glass survives — floating stat bubbles and
+/// pills over a photo hero, where blur genuinely helps it read against a
+/// busy image rather than hurting legibility.
+struct PhotoOverlaySurface: ViewModifier {
+    var cornerRadius: CGFloat = Theme.Radius.md
+    func body(content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial.opacity(0.9))
+            .background(Color.black.opacity(0.18))
+            .environment(\.colorScheme, .dark)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.35), lineWidth: 1)
+            )
+    }
+}
+extension View {
+    func photoOverlaySurface(cornerRadius: CGFloat = Theme.Radius.md) -> some View {
+        modifier(PhotoOverlaySurface(cornerRadius: cornerRadius))
+    }
+}
+
+/// A flat white card. `tint` no longer washes the whole card — a thin
+/// colored edge stripe carries the same semantic color-coding (mine vs.
+/// theirs, which kind of alert) without diluting contrast for body text.
 struct PactCard<Content: View>: View {
     var tint: Color = Theme.Brand.purple
+    var showsAccent: Bool = true
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .padding(Theme.Space.md)
-            .glassSurface(cornerRadius: Theme.Radius.card, tint: tint, shadow: true)
+        HStack(spacing: 0) {
+            if showsAccent {
+                RoundedRectangle(cornerRadius: 3).fill(tint).frame(width: 4).padding(.vertical, Theme.Space.sm)
+            }
+            content
+                .padding(.horizontal, Theme.Space.md)
+                .padding(.vertical, Theme.Space.md)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface(cornerRadius: Theme.Radius.card, tint: nil, shadow: true)
     }
 }
 
@@ -255,13 +299,9 @@ struct PillRow<T: Hashable>: View {
                                     .foregroundStyle(Theme.Ink.secondary)
                                     .padding(.horizontal, Theme.Space.md)
                                     .frame(height: 46)
-                                    .background(Capsule().fill(.ultraThinMaterial))
-                                    .background(Capsule().fill(Color.white.opacity(0.06)))
-                                    .overlay(
-                                        Capsule().stroke(
-                                            LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.08)],
-                                                           startPoint: .top, endPoint: .bottom), lineWidth: 1)
-                                    )
+                                    .background(Theme.Surface.card)
+                                    .overlay(Capsule().stroke(Theme.Surface.border, lineWidth: 1.2))
+                                    .clipShape(Capsule())
                             }
                         }
                     }
@@ -454,7 +494,7 @@ struct SectionHeader: View {
             Text(title).font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
             Spacer()
             if let trailing {
-                Text(trailing).font(Theme.Font.caption()).foregroundStyle(Theme.Brand.cyan)
+                Text(trailing).font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
             }
         }
     }
@@ -548,35 +588,13 @@ struct AccordionSection<Content: View>: View {
     }
 }
 
+/// Flat warm paper — no gradient, no ambient glow. A busy backdrop is the
+/// first thing to go when the goal is legibility for older eyes; the two
+/// hero photo moments (challenge detail, suggested card) carry all the
+/// visual richness instead.
 struct PactBackground: View {
     var body: some View {
-        ZStack {
-            Theme.Surface.bg
-            AmbientGlow()
-        }
-        .ignoresSafeArea()
-    }
-}
-
-private struct AmbientGlow: View {
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Circle().fill(Theme.Brand.purple.opacity(0.30))
-                    .frame(width: geo.size.width * 0.75)
-                    .blur(radius: 70)
-                    .offset(x: -geo.size.width * 0.28, y: -geo.size.height * 0.06)
-                Circle().fill(Theme.Brand.cyan.opacity(0.20))
-                    .frame(width: geo.size.width * 0.6)
-                    .blur(radius: 70)
-                    .offset(x: geo.size.width * 0.32, y: geo.size.height * 0.02)
-                Circle().fill(Theme.Brand.pink.opacity(0.16))
-                    .frame(width: geo.size.width * 0.65)
-                    .blur(radius: 80)
-                    .offset(x: -geo.size.width * 0.1, y: geo.size.height * 0.42)
-            }
-        }
-        .allowsHitTesting(false)
+        Theme.Surface.bg.ignoresSafeArea()
     }
 }
 
@@ -640,5 +658,145 @@ struct RivalryChart: View {
         }
         path.addLine(to: points.last!)
         return path
+    }
+}
+
+// MARK: - Journey path — a winding line connecting real progress waypoints,
+// each with a floating stat bubble. Only the curve is decorative; the x-axis
+// underneath is still time, left to right, and every value is real data.
+
+struct JourneyPathView: View {
+    struct Waypoint { let label: String; let value: String; let progress: Double }
+    let waypoints: [Waypoint]
+    var tint: Color = Theme.Brand.purple
+    var height: CGFloat = 230
+
+    var body: some View {
+        GeometryReader { geo in
+            let inset: CGFloat = 22
+            let topMargin: CGFloat = 76
+            let n = max(waypoints.count, 1)
+            let usableW = max(1, geo.size.width - inset * 2)
+            let usableH = max(1, geo.size.height - topMargin - 20)
+            let points: [CGPoint] = waypoints.enumerated().map { i, w in
+                let t = n > 1 ? CGFloat(i) / CGFloat(n - 1) : 0.5
+                let x = inset + t * usableW
+                let y = topMargin + (usableH - CGFloat(max(0, min(1, w.progress))) * usableH)
+                return CGPoint(x: x, y: y)
+            }
+
+            ZStack(alignment: .topLeading) {
+                curve(points)
+                    .stroke(tint, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+
+                ForEach(Array(points.enumerated()), id: \.offset) { i, pt in
+                    Circle().fill(tint).frame(width: 11, height: 11)
+                        .overlay(Circle().stroke(Theme.Surface.card, lineWidth: 2.5))
+                        .position(pt)
+
+                    bubble(waypoints[i]).position(x: pt.x.clamped(to: 44...(geo.size.width - 44)), y: max(38, pt.y - 50))
+                }
+            }
+        }
+        .frame(height: height)
+    }
+
+    private func bubble(_ w: Waypoint) -> some View {
+        VStack(spacing: 1) {
+            Text(w.value).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+            Text(w.label).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+        }
+        .padding(.horizontal, Theme.Space.sm)
+        .padding(.vertical, 6)
+        .background(Theme.Surface.card)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous).stroke(Theme.Surface.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+        .fixedSize()
+    }
+
+    private func curve(_ points: [CGPoint]) -> Path {
+        var path = Path()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        guard points.count > 1 else { return path }
+        for i in 0..<points.count - 1 {
+            let p0 = points[i], p1 = points[i + 1]
+            let c1 = CGPoint(x: (p0.x + p1.x) / 2, y: p0.y)
+            let c2 = CGPoint(x: (p0.x + p1.x) / 2, y: p1.y)
+            path.addCurve(to: p1, control1: c1, control2: c2)
+        }
+        return path
+    }
+}
+
+private extension CGFloat {
+    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat { Swift.min(Swift.max(self, range.lowerBound), range.upperBound) }
+}
+
+// MARK: - Race track — an oval double progress ring for head-to-head
+// competition, echoing a literal running track. Built for exactly two
+// racers (you vs. the leader) but tolerant of more.
+
+struct RaceTrackProgress: View {
+    struct Racer { let name: String; let progress: Double; let color: Color }
+    let racers: [Racer]
+    var lineWidth: CGFloat = 14
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(Array(racers.enumerated()), id: \.offset) { i, racer in
+                    let inset = CGFloat(i) * (lineWidth + 8)
+                    let w = max(10, geo.size.width - inset * 2)
+                    let h = max(10, geo.size.height - inset * 2)
+                    RoundedRectangle(cornerRadius: min(w, h) / 2, style: .continuous)
+                        .stroke(racer.color.opacity(0.14), lineWidth: lineWidth)
+                        .frame(width: w, height: h)
+                    RoundedRectangle(cornerRadius: min(w, h) / 2, style: .continuous)
+                        .trim(from: 0, to: max(0.015, min(1, racer.progress)))
+                        .stroke(racer.color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                        .frame(width: w, height: h)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+// MARK: - Pill tab bar — one floating capsule; the active tab expands to
+// show its label in a dark pill, everything else stays icon-only so the
+// bar stays quiet until you look for the thing you want.
+
+struct PillTabBar: View {
+    @Binding var selection: Tab
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Tab.allCases) { tab in
+                let isOn = tab == selection
+                Button {
+                    withAnimation(Theme.Motion.pop) { selection = tab }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: tab.icon).font(.system(size: 18, weight: .semibold))
+                        if isOn {
+                            Text(tab.rawValue).font(Theme.Font.h3()).lineLimit(1)
+                        }
+                    }
+                    .foregroundStyle(isOn ? Color.white : Theme.Ink.tertiary)
+                    .padding(.horizontal, isOn ? 16 : 14)
+                    .frame(height: 48)
+                    .background(isOn ? Theme.Brand.cyan : Color.clear)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .background(Theme.Surface.card)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Theme.Surface.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
     }
 }

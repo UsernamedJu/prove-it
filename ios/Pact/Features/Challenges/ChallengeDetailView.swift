@@ -71,28 +71,47 @@ struct ChallengeDetailView: View {
     }
 
     private func hero(_ challenge: Challenge) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            KindIcon(systemName: challenge.icon, size: 40, tint: .white)
-            Text(challenge.title).font(Theme.Font.display(25)).foregroundStyle(.white)
-            Text("\(challenge.venue) · \(challenge.participantsCount) people · \(challenge.daysLeft)d left")
-                .font(Theme.Font.body()).foregroundStyle(.white.opacity(0.85))
-            HStack {
-                TagBadge(text: challenge.kind.rawValue, icon: challenge.kind.icon, tint: challenge.tint, filled: true)
-                if challenge.blindReveal { TagBadge(text: "Blind Reveal", icon: "eye.slash.fill", tint: .white.opacity(0.25), filled: true) }
-                if challenge.fairPlay { TagBadge(text: "Fair Play", icon: "scalemass.fill", tint: .white.opacity(0.25), filled: true) }
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                KindIcon(systemName: challenge.icon, size: 40, tint: .white)
+                Text(challenge.title).font(Theme.Font.display(25)).foregroundStyle(.white)
+                Text("\(challenge.venue) · \(challenge.daysLeft)d left")
+                    .font(Theme.Font.body()).foregroundStyle(.white.opacity(0.85))
+                HStack {
+                    TagBadge(text: challenge.kind.rawValue, icon: challenge.kind.icon, tint: challenge.tint, filled: true)
+                    if challenge.blindReveal { TagBadge(text: "Blind Reveal", icon: "eye.slash.fill", tint: .white.opacity(0.25), filled: true) }
+                    if challenge.fairPlay { TagBadge(text: "Fair Play", icon: "scalemass.fill", tint: .white.opacity(0.25), filled: true) }
+                }
+            }
+
+            HStack(spacing: Theme.Space.sm) {
+                heroBubble(value: "#\(challenge.myStanding?.rank ?? 0)", label: "Rank")
+                heroBubble(value: "\(Int((challenge.myStanding?.progress ?? 0) * 100))%", label: "Progress")
+                heroBubble(value: "\(challenge.participantsCount)", label: "People")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Space.lg)
         .padding(.top, Theme.Space.xxl)
+        .padding(.bottom, Theme.Space.lg)
         .background(
             ZStack {
                 Image(challenge.photoName).resizable().scaledToFill()
-                LinearGradient(colors: [challenge.tint.opacity(0.80), Color.black.opacity(0.55)],
+                LinearGradient(colors: [challenge.tint.opacity(0.55), Color.black.opacity(0.62)],
                                 startPoint: .topLeading, endPoint: .bottomTrailing)
             }
         )
         .clipped()
+    }
+
+    private func heroBubble(value: String, label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value).font(Theme.Font.h3()).foregroundStyle(.white)
+            Text(label.uppercased()).font(Theme.Font.eyebrow()).foregroundStyle(.white.opacity(0.75))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Space.sm)
+        .photoOverlaySurface(cornerRadius: Theme.Radius.md)
     }
 
     private func revealBanner(_ challenge: Challenge) -> some View {
@@ -112,7 +131,7 @@ struct ChallengeDetailView: View {
             .fixedSize()
         }
         .padding(Theme.Space.md)
-        .background(Theme.Surface.glassBright)
+        .background(Theme.Brand.gold.opacity(0.14))
     }
 
     private func settledBanner(_ challenge: Challenge, winner: String) -> some View {
@@ -253,26 +272,37 @@ private struct ProgressTab: View {
             }
 
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                SectionHeader(title: "Daily Log")
+                SectionHeader(title: "Your Journey")
                 let history = mine?.progressHistory ?? []
-                HStack(alignment: .bottom, spacing: 5) {
-                    ForEach(Array(history.enumerated()), id: \.offset) { i, v in
-                        VStack(spacing: 4) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(challenge.tint.opacity(i == history.count - 1 ? 1 : 0.55))
-                                .frame(width: max(6, 200 / CGFloat(max(history.count, 1)) - 5), height: max(4, v * 80))
-                            Text("\(i + 1)").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
-                        }
-                    }
-                }
-                .frame(height: 110, alignment: .bottom)
                 if history.isEmpty {
                     Text("No days logged yet — tap Log Today from the challenge list to start your streak.")
                         .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                } else {
+                    JourneyPathView(waypoints: sampledWaypoints(history), tint: challenge.tint)
                 }
             }
         }
         .padding(Theme.Space.lg)
+    }
+
+    /// Thins a full day-by-day history down to at most 4 evenly-spaced
+    /// waypoints — real data, just fewer labeled stops along the line.
+    private func sampledWaypoints(_ history: [Double]) -> [JourneyPathView.Waypoint] {
+        guard !history.isEmpty else { return [] }
+        let maxPoints = 4
+        var indices: [Int] = []
+        if history.count <= maxPoints {
+            indices = Array(history.indices)
+        } else {
+            for i in 0..<maxPoints {
+                let t = Double(i) / Double(maxPoints - 1)
+                indices.append(Int((t * Double(history.count - 1)).rounded()))
+            }
+            indices = Array(Set(indices)).sorted()
+        }
+        return indices.map { i in
+            JourneyPathView.Waypoint(label: "Day \(i + 1)", value: "\(Int(history[i] * 100))%", progress: history[i])
+        }
     }
 }
 
@@ -284,8 +314,33 @@ private struct StatsTab: View {
     private var mine: Standing? { challenge.myStanding }
     private var hideOthers: Bool { challenge.blindReveal && challenge.status == .active }
 
+    private var leader: Standing? { challenge.standings.min(by: { $0.rank < $1.rank }) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
+            if let mine, let leader, leader.member.id != mine.member.id {
+                PactCard(tint: Theme.Brand.pink, showsAccent: false) {
+                    VStack(spacing: Theme.Space.sm) {
+                        HStack {
+                            Text("You vs. \(leader.member.name)").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                            Spacer()
+                            Text(hideOthers ? "Hidden" : "\(Int(leader.progress * 100))% – \(Int(mine.progress * 100))%")
+                                .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        }
+                        RaceTrackProgress(racers: [
+                            .init(name: leader.member.name, progress: hideOthers ? 0 : leader.progress, color: Theme.Brand.coral),
+                            .init(name: mine.member.name, progress: mine.progress, color: challenge.tint),
+                        ])
+                        .frame(height: 90)
+                        .blur(radius: hideOthers ? 5 : 0)
+                        HStack(spacing: Theme.Space.md) {
+                            legendDot(challenge.tint, "You")
+                            legendDot(Theme.Brand.coral, hideOthers ? "Leader (hidden)" : leader.member.name)
+                        }
+                    }
+                }
+            }
+
             HStack(spacing: Theme.Space.sm) {
                 StatChip(label: "My Progress", value: "\(Int((mine?.progress ?? 0) * 100))%", tint: challenge.tint)
                 StatChip(label: "Days Left", value: "\(challenge.daysLeft)", tint: Theme.Brand.blue)
@@ -334,6 +389,13 @@ private struct StatsTab: View {
             }
         }
         .padding(Theme.Space.lg)
+    }
+
+    private func legendDot(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+        }
     }
 }
 
@@ -410,7 +472,7 @@ private struct MapTab: View {
             if let coords = challenge.routeCoordinates, !coords.isEmpty {
                 ZStack {
                     Map(initialPosition: .region(region(coords))) {
-                        MapPolyline(coordinates: coords).stroke(Theme.Brand.cyan, lineWidth: 5)
+                        MapPolyline(coordinates: coords).stroke(challenge.tint, lineWidth: 5)
                         ForEach(Array(challenge.standings.enumerated()), id: \.element.id) { i, s in
                             let point = coords[i % coords.count]
                             Marker(s.member.name, coordinate: point)
@@ -418,17 +480,13 @@ private struct MapTab: View {
                         }
                     }
                     .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))
-                    .colorScheme(.dark)
                     .allowsHitTesting(true)
-                    LinearGradient(colors: [Theme.Brand.purpleDeep.opacity(0.22), .clear, Color.black.opacity(0.3)],
-                                   startPoint: .top, endPoint: .bottom)
-                        .allowsHitTesting(false)
                 }
                 .frame(height: 320)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .stroke(LinearGradient(colors: [.white.opacity(0.5), Theme.Brand.cyan.opacity(0.14)],
-                                            startPoint: .top, endPoint: .bottom), lineWidth: 1.2))
+                    .stroke(Theme.Surface.border, lineWidth: 1.2))
+                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
             } else {
                 Text("No route for this challenge yet.").foregroundStyle(Theme.Ink.tertiary)
             }

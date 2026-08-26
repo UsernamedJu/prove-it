@@ -95,8 +95,8 @@ struct GroupDetailView: View {
 
             VStack(spacing: 4) {
                 InitialBadge(name: app.me.name, size: 74, overrideColor: app.meColor)
-                    .overlay(Circle().stroke(.white, lineWidth: 3))
-                    .shadow(color: app.meColor.opacity(0.5), radius: 16)
+                    .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: 3).padding(-5))
+                    .shadow(color: app.meColor.opacity(0.45), radius: 16)
                     .scaleEffect(pulse ? 1.06 : 1.0)
                 Text(app.me.name).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.primary)
             }

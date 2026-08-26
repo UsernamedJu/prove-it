@@ -94,52 +94,72 @@ struct HomeView: View {
 
     private var suggestedCard: some View {
         let s = app.currentSuggestion
-        return PactCard(tint: Theme.Brand.purple) {
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Image(s.photoName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 120)
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous))
-                    .clipped()
+        return VStack(alignment: .leading, spacing: Theme.Space.md) {
+            HStack {
+                TagBadge(text: "SUGGESTED FOR YOU", tint: .white.opacity(0.25), filled: true)
+                Spacer()
+                KindIcon(systemName: s.icon, size: 30, tint: .white)
+            }
+            Spacer()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(s.title).font(Theme.Font.h1()).foregroundStyle(.white)
+                Text(s.venue).font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.8))
+                Text(s.line).font(Theme.Font.body()).foregroundStyle(.white.opacity(0.9))
+                    .padding(.top, 2)
+            }
 
-                HStack {
-                    TagBadge(text: "SUGGESTED FOR YOU", tint: Theme.Brand.purple, filled: true)
-                    Spacer()
-                    KindIcon(systemName: s.icon, size: 26, tint: Theme.Brand.purple)
+            HStack(spacing: Theme.Space.sm) {
+                heroStat(value: "\(s.suggestedDuration)d", label: "Duration")
+                heroStat(value: s.kind.rawValue, label: "Kind")
+            }
+            HStack(spacing: 6) {
+                Image(systemName: s.payoff.icon).font(.system(size: 13)).foregroundStyle(Theme.Brand.gold)
+                Text(s.payoff.text).font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.85))
+            }
+            .padding(.horizontal, Theme.Space.sm).padding(.vertical, 6)
+            .photoOverlaySurface(cornerRadius: Theme.Radius.pill)
+            .fixedSize(horizontal: true, vertical: false)
+
+            HStack(spacing: Theme.Space.sm) {
+                NavigationLink(value: Route.createChallenge(s)) {
+                    Text("Start This Challenge")
                 }
-                Text(s.title).font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
-                Text(s.venue).font(Theme.Font.caption()).foregroundStyle(Theme.Brand.cyan)
-                Text(s.line).font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+                .buttonStyle(PactButtonStyle(kind: .primary))
 
-                HStack(spacing: Theme.Space.sm) {
-                    StatChip(label: "Duration", value: "\(s.suggestedDuration)d", tint: Theme.Brand.blue)
-                    StatChip(label: "Kind", value: s.kind.rawValue, tint: Theme.Brand.cyan)
-                }
-                HStack(spacing: 6) {
-                    Image(systemName: s.payoff.icon).font(.system(size: 13)).foregroundStyle(Theme.Brand.gold)
-                    Text(s.payoff.text).font(Theme.Font.caption()).foregroundStyle(Theme.Brand.gold)
-                }
-
-                HStack(spacing: Theme.Space.sm) {
-                    NavigationLink(value: Route.createChallenge(s)) {
-                        Text("Start This Challenge")
-                    }
-                    .buttonStyle(PactButtonStyle(kind: .primary))
-
-                    Button {
-                        withAnimation(Theme.Motion.pop) { app.nextSuggestion() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Theme.Ink.primary)
-                            .frame(width: 56, height: 56)
-                            .glassSurface(cornerRadius: Theme.Radius.md)
-                    }
+                Button {
+                    withAnimation(Theme.Motion.pop) { app.nextSuggestion() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .photoOverlaySurface(cornerRadius: Theme.Radius.md)
                 }
             }
         }
+        .padding(Theme.Space.lg)
+        .frame(minHeight: 340)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack {
+                Image(s.photoName).resizable().scaledToFill()
+                LinearGradient(colors: [Color.black.opacity(0.15), Color.black.opacity(0.75)],
+                                startPoint: .top, endPoint: .bottom)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .clipped()
+        .shadow(color: .black.opacity(0.16), radius: 20, y: 10)
+    }
+
+    private func heroStat(value: String, label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value).font(Theme.Font.h3()).foregroundStyle(.white)
+            Text(label.uppercased()).font(Theme.Font.eyebrow()).foregroundStyle(.white.opacity(0.75))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Space.sm)
+        .photoOverlaySurface(cornerRadius: Theme.Radius.md)
     }
 
     // MARK: Map preview
@@ -151,30 +171,24 @@ struct HomeView: View {
                 ZStack(alignment: .bottomLeading) {
                     Map(initialPosition: .region(region(for: challenge)), interactionModes: []) {
                         if let coords = challenge.routeCoordinates {
-                            MapPolyline(coordinates: coords).stroke(Theme.Brand.cyan, lineWidth: 4)
+                            MapPolyline(coordinates: coords).stroke(challenge.tint, lineWidth: 4)
                         }
                     }
                     .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))
                     .frame(height: 150)
                     .allowsHitTesting(false)
-                    .colorScheme(.dark)
-                    .overlay(
-                        LinearGradient(colors: [Theme.Brand.purpleDeep.opacity(0.28), .clear, Color.black.opacity(0.35)],
-                                       startPoint: .top, endPoint: .bottom)
-                    )
 
                     Text("\(challenge.title) · \(challenge.daysLeft)d left")
                         .font(Theme.Font.caption())
-                        .foregroundStyle(Theme.Ink.onBrand)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(Color.black.opacity(0.6))
-                        .clipShape(Capsule())
+                        .photoOverlaySurface(cornerRadius: Theme.Radius.pill)
                         .padding(Theme.Space.sm)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .stroke(LinearGradient(colors: [.white.opacity(0.5), Theme.Brand.cyan.opacity(0.14)],
-                                            startPoint: .top, endPoint: .bottom), lineWidth: 1.2))
+                    .stroke(Theme.Surface.border, lineWidth: 1.2))
+                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
             }
         }
         .buttonStyle(.plain)

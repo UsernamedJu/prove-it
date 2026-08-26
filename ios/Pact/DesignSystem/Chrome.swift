@@ -18,7 +18,7 @@ func swatchColor(for name: String) -> Color {
 /// True if white content would read poorly on this fill — used to keep
 /// `SimpleFace` legible across every swatch color, including light ones
 /// like gold.
-private func isLightColor(_ color: Color) -> Bool {
+func isLightColor(_ color: Color) -> Bool {
     let resolved = color.resolve(in: EnvironmentValues())
     let luminance = 0.299 * Double(resolved.red) + 0.587 * Double(resolved.green) + 0.114 * Double(resolved.blue)
     return luminance > 0.68
@@ -462,24 +462,33 @@ struct PactSlider: View {
     @Binding var value: Double // 1...10
     var tint: Color
 
+    @GestureState private var isDragging = false
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
             let fraction = CGFloat((value - 1) / 9)
             ZStack(alignment: .leading) {
                 Capsule().fill(Theme.Surface.border2).frame(height: 6)
+                ForEach([0.0, 0.5, 1.0], id: \.self) { t in
+                    Circle().fill(Theme.Surface.bg).frame(width: 4, height: 4)
+                        .offset(x: width * CGFloat(t) - 2)
+                }
                 Capsule().fill(tint).frame(width: max(14, width * fraction), height: 6)
                 Circle()
                     .fill(Color.white)
                     .frame(width: 24, height: 24)
                     .overlay(Circle().stroke(tint, lineWidth: 3))
                     .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
+                    .scaleEffect(isDragging ? 1.3 : 1.0)
                     .offset(x: max(0, min(width, width * fraction)) - 12)
+                    .animation(Theme.Motion.pop, value: isDragging)
             }
             .frame(height: 24)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
+                    .updating($isDragging) { _, state, _ in state = true }
                     .onChanged { g in
                         let frac = min(max(0, g.location.x / width), 1)
                         value = (Double(frac) * 9 + 1).rounded()
@@ -487,6 +496,7 @@ struct PactSlider: View {
             )
         }
         .frame(height: 24)
+        .sensoryFeedback(.selection, trigger: value)
     }
 }
 

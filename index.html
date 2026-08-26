@@ -357,7 +357,7 @@ let S = {
   groups:[{name:'Family', members:['Mom','Dad','Grandma Rose']}],
   newContactName:'', newGroupOpen:false, newGroupName:'', newGroupSelected:new Set(),
   groupDetailName:null, memberDetailName:null, memberDetailReturn:null,
-  justCreated:false, justRevealed:null,
+  justCreated:false, justRevealed:null, justLoggedMood:false,
   settingsOpen:false, settingsName:'', settingsColorIdx:0, settingsAgeBand:'20–39',
   suggestionIdx:0,
   suggestions:[
@@ -607,6 +607,7 @@ function render(){
   shell.innerHTML = html + celebrationOverlay();
   window.scrollTo(0,0);
   if(window.__mapInit){ window.__mapInit(); window.__mapInit=null; }
+  if(window.__moodInit){ window.__moodInit(); window.__moodInit=null; }
 }
 
 // ---------- Onboarding (2 steps) ----------
@@ -746,32 +747,88 @@ function moodSliderCard(key,label,iconName,color){
       <span style="color:${color};">${icon(iconName,20)}</span><span class="h3" style="flex:1;">${label}</span>
       <span class="num" style="font-size:22px;color:${color};" id="v-${key}">${S.mood[key]}</span><span class="caption">/10</span>
     </div>
-    <input type="range" min="1" max="10" value="${S.mood[key]}"
-      style="background:linear-gradient(90deg, ${color} ${(S.mood[key]-1)/9*100}%, var(--border2) ${(S.mood[key]-1)/9*100}%);"
-      oninput="S.mood['${key}']=+this.value; document.getElementById('v-${key}').textContent=this.value;
-               this.style.background='linear-gradient(90deg, ${color} '+((this.value-1)/9*100)+'%, var(--border2) '+((this.value-1)/9*100)+'%)';">
+    <div style="position:relative;">
+      <input type="range" min="1" max="10" value="${S.mood[key]}"
+        style="background:linear-gradient(90deg, ${color} ${(S.mood[key]-1)/9*100}%, var(--border2) ${(S.mood[key]-1)/9*100}%);"
+        oninput="S.mood['${key}']=+this.value; document.getElementById('v-${key}').textContent=this.value;
+                 this.style.background='linear-gradient(90deg, ${color} '+((this.value-1)/9*100)+'%, var(--border2) '+((this.value-1)/9*100)+'%)';
+                 updateMoodFace();">
+      <div style="position:absolute;left:2px;right:2px;top:50%;transform:translateY(-50%);display:flex;justify-content:space-between;pointer-events:none;">
+        <span style="width:4px;height:4px;border-radius:50%;background:var(--bg1);"></span>
+        <span style="width:4px;height:4px;border-radius:50%;background:var(--bg1);"></span>
+        <span style="width:4px;height:4px;border-radius:50%;background:var(--bg1);"></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Live-reacting face for the mood check-in — mirrors the plush avatar,
+// mouth curvature interpolates from a frown to a big smile as the four
+// slider values move, so the check-in itself feels alive.
+function moodCurvature(avg){ return (avg-1)/9*1.6-0.6; }
+function moodCaption(avg){
+  if(avg<3) return "Rough one, huh? Logging it counts for something.";
+  if(avg<5) return "Not your best day. Let's note it and move on.";
+  if(avg<7) return "Steady as she goes.";
+  if(avg<8.5) return "Pretty good day out there.";
+  return "Look at you go. Great day.";
+}
+function moodFaceInner(size, faceColor, curvature){
+  const eyeW = Math.max(1.5, size*0.06), eyeH = size*0.13;
+  const eyeGap = size*0.22;
+  const eyeY = size*0.27;
+  const cx = size/2;
+  const mw = size*0.4, my = size*0.62, amp = size*0.224;
+  const cy = my + curvature*amp;
+  const sw = Math.max(1.5, size*0.045);
+  return `<rect x="${cx-eyeGap/2-eyeW/2}" y="${eyeY}" width="${eyeW}" height="${eyeH}" rx="${eyeW/2}" fill="${faceColor}"/>
+    <rect x="${cx+eyeGap/2-eyeW/2}" y="${eyeY}" width="${eyeW}" height="${eyeH}" rx="${eyeW/2}" fill="${faceColor}"/>
+    <path d="M ${cx-mw/2} ${my} Q ${cx} ${cy} ${cx+mw/2} ${my}" stroke="${faceColor}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`;
+}
+function moodAverage(){ return (S.mood.energy+S.mood.mood+S.mood.motivation+S.mood.sleep)/4; }
+function updateMoodFace(){
+  const avg = moodAverage();
+  const svgHost = document.getElementById('mood-face-svg');
+  if(svgHost) svgHost.innerHTML = moodFaceInner(88, isLightHex(S.meColor)?'#18181B':'#fff', moodCurvature(avg));
+  const cap = document.getElementById('mood-caption');
+  if(cap) cap.textContent = moodCaption(avg);
+}
+function moodHeader(){
+  const avg = moodAverage();
+  const faceColor = isLightHex(S.meColor) ? '#18181B' : '#fff';
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:18px;">
+    <div class="badge breathe" style="width:88px;height:88px;background:${S.meColor} url('${PLUSH_TEXTURE}') center/cover;background-blend-mode:multiply;">
+      <svg id="mood-face-svg" width="88" height="88" viewBox="0 0 88 88" style="display:block;">${moodFaceInner(88, faceColor, moodCurvature(avg))}</svg>
+    </div>
+    <div class="body-text" id="mood-caption" style="color:var(--ink2);text-align:center;">${moodCaption(avg)}</div>
   </div>`;
 }
 function renderMood(){
+  window.__moodInit = () => {
+    requestAnimationFrame(()=>{
+      S.moodHistory.forEach((v,i)=>{ const el=document.getElementById('mbar-'+i); if(el) el.style.height = Math.max(6, v*8)+'px'; });
+    });
+  };
   return `<div class="screen" style="padding-top:24px;">
-    <button class="back-link" style="margin-bottom:16px;" onclick="closeMood()">${icon('chevron-left',16)} Back</button>
+    <div class="row between" style="margin-bottom:6px;">
+      <button class="back-link" onclick="closeMood()">${icon('chevron-left',16)} Back</button>
+      <div class="card" style="text-align:center;padding:8px 14px;"><div class="num" style="font-size:18px;color:var(--gold);">${S.moodStreak}d</div><div class="caption">STREAK</div></div>
+    </div>
     <h1 class="h1" style="margin-bottom:6px;">Mood Check-in</h1>
     <p class="body-text" style="margin-bottom:16px;">Takes 10 seconds.</p>
-    <div class="row gap-sm" style="margin-bottom:18px;">
-      <div class="card" style="flex:1;text-align:center;padding:12px;"><div class="num" style="font-size:18px;color:var(--gold);">${S.moodStreak}d</div><div class="caption">STREAK</div></div>
-    </div>
+    ${moodHeader()}
     ${MOOD_METRICS.map(([key,label,ic,color])=>moodSliderCard(key,label,ic,color)).join('')}
     <button class="btn ${S.mood.logged?'btn-lime':'btn-primary'}" ${S.mood.logged?'disabled':''} onclick="logMood()">${S.mood.logged?icon('circle-check',18)+' Logged for today':'Log Check-in'}</button>
     <h2 class="h2" style="margin:22px 0 10px;">Last 7 Days</h2>
     <div class="row gap-xs" style="align-items:flex-end;height:96px;">
-      ${S.moodHistory.map(v=>`<div style="flex:1;height:${v*8}px;background:var(--purple);opacity:.75;border-radius:4px;"></div>`).join('')}
+      ${S.moodHistory.map((v,i)=>`<div id="mbar-${i}" style="flex:1;height:6px;background:var(--purple);opacity:.75;border-radius:4px;transition:height 0.5s cubic-bezier(.34,1.56,.64,1);"></div>`).join('')}
     </div>
   </div>`;
 }
 function logMood(){
-  S.moodHistory.push((S.mood.energy+S.mood.mood+S.mood.motivation+S.mood.sleep)/4);
+  S.moodHistory.push(moodAverage());
   if(S.moodHistory.length>7) S.moodHistory.shift();
-  S.moodStreak++; S.mood.logged=true; render();
+  S.moodStreak++; S.mood.logged=true; S.justLoggedMood=true; render();
 }
 
 // ---------- Home ----------
@@ -1232,6 +1289,14 @@ function resolveChallenge(id){
   render();
 }
 function celebrationOverlay(){
+  if(S.justLoggedMood){
+    setTimeout(()=>{ S.justLoggedMood=false; render(); }, 1900);
+    return `<div class="celebrate-overlay">
+      <div class="celebrate-burst" style="color:var(--lime);">${icon('sparkles',56)}</div>
+      <div class="h2" style="color:#fff;margin-top:10px;">Logged!</div>
+      <div class="body-text" style="color:rgba(255,255,255,0.85);margin-top:4px;">${S.moodStreak}d streak — keep it going.</div>
+    </div>`;
+  }
   if(S.justCreated){
     setTimeout(()=>{ S.justCreated=false; render(); }, 1900);
     return `<div class="celebrate-overlay">

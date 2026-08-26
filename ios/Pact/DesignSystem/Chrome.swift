@@ -799,15 +799,13 @@ struct RaceTrackProgress: View {
 
 struct PillTabBar: View {
     @Binding var selection: Tab
-    @Namespace private var pillNamespace
-    @State private var pulse = false
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Tab.allCases) { tab in
                 let isOn = tab == selection
                 Button {
-                    withAnimation(Theme.Motion.pop) { selection = tab }
+                    selection = tab
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: tab.icon).font(.system(size: 18, weight: .semibold))
@@ -823,23 +821,14 @@ struct PillTabBar: View {
                             ZStack {
                                 Capsule().fill(.ultraThinMaterial)
                                 Capsule().fill(Theme.Brand.cyan.opacity(0.92))
-                                Capsule().stroke(Theme.Brand.holo, lineWidth: pulse ? 3 : 1.2).opacity(pulse ? 1 : 0.85)
+                                Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.85)
                             }
-                            .shadow(color: Theme.Brand.purple.opacity(pulse ? 0.9 : 0), radius: pulse ? 18 : 0)
-                            .shadow(color: Theme.Brand.pink.opacity(pulse ? 0.85 : 0), radius: pulse ? 16 : 0, x: -7)
-                            .shadow(color: Theme.Brand.blue.opacity(pulse ? 0.85 : 0), radius: pulse ? 16 : 0, x: 7)
-                            .scaleEffect(pulse ? 1.12 : 1.0)
-                            .matchedGeometryEffect(id: "activeTabPill", in: pillNamespace)
                         }
                     }
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
-        }
-        .onChange(of: selection) {
-            pulse = true
-            withAnimation(.easeOut(duration: 0.5)) { pulse = false }
         }
         .padding(6)
         .background(.ultraThinMaterial, in: Capsule())

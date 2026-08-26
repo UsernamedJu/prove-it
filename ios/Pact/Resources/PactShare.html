@@ -622,6 +622,8 @@ function openCreate(seed){
 // Identifies which top-level screen is showing, so render() can tell a
 // real page-to-page navigation (fade through) from an in-place update
 // (toggling a checkbox, a message arriving) — only the former fades.
+// Switching between bottom tabs is deliberately excluded: the pill bar
+// already gives its own chroma-pulse feedback, so tab clicks stay instant.
 let lastScreenKey = null;
 function computeScreenKey(){
   if(!S.onboarded) return 'onboarding';
@@ -635,10 +637,11 @@ function computeScreenKey(){
   if(S.chatListOpen) return 'chatlist';
   return 'tab:'+S.tab;
 }
+function isTabKey(k){ return !!k && k.indexOf('tab:')===0; }
 function render(){
   const shell = document.getElementById('shell');
   const key = computeScreenKey();
-  const changed = key !== lastScreenKey;
+  const changed = key !== lastScreenKey && !(isTabKey(key) && isTabKey(lastScreenKey));
   lastScreenKey = key;
   const paint = () => {
     teardownMaps();

@@ -36,41 +36,60 @@ struct InitialBadge: View {
     private var fill: Color { overrideColor ?? swatchColor(for: name) }
 
     var body: some View {
-        Circle()
-            .fill(fill)
-            .frame(width: size, height: size)
-            .overlay(SimpleFace(size: size, dark: isLightColor(fill)))
-            .overlay(Circle().stroke(Theme.Ink.primary.opacity(0.08), lineWidth: 1))
-            .scaleEffect(breathe ? 1.045 : 1.0)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { breathe = true }
-            }
+        ZStack {
+            Circle().fill(fill)
+            Image("texture-plush")
+                .resizable()
+                .scaledToFill()
+                .blendMode(.multiply)
+                .opacity(0.55)
+            SimpleFace(size: size, dark: isLightColor(fill))
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Theme.Ink.primary.opacity(0.1), lineWidth: 1))
+        .scaleEffect(breathe ? 1.045 : 1.0)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { breathe = true }
+        }
     }
 }
 
-/// A minimal, calm face — just eyes and a mouth, no other detail. The look
-/// (and the gentle breathing scale on `InitialBadge`) is deliberately borrowed
-/// from meditation/breathing apps rather than a literal illustrated avatar.
-/// `dark` flips the face to near-black on the handful of light swatch colors
-/// (gold) where a white face would wash out.
+/// A minimal, calm face — just eyes and a mouth, no other detail — over a
+/// fuzzy plush texture (source: ambientcg.com, CC0), so every avatar reads
+/// like a soft felt character rather than a flat color chip. `dark` flips
+/// the face to near-black on the handful of light swatch colors (gold)
+/// where a white face would wash out.
 private struct SimpleFace: View {
     var size: CGFloat
     var dark: Bool = false
 
     var body: some View {
         ZStack {
-            HStack(spacing: size * 0.24) {
-                Circle().frame(width: size * 0.09, height: size * 0.09)
-                Circle().frame(width: size * 0.09, height: size * 0.09)
+            HStack(spacing: size * 0.22) {
+                Capsule().frame(width: size * 0.06, height: size * 0.13)
+                Capsule().frame(width: size * 0.06, height: size * 0.13)
             }
-            .offset(y: -size * 0.07)
+            .offset(y: -size * 0.16)
 
-            SmileShape()
-                .stroke(dark ? Theme.Ink.primary : Color.white, style: StrokeStyle(lineWidth: max(1, size * 0.045), lineCap: .round))
-                .frame(width: size * 0.34, height: size * 0.15)
-                .offset(y: size * 0.13)
+            CheckmarkMouth()
+                .stroke(dark ? Theme.Ink.primary : Color.white, style: StrokeStyle(lineWidth: max(1, size * 0.045), lineCap: .round, lineJoin: .round))
+                .frame(width: size * 0.26, height: size * 0.12)
+                .offset(y: size * 0.15)
         }
         .foregroundStyle(dark ? Theme.Ink.primary : Color.white)
+    }
+}
+
+/// A checkmark-shaped mouth — a short dip then a longer upward stroke,
+/// matching the plush-toy reference's content, slightly cheeky expression.
+private struct CheckmarkMouth: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 0, y: rect.height * 0.25))
+        p.addLine(to: CGPoint(x: rect.width * 0.4, y: rect.height))
+        p.addLine(to: CGPoint(x: rect.width, y: 0))
+        return p
     }
 }
 

@@ -1,4 +1,19 @@
 import SwiftUI
+import UIKit
+
+/// `NavigationStack`'s underlying `UINavigationController` defaults to a
+/// plain white view behind the two view controllers it's animating between
+/// — invisible once a screen has laid out, but visible as a white flash
+/// along the transition seam during the push/pop itself, especially since
+/// every screen here hides the system nav bar (no bar chrome to mask it).
+/// Overriding `viewDidLoad` globally is the standard SwiftUI/UIKit-interop
+/// fix: every `UINavigationController` SwiftUI creates picks it up.
+extension UINavigationController {
+    open override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = UIColor(Theme.Surface.bg)
+    }
+}
 
 @main
 struct PactApp: App {

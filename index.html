@@ -22,7 +22,7 @@
     font-family:-apple-system,'SF Pro Rounded',system-ui,sans-serif;
     display:flex; justify-content:center; min-height:100vh;
   }
-  .shell{ width:100%; max-width:430px; min-height:100vh; position:relative; overflow-x:hidden; z-index:2; }
+  .shell{ width:100%; max-width:430px; min-height:100vh; position:relative; overflow-x:hidden; z-index:2; transition:opacity .16s ease; }
   h1,h2,h3,p{margin:0;}
   .icon{color:inherit;}
   .eyebrow{font-size:12px; font-weight:800; color:var(--purple); letter-spacing:.3px;}
@@ -166,12 +166,12 @@
     height:44px; border-radius:999px; padding:0 10px; transition:background .15s ease, color .15s ease;
   }
   .tabbtn .tablabel{ display:none; white-space:nowrap; }
-  .tabbtn.active{ color:#fff; background:var(--cyan); animation:tabChroma .5s ease; }
+  .tabbtn.active{ color:#fff; background:var(--cyan); animation:tabChroma .65s cubic-bezier(.34,1.56,.64,1); }
   .tabbtn.active .tablabel{ display:inline; }
   @keyframes tabChroma{
-    0%{ box-shadow:0 0 0 0 rgba(124,181,24,0), 0 0 0 0 rgba(255,92,119,0), 0 0 0 0 rgba(58,166,217,0); }
-    40%{ box-shadow:0 0 12px 3px rgba(124,181,24,0.5), -4px 0 14px 2px rgba(255,92,119,0.4), 4px 0 14px 2px rgba(58,166,217,0.4); }
-    100%{ box-shadow:0 0 0 0 rgba(124,181,24,0), 0 0 0 0 rgba(255,92,119,0), 0 0 0 0 rgba(58,166,217,0); }
+    0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(124,181,24,0), 0 0 0 0 rgba(255,92,119,0), 0 0 0 0 rgba(58,166,217,0); }
+    35%{ transform:scale(1.12); box-shadow:0 0 24px 7px rgba(124,181,24,0.8), -7px 0 24px 5px rgba(255,92,119,0.7), 7px 0 24px 5px rgba(58,166,217,0.7); }
+    100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(124,181,24,0), 0 0 0 0 rgba(255,92,119,0), 0 0 0 0 rgba(58,166,217,0); }
   }
 
   .hero{ margin:-20px -20px 0; padding:56px 20px 20px; color:#fff; position:relative; }
@@ -619,33 +619,61 @@ function openCreate(seed){
   S.tab = 'create'; render();
 }
 
+// Identifies which top-level screen is showing, so render() can tell a
+// real page-to-page navigation (fade through) from an in-place update
+// (toggling a checkbox, a message arriving) — only the former fades.
+let lastScreenKey = null;
+function computeScreenKey(){
+  if(!S.onboarded) return 'onboarding';
+  if(S.tab==='create') return 'create';
+  if(S.settingsOpen) return 'settings';
+  if(S.memberDetailName) return 'member:'+S.memberDetailName;
+  if(S.groupDetailName) return 'group:'+S.groupDetailName;
+  if(S.detailId) return 'detail:'+S.detailId;
+  if(S.moodOpen) return 'mood';
+  if(S.chatThread) return 'chat:'+S.chatThread.type+':'+S.chatThread.name;
+  if(S.chatListOpen) return 'chatlist';
+  return 'tab:'+S.tab;
+}
 function render(){
-  teardownMaps();
   const shell = document.getElementById('shell');
-  let html;
-  if(!S.onboarded){ html = renderOnboarding(); }
-  else if(S.tab==='create'){ html = renderCreate(); }
-  else if(S.settingsOpen){ html = renderSettings(); }
-  else if(S.memberDetailName){ html = renderMemberDetail(); }
-  else if(S.groupDetailName){ html = renderGroupDetail(); }
-  else if(S.detailId){ html = renderDetail(); }
-  else if(S.moodOpen){ html = renderMood(); }
-  else if(S.chatThread){ html = renderChatThread(); }
-  else if(S.chatListOpen){ html = renderChatList(); }
-  else if(S.tab==='map'){
-    html = renderMapExplore() + renderTabbar();
+  const key = computeScreenKey();
+  const changed = key !== lastScreenKey;
+  lastScreenKey = key;
+  const paint = () => {
+    teardownMaps();
+    let html;
+    if(!S.onboarded){ html = renderOnboarding(); }
+    else if(S.tab==='create'){ html = renderCreate(); }
+    else if(S.settingsOpen){ html = renderSettings(); }
+    else if(S.memberDetailName){ html = renderMemberDetail(); }
+    else if(S.groupDetailName){ html = renderGroupDetail(); }
+    else if(S.detailId){ html = renderDetail(); }
+    else if(S.moodOpen){ html = renderMood(); }
+    else if(S.chatThread){ html = renderChatThread(); }
+    else if(S.chatListOpen){ html = renderChatList(); }
+    else if(S.tab==='map'){
+      html = renderMapExplore() + renderTabbar();
+    }
+    else {
+      html = `<div class="screen">${
+        S.tab==='home'?renderHome():
+        S.tab==='challenges'?renderChallenges():
+        S.tab==='contacts'?renderContacts():renderProfile()
+      }</div>` + renderTabbar();
+    }
+    shell.innerHTML = html + celebrationOverlay();
+    if(S.chatThread){ window.scrollTo(0, document.body.scrollHeight); } else { window.scrollTo(0,0); }
+    if(window.__mapInit){ window.__mapInit(); window.__mapInit=null; }
+    if(window.__moodInit){ window.__moodInit(); window.__moodInit=null; }
+    if(changed){ setTimeout(()=>{ shell.style.opacity='1'; }, 20); }
+  };
+  if(changed){
+    shell.style.opacity='0';
+    setTimeout(paint, 150);
+  } else {
+    paint();
   }
-  else {
-    html = `<div class="screen">${
-      S.tab==='home'?renderHome():
-      S.tab==='challenges'?renderChallenges():
-      S.tab==='contacts'?renderContacts():renderProfile()
-    }</div>` + renderTabbar();
-  }
-  shell.innerHTML = html + celebrationOverlay();
-  if(S.chatThread){ window.scrollTo(0, document.body.scrollHeight); } else { window.scrollTo(0,0); }
-  if(window.__mapInit){ window.__mapInit(); window.__mapInit=null; }
-  if(window.__moodInit){ window.__moodInit(); window.__moodInit=null; }
 }
 
 // ---------- Onboarding (2 steps) ----------

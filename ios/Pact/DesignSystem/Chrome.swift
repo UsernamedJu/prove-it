@@ -800,6 +800,7 @@ struct RaceTrackProgress: View {
 struct PillTabBar: View {
     @Binding var selection: Tab
     @Namespace private var pillNamespace
+    @State private var pulse = false
 
     var body: some View {
         HStack(spacing: 2) {
@@ -822,8 +823,12 @@ struct PillTabBar: View {
                             ZStack {
                                 Capsule().fill(.ultraThinMaterial)
                                 Capsule().fill(Theme.Brand.cyan.opacity(0.92))
-                                Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.85)
+                                Capsule().stroke(Theme.Brand.holo, lineWidth: pulse ? 3 : 1.2).opacity(pulse ? 1 : 0.85)
                             }
+                            .shadow(color: Theme.Brand.purple.opacity(pulse ? 0.9 : 0), radius: pulse ? 18 : 0)
+                            .shadow(color: Theme.Brand.pink.opacity(pulse ? 0.85 : 0), radius: pulse ? 16 : 0, x: -7)
+                            .shadow(color: Theme.Brand.blue.opacity(pulse ? 0.85 : 0), radius: pulse ? 16 : 0, x: 7)
+                            .scaleEffect(pulse ? 1.12 : 1.0)
                             .matchedGeometryEffect(id: "activeTabPill", in: pillNamespace)
                         }
                     }
@@ -831,6 +836,10 @@ struct PillTabBar: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+        .onChange(of: selection) {
+            pulse = true
+            withAnimation(.easeOut(duration: 0.5)) { pulse = false }
         }
         .padding(6)
         .background(.ultraThinMaterial, in: Capsule())

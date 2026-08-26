@@ -154,9 +154,11 @@
   /* Floating pill tab bar — only the active tab shows its label, in a dark
      capsule; everything else is icon-only so the bar stays quiet. */
   .tabbar{
-    position:fixed; bottom:14px; left:50%; transform:translateX(-50%); width:calc(100% - 40px); max-width:390px; z-index:1000;
-    background:var(--card); border-radius:999px; border:1px solid var(--border);
-    display:flex; gap:2px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,0.14);
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%); width:calc(100% - 20px); max-width:460px; z-index:1000;
+    background:rgba(255,255,255,0.55); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+    border-radius:999px; border:1px solid rgba(124,181,24,0.3);
+    display:flex; gap:2px; padding:6px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.14), 0 4px 14px rgba(124,181,24,0.22), -5px 2px 12px rgba(255,92,119,0.16), 5px 2px 12px rgba(58,166,217,0.16);
   }
   .tabbtn{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:none; border:none;
@@ -164,8 +166,13 @@
     height:44px; border-radius:999px; padding:0 10px; transition:background .15s ease, color .15s ease;
   }
   .tabbtn .tablabel{ display:none; white-space:nowrap; }
-  .tabbtn.active{ color:#fff; background:var(--cyan); }
+  .tabbtn.active{ color:#fff; background:var(--cyan); animation:tabChroma .5s ease; }
   .tabbtn.active .tablabel{ display:inline; }
+  @keyframes tabChroma{
+    0%{ box-shadow:0 0 0 0 rgba(124,181,24,0), 0 0 0 0 rgba(255,92,119,0), 0 0 0 0 rgba(58,166,217,0); }
+    40%{ box-shadow:0 0 12px 3px rgba(124,181,24,0.5), -4px 0 14px 2px rgba(255,92,119,0.4), 4px 0 14px 2px rgba(58,166,217,0.4); }
+    100%{ box-shadow:0 0 0 0 rgba(124,181,24,0), 0 0 0 0 rgba(255,92,119,0), 0 0 0 0 rgba(58,166,217,0); }
+  }
 
   .hero{ margin:-20px -20px 0; padding:56px 20px 20px; color:#fff; position:relative; }
   .banner{ padding:14px 20px; background:var(--glassBright); }
@@ -242,6 +249,8 @@ const ICON_PATHS = {
   'heart': `<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />`,
   'bolt': `<path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />`,
   'moon': `<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />`,
+  'message_circle': `<path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />`,
+  'arrow_up': `<path d="m5 12 7-7 7 7" /> <path d="M12 19V5" />`,
 };
 function icon(name, size=20, sw=2){
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0;">${ICON_PATHS[name.replace(/-/g,'_')]||''}</svg>`;
@@ -357,6 +366,33 @@ let S = {
   groups:[{name:'Family', members:['Mom','Dad','Grandma Rose']}],
   newContactName:'', newGroupOpen:false, newGroupName:'', newGroupSelected:new Set(),
   groupDetailName:null, memberDetailName:null, memberDetailReturn:null,
+  directMessages:{
+    'Sam':[
+      {from:'Sam', text:"you doing the coastal series again this weekend?", date: Date.now()-30*3600000},
+      {from:'You', text:"yeah, gonna try to close the gap", date: Date.now()-29*3600000},
+      {from:'Sam', text:"gap? 😂 there's no closing this gap", date: Date.now()-29*3600000},
+      {from:'Sam', text:"see you sunday", date: Date.now()-2*3600000},
+    ],
+    'Grandma Rose':[
+      {from:'Grandma Rose', text:"Beat you again today, sweetheart 💪", date: Date.now()-20*3600000},
+      {from:'You', text:"how are you even doing this", date: Date.now()-19*3600000},
+      {from:'Grandma Rose', text:"Good shoes and nothing but time.", date: Date.now()-19*3600000},
+      {from:'You', text:"I need your secret", date: Date.now()-18*3600000},
+      {from:'Grandma Rose', text:"Wear better shoes.", date: Date.now()-18*3600000},
+    ],
+  },
+  groupMessages:{
+    'Family':[
+      {from:'Mom', text:"so who's wearing the shame shirt", date: Date.now()-10*3600000},
+      {from:'Dad', text:"I refuse", date: Date.now()-10*3600000},
+      {from:'Grandma Rose', text:"Dad has to, rules are rules", date: Date.now()-9*3600000},
+      {from:'Mom', text:"congrats on the win, by the way!", date: Date.now()-9*3600000},
+      {from:'Dad', text:"next time it's on", date: Date.now()-1*3600000},
+    ],
+  },
+  unreadDirect:new Set(['Sam']),
+  unreadGroup:new Set(['Family']),
+  chatListOpen:false, chatThread:null, chatDraft:'',
   justCreated:false, justRevealed:null, justLoggedMood:false,
   settingsOpen:false, settingsName:'', settingsColorIdx:0, settingsAgeBand:'20–39',
   suggestionIdx:0,
@@ -566,7 +602,7 @@ function renderMapExplore(){
 </script>
 <script>
 // ---------- Router ----------
-function go(tab){ S.tab = tab; S.detailId = null; S.moodOpen=false; S.groupDetailName=null; S.memberDetailName=null; S.settingsOpen=false; render(); }
+function go(tab){ S.tab = tab; S.detailId = null; S.moodOpen=false; S.groupDetailName=null; S.memberDetailName=null; S.settingsOpen=false; S.chatListOpen=false; S.chatThread=null; render(); }
 function openChallenge(id){ S.detailId = id; S.detailTab='board'; render(); }
 function closeChallenge(){ S.detailId = null; render(); }
 function openMood(){ S.moodOpen = true; render(); }
@@ -594,6 +630,8 @@ function render(){
   else if(S.groupDetailName){ html = renderGroupDetail(); }
   else if(S.detailId){ html = renderDetail(); }
   else if(S.moodOpen){ html = renderMood(); }
+  else if(S.chatThread){ html = renderChatThread(); }
+  else if(S.chatListOpen){ html = renderChatList(); }
   else if(S.tab==='map'){
     html = renderMapExplore() + renderTabbar();
   }
@@ -605,7 +643,7 @@ function render(){
     }</div>` + renderTabbar();
   }
   shell.innerHTML = html + celebrationOverlay();
-  window.scrollTo(0,0);
+  if(S.chatThread){ window.scrollTo(0, document.body.scrollHeight); } else { window.scrollTo(0,0); }
   if(window.__mapInit){ window.__mapInit(); window.__mapInit=null; }
   if(window.__moodInit){ window.__moodInit(); window.__moodInit=null; }
 }
@@ -854,8 +892,15 @@ function renderHome(){
       mapChallenge.standings.map((st,i)=>({lat:SAMPLE_ROUTE[i%SAMPLE_ROUTE.length][0], lng:SAMPLE_ROUTE[i%SAMPLE_ROUTE.length][1], color:colorFor(st.name), name:st.name})));
   }
   return `
-    <div class="row between" style="padding-top:8px;margin-bottom:6px;">
+    <div class="row gap-sm" style="padding-top:8px;margin-bottom:6px;align-items:center;">
       ${pactMark(20)}
+      <div style="flex:1;"></div>
+      <div style="position:relative;cursor:pointer;" onclick="openChatList()">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+          ${icon('message-circle',19)}
+        </div>
+        ${totalUnreadChats()>0?`<div style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;border-radius:50%;background:var(--pink);border:2px solid var(--bg1);"></div>`:''}
+      </div>
       ${badge(S.me.name, 46, S.meColor)}
     </div>
     <div class="row gap-sm" style="margin-bottom:18px;align-items:flex-start;">
@@ -1015,7 +1060,10 @@ function renderGroupDetail(){
   }).join('');
   const rings = [0.55,0.78,1.0].map((s,i)=>`<div class="orbit-ring" style="position:absolute;left:50%;top:50%;width:${R*2*s}px;height:${R*2*s}px;transform:translate(-50%,-50%);border-radius:50%;border:1px solid var(--border);animation-duration:${dur-i*14}s;${i===1?'animation-direction:reverse;':''}"></div>`).join('');
   return `<div class="screen" style="padding-top:24px;">
-    <button class="btn-icon" style="margin-bottom:14px;" onclick="closeGroup()">${icon('chevron-left',18)}</button>
+    <div class="row between" style="margin-bottom:14px;">
+      <button class="btn-icon" onclick="closeGroup()">${icon('chevron-left',18)}</button>
+      <button class="btn-icon" onclick="openChat('group','${g.name}')">${icon('message-circle',18)}</button>
+    </div>
     <h1 class="h1" style="margin-bottom:2px;">${g.name}</h1>
     <p class="body-text" style="margin-bottom:20px;">${g.members.length} people orbiting you</p>
     <div style="position:relative;width:${R*2+60}px;height:${R*2+60}px;margin:0 auto 24px;">
@@ -1045,7 +1093,10 @@ function renderMemberDetail(){
   const shared = S.challenges.filter(c=>c.standings.some(s=>s.name===name));
   const band = AGE_BANDS.find(a=>a.label===m.ageBand)||AGE_BANDS[1];
   return `<div class="screen" style="padding-top:24px;">
-    <button class="btn-icon" style="margin-bottom:14px;" onclick="closeMember()">${icon('chevron-left',18)}</button>
+    <div class="row between" style="margin-bottom:14px;">
+      <button class="btn-icon" onclick="closeMember()">${icon('chevron-left',18)}</button>
+      <button class="btn-icon" onclick="openChat('direct','${name}')">${icon('message-circle',18)}</button>
+    </div>
     <div class="row gap-md" style="margin-bottom:20px;">
       ${badge(name,64)}
       <div><h1 class="h1" style="margin-bottom:2px;">${name}</h1><p class="body-text">${m.ageBand}</p></div>
@@ -1101,6 +1152,155 @@ function createGroup(){
 function addContact(){
   const v = S.newContactName.trim();
   if(v){ S.crew.push({name:v, ageBand:'20–39'}); S.newContactName=''; render(); }
+}
+
+// ---------- Chat — no real backend: sending appends immediately, then a
+// canned reply lands a beat later so a thread never just goes silent.
+// ----------
+function relTime(ms){
+  const s = Math.floor((Date.now()-ms)/1000);
+  if(s<60) return 'just now';
+  const m = Math.floor(s/60); if(m<60) return `${m} min ago`;
+  const h = Math.floor(m/60); if(h<24) return `${h} hr ago`;
+  const d = Math.floor(h/24); return `${d} day${d===1?'':'s'} ago`;
+}
+function lastMsg(list){ return list && list.length ? list[list.length-1] : null; }
+function totalUnreadChats(){ return S.unreadDirect.size + S.unreadGroup.size; }
+
+const CHAT_BANTER = [
+  "Ha, we'll see about that.",
+  "Bold talk for someone who hasn't logged today.",
+  "I'm not losing this one.",
+  "Deal. Loser buys coffee ☕",
+  "You're on.",
+  "Nice try — still winning though.",
+  "Okay now I actually have to go walk.",
+  "Love the confidence. Misplaced, but I love it.",
+  "See you on the leaderboard.",
+  "That's cute. Anyway.",
+];
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
+// Prefers a line that references a challenge the two of you actually
+// share, so replies feel grounded instead of generic — same tone as Rudy.
+function chatReply(name, seed){
+  const shared = S.challenges.find(c=>c.status==='active' && c.standings.some(s=>s.name===name));
+  if(shared){
+    const theirs = shared.standings.find(s=>s.name===name);
+    const mine = shared.standings.find(s=>s.name==='You');
+    if(theirs.rank===1) return `Still #1 in ${shared.title}. Just saying.`;
+    if(mine && mine.rank < theirs.rank) return `Fine, you're ahead in ${shared.title}. For now.`;
+  }
+  return CHAT_BANTER[hashStr(name+seed) % CHAT_BANTER.length];
+}
+
+function openChatList(){ S.chatListOpen = true; render(); }
+function closeChatList(){ S.chatListOpen = false; render(); }
+function openChat(type, name){ S.chatThread = {type, name}; render(); }
+function closeChat(){ S.chatThread = null; render(); }
+
+function sendChat(){
+  const text = S.chatDraft.trim();
+  if(!text || !S.chatThread) return;
+  const {type, name} = S.chatThread;
+  S.chatDraft = '';
+  if(type==='direct'){
+    (S.directMessages[name] = S.directMessages[name]||[]).push({from:'You', text, date:Date.now()});
+    S.unreadDirect.delete(name);
+    render();
+    const seed = S.directMessages[name].length;
+    setTimeout(()=>{
+      const reply = chatReply(name, seed);
+      (S.directMessages[name] = S.directMessages[name]||[]).push({from:name, text:reply, date:Date.now()});
+      if(!S.chatThread || S.chatThread.type!=='direct' || S.chatThread.name!==name) S.unreadDirect.add(name);
+      render();
+    }, 1100 + Math.random()*1300);
+  } else {
+    const g = S.groups.find(g=>g.name===name);
+    if(!g || !g.members.length) return;
+    (S.groupMessages[name] = S.groupMessages[name]||[]).push({from:'You', text, date:Date.now()});
+    S.unreadGroup.delete(name);
+    render();
+    const replier = g.members[Math.floor(Math.random()*g.members.length)];
+    const seed = S.groupMessages[name].length;
+    setTimeout(()=>{
+      const reply = chatReply(replier, seed);
+      (S.groupMessages[name] = S.groupMessages[name]||[]).push({from:replier, text:reply, date:Date.now()});
+      if(!S.chatThread || S.chatThread.type!=='group' || S.chatThread.name!==name) S.unreadGroup.add(name);
+      render();
+    }, 1200 + Math.random()*1400);
+  }
+}
+
+function renderChatList(){
+  const directRows = S.crew.map(m=>{
+    const last = lastMsg(S.directMessages[m.name]);
+    return {type:'direct', name:m.name, isGroup:false,
+      preview: last ? last.text : 'Say hi 👋', date: last ? last.date : 0,
+      unread: S.unreadDirect.has(m.name)};
+  });
+  const groupRows = S.groups.map(g=>{
+    const last = lastMsg(S.groupMessages[g.name]);
+    const preview = last ? `${last.from}: ${last.text}` : 'Say hi 👋';
+    return {type:'group', name:g.name, isGroup:true, preview, date: last ? last.date : 0,
+      unread: S.unreadGroup.has(g.name)};
+  });
+  const rows = directRows.concat(groupRows).sort((a,b)=>b.date-a.date);
+  return `<div class="screen" style="padding-top:24px;">
+    <button class="btn-icon" style="margin-bottom:14px;" onclick="closeChatList()">${icon('chevron-left',18)}</button>
+    <h1 class="h1" style="margin-bottom:16px;">Messages</h1>
+    <div class="stack gap-sm">
+      ${rows.map(r=>`<div class="card ${r.isGroup?'tint-cyan':''}" style="cursor:pointer;" onclick="openChat('${r.type}','${r.name}')">
+        <div class="row gap-sm">
+          ${r.isGroup
+            ? `<div style="width:44px;height:44px;border-radius:50%;background:rgba(26,26,29,0.10);display:flex;align-items:center;justify-content:center;color:var(--cyan);flex-shrink:0;">${icon('users-round',20)}</div>`
+            : badge(r.name,44)}
+          <div style="flex:1;min-width:0;">
+            <div class="h3">${r.name}</div>
+            <div class="caption" style="color:${r.unread?'var(--ink)':'var(--ink3)'};font-weight:${r.unread?700:400};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.preview}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            ${r.date?`<div class="caption" style="color:var(--ink3);margin-bottom:6px;">${relTime(r.date)}</div>`:''}
+            ${r.unread?`<div style="width:9px;height:9px;border-radius:50%;background:var(--pink);margin-left:auto;"></div>`:''}
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderChatThread(){
+  const {type, name} = S.chatThread;
+  const isGroup = type==='group';
+  const list = (isGroup ? S.groupMessages[name] : S.directMessages[name]) || [];
+  const bubbles = list.length ? list.map(m=>{
+    const mine = m.from==='You';
+    return `<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};margin-bottom:10px;">
+      ${isGroup && !mine ? `<div class="caption" style="color:var(--ink3);margin:0 4px 2px;">${m.from}</div>` : ''}
+      <div style="max-width:78%;padding:10px 14px;font-size:15px;line-height:1.35;
+        background:${mine?'var(--purple)':'var(--card)'};color:${mine?'#fff':'var(--ink)'};
+        border:${mine?'none':'1px solid var(--border)'};
+        border-radius:${mine?'18px 18px 4px 18px':'4px 18px 18px 18px'};">${m.text}</div>
+      <div class="caption" style="color:var(--ink3);margin:2px 4px 0;">${new Date(m.date).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</div>
+    </div>`;
+  }).join('') : `<div style="text-align:center;margin-top:40px;">
+      <div class="body-text" style="color:var(--ink2);margin-bottom:4px;">No messages yet</div>
+      <div class="caption" style="color:var(--ink3);">Say hi 👋</div>
+    </div>`;
+  return `<div class="screen" style="padding-top:24px;">
+    <div class="row gap-sm" style="margin-bottom:14px;align-items:center;">
+      <button class="btn-icon" onclick="closeChat()">${icon('chevron-left',18)}</button>
+      ${isGroup
+        ? `<div style="width:36px;height:36px;border-radius:50%;background:rgba(26,26,29,0.10);display:flex;align-items:center;justify-content:center;color:var(--cyan);">${icon('users-round',16)}</div>`
+        : badge(name,36)}
+      <span class="h3">${name}</span>
+    </div>
+    <div style="margin-bottom:14px;min-height:200px;">${bubbles}</div>
+    <div class="row gap-sm">
+      <input class="textfield" placeholder="Message" value="${S.chatDraft.replace(/"/g,'&quot;')}"
+        oninput="S.chatDraft=this.value;" onkeydown="if(event.key==='Enter'){sendChat();}" style="flex:1;">
+      <button class="btn-icon" style="border-radius:50%;width:44px;height:44px;background:${S.chatDraft.trim()?'var(--purple)':'var(--border2)'};color:#fff;border:none;" onclick="sendChat()">${icon('arrow-up',18)}</button>
+    </div>
+  </div>`;
 }
 
 function heroStat(value,label){

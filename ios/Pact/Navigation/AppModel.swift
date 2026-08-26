@@ -29,6 +29,7 @@ enum Tab: String, CaseIterable, Identifiable {
 /// score anyone has is `fitnessScore`, which exists purely to recommend
 /// workout types and gauge whether a challenge is a good fit, never to gate
 /// or pay anyone.
+@MainActor
 @Observable
 final class AppModel {
     var hasOnboarded = false
@@ -52,6 +53,19 @@ final class AppModel {
     var moodHistory: [MoodCheckIn] = Fixtures.moodHistory
     var moodStreak = 3
     var moodLoggedToday = false
+
+    // MARK: Chat — keyed by Member.id / ContactGroup.id. No real backend:
+    // sending appends immediately, then a canned reply lands a beat later.
+    var directMessages: [UUID: [ChatMessage]] = Fixtures.directMessages
+    var groupMessages: [UUID: [ChatMessage]] = Fixtures.groupMessages
+    var unreadDirectIDs: Set<UUID> = Fixtures.unreadDirectIDs
+    var unreadGroupIDs: Set<UUID> = Fixtures.unreadGroupIDs
+    /// The thread currently on screen, if any — suppresses the unread
+    /// badge for a reply that lands while you're already looking at it.
+    var openDirectChatID: UUID?
+    var openGroupChatID: UUID?
+
+    var totalUnreadChats: Int { unreadDirectIDs.count + unreadGroupIDs.count }
 
     /// Drives the brief celebration overlays — set on creation/reveal, then
     /// cleared by the view after its animation plays.
@@ -174,5 +188,46 @@ final class AppModel {
 
     func members(in group: ContactGroup) -> [Member] {
         crew.filter { group.memberIDs.contains($0.id) }
+    }
+
+    // MARK: Chat
+
+    func lastMessage(directWith memberID: UUID) -> ChatMessage? { directMessages[memberID]?.last }
+    func lastMessage(inGroup groupID: UUID) -> ChatMessage? { groupMessages[groupID]?.last }
+
+    private func sharedChallengeContext(for memberID: UUID) -> (title: String, theirRank: Int, myRank: Int?)? {
+        guard let challenge = challenges.first(where: { c in
+            c.status == .active && c.standings.contains { $0.member.id == memberID }
+        }), let standing = challenge.standings.first(where: { $0.member.id == memberID }) else { return nil }
+        return (challenge.title, standing.rank, challenge.myStanding?.rank)
+    }
+
+    func sendDirectMessage(to memberID: UUID, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let member = crew.first(where: { $0.id == memberID }) else { return }
+        directMessages[memberID, default: []].append(ChatMessage(senderID: me.id, text: trimmed))
+        let seed = directMessages[memberID]?.count ?? 0
+        let context = sharedChallengeContext(for: memberID)
+        Task {
+            try? await Task.sleep(for: .seconds(Double.random(in: 1.1...2.4)))
+            let reply = ChatBanter.reply(from: member, sharedChallenge: context, seed: seed)
+            directMessages[memberID, default: []].append(ChatMessage(senderID: memberID, text: reply))
+            if openDirectChatID != memberID { unreadDirectIDs.insert(memberID) }
+        }
+    }
+
+    func sendGroupMessage(to groupID: UUID, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let group = groups.first(where: { $0.id == groupID }),
+              let replier = members(in: group).randomElement() else { return }
+        groupMessages[groupID, default: []].append(ChatMessage(senderID: me.id, text: trimmed))
+        let seed = groupMessages[groupID]?.count ?? 0
+        let context = sharedChallengeContext(for: replier.id)
+        Task {
+            try? await Task.sleep(for: .seconds(Double.random(in: 1.2...2.6)))
+            let reply = ChatBanter.reply(from: replier, sharedChallenge: context, seed: seed)
+            groupMessages[groupID, default: []].append(ChatMessage(senderID: replier.id, text: reply))
+            if openGroupChatID != groupID { unreadGroupIDs.insert(groupID) }
+        }
     }
 }

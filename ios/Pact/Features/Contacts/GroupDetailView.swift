@@ -44,6 +44,14 @@ struct GroupDetailView: View {
                         .clipShape(Circle())
                 }
                 Spacer()
+                NavigationLink(value: Route.groupChat(group.id)) {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Ink.secondary)
+                        .frame(width: 40, height: 40)
+                        .glassSurface(cornerRadius: 20)
+                        .clipShape(Circle())
+                }
             }
             .padding(.horizontal, Theme.Space.md)
             .padding(.top, Theme.Space.xs)

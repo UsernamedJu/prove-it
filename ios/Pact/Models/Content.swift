@@ -31,6 +31,7 @@ enum Quotes {
 /// references something real about the user's own state (a rank, a margin,
 /// a streak) rather than being generic filler.
 enum Rudy {
+    @MainActor
     static func greeting(app: AppModel) -> String {
         let name = app.me.name
 
@@ -58,5 +59,38 @@ enum Rudy {
         }
 
         return "Another day, another chance to not skip it."
+    }
+}
+
+/// Canned auto-replies for chat threads — there's no real backend, so a
+/// sent message gets a short reply after a beat instead of vanishing into
+/// silence. Leans into the same competitive, grounded-in-real-state tone
+/// as Rudy: when the two of you share an active challenge, the reply
+/// references it directly; otherwise it falls back to general banter.
+enum ChatBanter {
+    private static let general = [
+        "Ha, we'll see about that.",
+        "Bold talk for someone who hasn't logged today.",
+        "I'm not losing this one.",
+        "Deal. Loser buys coffee ☕",
+        "You're on.",
+        "Nice try — still winning though.",
+        "Okay now I actually have to go walk.",
+        "Love the confidence. Misplaced, but I love it.",
+        "See you on the leaderboard.",
+        "That's cute. Anyway.",
+    ]
+
+    static func reply(from member: Member, sharedChallenge: (title: String, theirRank: Int, myRank: Int?)?, seed: Int) -> String {
+        if let sc = sharedChallenge {
+            if sc.theirRank == 1 {
+                return "Still #1 in \(sc.title). Just saying."
+            }
+            if let myRank = sc.myRank, myRank < sc.theirRank {
+                return "Fine, you're ahead in \(sc.title). For now."
+            }
+        }
+        let idx = abs((member.name + String(seed)).hashValue) % general.count
+        return general[idx]
     }
 }

@@ -19,9 +19,8 @@ enum Fixtures {
 
     static var crew: [Member] { [mom, dad, grandmaRose, jordan, sam] }
 
-    static var groups: [ContactGroup] {
-        [ContactGroup(name: "Family", memberIDs: [mom.id, dad.id, grandmaRose.id])]
-    }
+    static let familyGroup = ContactGroup(name: "Family", memberIDs: [mom.id, dad.id, grandmaRose.id])
+    static var groups: [ContactGroup] { [familyGroup] }
 
     // MARK: Map route (a short loop, La Jolla — kept as a flat, non-live preview)
 
@@ -158,4 +157,44 @@ enum Fixtures {
                                 sleep: Double.random(in: 5...9))
         }
     }
+
+    // MARK: Chat — seeded so threads read like real conversations, each
+    // grounded in an actual shared challenge rather than generic filler.
+
+    private static func chatDate(hoursAgo: Double) -> Date {
+        Date().addingTimeInterval(-hoursAgo * 3600)
+    }
+
+    static var directMessages: [UUID: [ChatMessage]] {
+        [
+            sam.id: [
+                ChatMessage(senderID: sam.id, text: "you doing the coastal series again this weekend?", date: chatDate(hoursAgo: 30)),
+                ChatMessage(senderID: me.id, text: "yeah, gonna try to close the gap", date: chatDate(hoursAgo: 29)),
+                ChatMessage(senderID: sam.id, text: "gap? 😂 there's no closing this gap", date: chatDate(hoursAgo: 29)),
+                ChatMessage(senderID: sam.id, text: "see you sunday", date: chatDate(hoursAgo: 2)),
+            ],
+            grandmaRose.id: [
+                ChatMessage(senderID: grandmaRose.id, text: "Beat you again today, sweetheart 💪", date: chatDate(hoursAgo: 20)),
+                ChatMessage(senderID: me.id, text: "how are you even doing this", date: chatDate(hoursAgo: 19)),
+                ChatMessage(senderID: grandmaRose.id, text: "Good shoes and nothing but time.", date: chatDate(hoursAgo: 19)),
+                ChatMessage(senderID: me.id, text: "I need your secret", date: chatDate(hoursAgo: 18)),
+                ChatMessage(senderID: grandmaRose.id, text: "Wear better shoes.", date: chatDate(hoursAgo: 18)),
+            ],
+        ]
+    }
+
+    static var groupMessages: [UUID: [ChatMessage]] {
+        [
+            familyGroup.id: [
+                ChatMessage(senderID: mom.id, text: "so who's wearing the shame shirt", date: chatDate(hoursAgo: 10)),
+                ChatMessage(senderID: dad.id, text: "I refuse", date: chatDate(hoursAgo: 10)),
+                ChatMessage(senderID: grandmaRose.id, text: "Dad has to, rules are rules", date: chatDate(hoursAgo: 9)),
+                ChatMessage(senderID: mom.id, text: "congrats on the win, by the way!", date: chatDate(hoursAgo: 9)),
+                ChatMessage(senderID: dad.id, text: "next time it's on", date: chatDate(hoursAgo: 1)),
+            ],
+        ]
+    }
+
+    static let unreadDirectIDs: Set<UUID> = [sam.id]
+    static let unreadGroupIDs: Set<UUID> = [familyGroup.id]
 }

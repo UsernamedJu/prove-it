@@ -95,6 +95,14 @@ struct MemberDetailView: View {
                         .clipShape(Circle())
                 }
                 Spacer()
+                NavigationLink(value: Route.directChat(member.id)) {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Ink.secondary)
+                        .frame(width: 40, height: 40)
+                        .glassSurface(cornerRadius: 20)
+                        .clipShape(Circle())
+                }
             }
             .padding(.horizontal, Theme.Space.md)
             .padding(.top, Theme.Space.xs)

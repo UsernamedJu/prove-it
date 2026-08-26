@@ -799,6 +799,7 @@ struct RaceTrackProgress: View {
 
 struct PillTabBar: View {
     @Binding var selection: Tab
+    @Namespace private var pillNamespace
 
     var body: some View {
         HStack(spacing: 2) {
@@ -816,16 +817,28 @@ struct PillTabBar: View {
                     .foregroundStyle(isOn ? Color.white : Theme.Ink.tertiary)
                     .padding(.horizontal, isOn ? 16 : 14)
                     .frame(height: 48)
-                    .background(isOn ? Theme.Brand.cyan : Color.clear)
+                    .background {
+                        if isOn {
+                            ZStack {
+                                Capsule().fill(.ultraThinMaterial)
+                                Capsule().fill(Theme.Brand.cyan.opacity(0.92))
+                                Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.85)
+                            }
+                            .matchedGeometryEffect(id: "activeTabPill", in: pillNamespace)
+                        }
+                    }
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(6)
-        .background(Theme.Surface.card)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Theme.Surface.border, lineWidth: 1))
+        .background(.ultraThinMaterial, in: Capsule())
+        .background(Theme.Surface.card.opacity(0.45), in: Capsule())
+        .overlay(Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.55))
         .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+        .shadow(color: Theme.Brand.purple.opacity(0.22), radius: 14, y: 4)
+        .shadow(color: Theme.Brand.pink.opacity(0.16), radius: 12, x: -5, y: 2)
+        .shadow(color: Theme.Brand.blue.opacity(0.16), radius: 12, x: 5, y: 2)
     }
 }

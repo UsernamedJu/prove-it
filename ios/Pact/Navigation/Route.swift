@@ -6,4 +6,7 @@ enum Route: Hashable {
     case moodSurvey
     case group(UUID)
     case member(UUID)
+    case chatList
+    case directChat(UUID)
+    case groupChat(UUID)
 }

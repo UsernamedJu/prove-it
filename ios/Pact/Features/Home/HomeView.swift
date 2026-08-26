@@ -37,6 +37,9 @@ struct HomeView: View {
             case .moodSurvey: MoodSurveyView()
             case .group(let id): GroupDetailView(groupID: id)
             case .member(let id): MemberDetailView(memberID: id)
+            case .chatList: ChatListView()
+            case .directChat(let id): ChatThreadView(kind: .direct(id))
+            case .groupChat(let id): ChatThreadView(kind: .group(id))
             }
         }
     }
@@ -45,9 +48,25 @@ struct HomeView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            HStack {
+            HStack(spacing: Theme.Space.sm) {
                 PactMark(size: 22)
                 Spacer()
+                NavigationLink(value: Route.chatList) {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Theme.Ink.secondary)
+                            .frame(width: 44, height: 44)
+                            .glassSurface(cornerRadius: 22)
+                            .clipShape(Circle())
+                        if app.totalUnreadChats > 0 {
+                            Circle().fill(Theme.Brand.pink).frame(width: 11, height: 11)
+                                .overlay(Circle().stroke(Theme.Surface.bg, lineWidth: 2))
+                                .offset(x: 1, y: -1)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
                 InitialBadge(name: app.me.name, size: 44, overrideColor: app.meColor)
             }
             HStack(alignment: .top, spacing: Theme.Space.sm) {

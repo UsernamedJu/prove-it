@@ -48,7 +48,7 @@ struct MainTabView: View {
         }
         .safeAreaInset(edge: .bottom) {
             PillTabBar(selection: $app.tab)
-                .padding(.horizontal, Theme.Space.lg)
+                .padding(.horizontal, Theme.Space.xs)
                 .padding(.bottom, Theme.Space.xs)
         }
         .background(Theme.Surface.bg.ignoresSafeArea())

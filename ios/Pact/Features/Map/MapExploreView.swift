@@ -66,6 +66,9 @@ struct MapExploreView: View {
             case .moodSurvey: MoodSurveyView()
             case .group(let id): GroupDetailView(groupID: id)
             case .member(let id): MemberDetailView(memberID: id)
+            case .chatList: ChatListView()
+            case .directChat(let id): ChatThreadView(kind: .direct(id))
+            case .groupChat(let id): ChatThreadView(kind: .group(id))
             }
         }
     }

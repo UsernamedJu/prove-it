@@ -62,7 +62,7 @@ struct ProfileView: View {
                         .clipShape(Circle())
                 }
             }
-            InitialBadge(name: app.me.name, size: 72, overrideColor: app.meColor)
+            InitialBadge(name: app.me.name, size: 72, overrideColor: app.meColor, photoData: app.myProfilePhotoData)
             Text(app.me.name).font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
             Text(app.me.ageBand.rawValue).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
         }
@@ -92,6 +92,11 @@ struct ProfileView: View {
                     Text("Personalized step goal").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
                     Spacer()
                     Text("\(app.personalizedStepTarget.formatted())/day").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                }
+                HStack {
+                    Text("Estimated daily burn").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+                    Spacer()
+                    Text("\(app.myBodyProfile.estimatedDailyCalories.formatted()) cal").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 }
             }
         }

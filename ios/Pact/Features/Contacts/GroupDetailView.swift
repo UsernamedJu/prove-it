@@ -102,7 +102,7 @@ struct GroupDetailView: View {
             .rotationEffect(.degrees(orbitRotation))
 
             VStack(spacing: 4) {
-                InitialBadge(name: app.me.name, size: 74, overrideColor: app.meColor)
+                InitialBadge(name: app.me.name, size: 74, overrideColor: app.meColor, photoData: app.myProfilePhotoData)
                     .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: 3).padding(-5))
                     .shadow(color: app.meColor.opacity(0.45), radius: 16)
                     .scaleEffect(pulse ? 1.06 : 1.0)

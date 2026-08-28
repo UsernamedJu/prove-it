@@ -30,17 +30,27 @@ struct PactApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         @Bindable var app = app
         Group {
-            if app.hasOnboarded {
+            if app.appLockEnabled && !app.isUnlocked {
+                LockScreenView()
+            } else if !app.isSignedIn {
+                SignInView()
+            } else if app.hasOnboarded {
                 MainTabView()
             } else {
                 OnboardingFlow()
             }
         }
         .animation(Theme.Motion.fade, value: app.hasOnboarded)
+        .animation(Theme.Motion.fade, value: app.isSignedIn)
+        .animation(Theme.Motion.fade, value: app.isUnlocked)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background && app.appLockEnabled { app.isUnlocked = false }
+        }
     }
 }
 

@@ -246,6 +246,8 @@ const ICON_PATHS = {
   'moon': `<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />`,
   'message_circle': `<path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />`,
   'arrow_up': `<path d="m5 12 7-7 7 7" /> <path d="M12 19V5" />`,
+  'camera': `<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" /> <circle cx="12" cy="13" r="3" />`,
+  'shopping_cart': `<circle cx="8" cy="21" r="1" /> <circle cx="19" cy="21" r="1" /> <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />`,
 };
 function icon(name, size=20, sw=2){
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0;">${ICON_PATHS[name.replace(/-/g,'_')]||''}</svg>`;
@@ -273,6 +275,47 @@ const AGE_BANDS = [
   {label:'13–19', target:10000}, {label:'20–39', target:9000},
   {label:'40–59', target:8000}, {label:'60+', target:6500},
 ];
+
+// Personalization — mirrors the native BodyProfile formulas exactly (same
+// Mifflin-St Jeor calorie estimate, same age-band + activity step target).
+const ACTIVITY_LEVELS = [
+  {id:'Sedentary', label:'Sedentary', sub:'Desk job, little to no exercise', tdee:1.2, step:0.85},
+  {id:'Light', label:'Lightly active', sub:'Light exercise 1–3 days a week', tdee:1.375, step:1.0},
+  {id:'Moderate', label:'Moderately active', sub:'Moderate exercise 3–5 days a week', tdee:1.55, step:1.1},
+  {id:'Active', label:'Active', sub:'Hard exercise 6–7 days a week', tdee:1.725, step:1.25},
+  {id:'VeryActive', label:'Very active', sub:'Physical job, or training twice a day', tdee:1.9, step:1.4},
+];
+function activityById(id){ return ACTIVITY_LEVELS.find(a=>a.id===id) || ACTIVITY_LEVELS[2]; }
+function ageBandForAge(age){
+  if(age<20) return '13–19';
+  if(age<40) return '20–39';
+  if(age<60) return '40–59';
+  return '60+';
+}
+function bmiOf(heightCm, weightKg){
+  const hM = heightCm/100;
+  return hM>0 ? weightKg/(hM*hM) : 0;
+}
+function estimatedDailyCalories(p){
+  const base = 10*p.weightKg + 6.25*p.heightCm - 5*p.age;
+  let bmr;
+  if(p.sex==='Male') bmr = base+5;
+  else if(p.sex==='Female') bmr = base-161;
+  else bmr = base-78;
+  return Math.round(bmr * activityById(p.activityLevel).tdee);
+}
+function personalizedTarget(p){
+  const band = AGE_BANDS.find(b=>b.label===ageBandForAge(p.age)) || AGE_BANDS[1];
+  let target = band.target * activityById(p.activityLevel).step;
+  const b = bmiOf(p.heightCm, p.weightKg);
+  if(b>=30) target *= 1.05;
+  else if(b>0 && b<18.5) target *= 0.95;
+  return Math.round(target/250)*250;
+}
+function cmToFtIn(cm){ const total = cm/2.54; const ft = Math.floor(total/12); const inch = Math.round(total%12); return {ft, inch}; }
+function ftInToCm(ft, inch){ return (ft*12+inch)*2.54; }
+function kgToLb(kg){ return kg*2.20462; }
+function lbToKg(lb){ return lb/2.20462; }
 
 const ATHLETE_QUOTES = [
   {text:"You miss 100% of the shots you don't take.", athlete:"Wayne Gretzky"},
@@ -303,7 +346,12 @@ function isLightHex(hex){
 // blended over each swatch color so avatars read as soft felt characters
 // rather than flat color chips.
 const PLUSH_TEXTURE = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAHAAcAAD/4QCsRXhpZgAATU0AKgAAAAgABQEaAAUAAAABAAAASgEbAAUAAAABAAAAUgEoAAMAAAABAAIAAAExAAIAAAATAAAAWodpAAQAAAABAAAAbgAAAAAAOKXHAAH/tQA4pccAAf+1U3Vic3RhbmNlIERlc2lnbmVyAAAABJAAAAcAAAAEMDIyMKABAAMAAAAB//8AAKACAAQAAAABAAAAoKADAAQAAAABAAAAoAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/+IRrElDQ19QUk9GSUxFAAEBAAARnGFwcGwCAAAAbW50ckdSQVlYWVogB9wACAAXAA8ALgAPYWNzcEFQUEwAAAAAbm9uZQAAAAAAAAAAAAAAAAAAAAAAAPbWAAEAAAAA0y1hcHBsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFZGVzYwAAAMAAAAB5ZHNjbQAAATwAAAgaY3BydAAACVgAAAAjd3RwdAAACXwAAAAUa1RSQwAACZAAAAgMZGVzYwAAAAAAAAAfR2VuZXJpYyBHcmF5IEdhbW1hIDIuMiBQcm9maWxlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAG1sdWMAAAAAAAAAHwAAAAxza1NLAAAALgAAAYRkYURLAAAAOgAAAbJjYUVTAAAAOAAAAex2aVZOAAAAQAAAAiRwdEJSAAAASgAAAmR1a1VBAAAALAAAAq5mckZVAAAAPgAAAtpodUhVAAAANAAAAxh6aFRXAAAAGgAAA0xrb0tSAAAAIgAAA2ZuYk5PAAAAOgAAA4hjc0NaAAAAKAAAA8JoZUlMAAAAJAAAA+pyb1JPAAAAKgAABA5kZURFAAAATgAABDhpdElUAAAATgAABIZzdlNFAAAAOAAABNR6aENOAAAAGgAABQxqYUpQAAAAJgAABSZlbEdSAAAAKgAABUxwdFBPAAAAUgAABXZubE5MAAAAQAAABchlc0VTAAAATAAABgh0aFRIAAAAMgAABlR0clRSAAAAJAAABoZmaUZJAAAARgAABqpockhSAAAAPgAABvBwbFBMAAAASgAABy5hckVHAAAALAAAB3hydVJVAAAAOgAAB6RlblVTAAAAPAAAB94AVgFhAGUAbwBiAGUAYwBuAOEAIABzAGkAdgDhACAAZwBhAG0AYQAgADIALAAyAEcAZQBuAGUAcgBpAHMAawAgAGcAcgDlACAAMgAsADIAIABnAGEAbQBtAGEALQBwAHIAbwBmAGkAbABHAGEAbQBtAGEAIABkAGUAIABnAHIAaQBzAG8AcwAgAGcAZQBuAOgAcgBpAGMAYQAgADIALgAyAEMepQB1ACAAaADsAG4AaAAgAE0A4AB1ACAAeADhAG0AIABDAGgAdQBuAGcAIABHAGEAbQBtAGEAIAAyAC4AMgBQAGUAcgBmAGkAbAAgAEcAZQBuAOkAcgBpAGMAbwAgAGQAYQAgAEcAYQBtAGEAIABkAGUAIABDAGkAbgB6AGEAcwAgADIALAAyBBcEMAQzBDAEOwRMBD0EMAAgAEcAcgBhAHkALQQzBDAEPAQwACAAMgAuADIAUAByAG8AZgBpAGwAIABnAOkAbgDpAHIAaQBxAHUAZQAgAGcAcgBpAHMAIABnAGEAbQBtAGEAIAAyACwAMgDBAGwAdABhAGwA4QBuAG8AcwAgAHMAegD8AHIAawBlACAAZwBhAG0AbQBhACAAMgAuADKQGnUocHCWjlFJXqYAMgAuADKCcl9pY8+P8Md8vBgAINaMwMkAIKwQucgAIAAyAC4AMgAg1QS4XNMMx3wARwBlAG4AZQByAGkAcwBrACAAZwByAOUAIABnAGEAbQBtAGEAIAAyACwAMgAtAHAAcgBvAGYAaQBsAE8AYgBlAGMAbgDhACABYQBlAGQA4QAgAGcAYQBtAGEAIAAyAC4AMgXSBdAF3gXUACAF0AXkBdUF6AAgBdsF3AXcBdkAIAAyAC4AMgBHAGEAbQBhACAAZwByAGkAIABnAGUAbgBlAHIAaQBjAQMAIAAyACwAMgBBAGwAbABnAGUAbQBlAGkAbgBlAHMAIABHAHIAYQB1AHMAdAB1AGYAZQBuAC0AUAByAG8AZgBpAGwAIABHAGEAbQBtAGEAIAAyACwAMgBQAHIAbwBmAGkAbABvACAAZwByAGkAZwBpAG8AIABnAGUAbgBlAHIAaQBjAG8AIABkAGUAbABsAGEAIABnAGEAbQBtAGEAIAAyACwAMgBHAGUAbgBlAHIAaQBzAGsAIABnAHIA5QAgADIALAAyACAAZwBhAG0AbQBhAHAAcgBvAGYAaQBsZm6QGnBwXqZ8+2VwADIALgAyY8+P8GWHTvZOAIIsMLAw7DCkMKww8zDeACAAMgAuADIAIDDXMO0w1TChMKQw6wOTA7UDvQO5A7oDzAAgA5MDugPBA7kAIAOTA6wDvAO8A7EAIAAyAC4AMgBQAGUAcgBmAGkAbAAgAGcAZQBuAOkAcgBpAGMAbwAgAGQAZQAgAGMAaQBuAHoAZQBuAHQAbwBzACAAZABhACAARwBhAG0AbQBhACAAMgAsADIAQQBsAGcAZQBtAGUAZQBuACAAZwByAGkAagBzACAAZwBhAG0AbQBhACAAMgAsADIALQBwAHIAbwBmAGkAZQBsAFAAZQByAGYAaQBsACAAZwBlAG4A6QByAGkAYwBvACAAZABlACAAZwBhAG0AbQBhACAAZABlACAAZwByAGkAcwBlAHMAIAAyACwAMg4jDjEOBw4qDjUOQQ4BDiEOIQ4yDkAOAQ4jDiIOTA4XDjEOSA4nDkQOGwAgADIALgAyAEcAZQBuAGUAbAAgAEcAcgBpACAARwBhAG0AYQAgADIALAAyAFkAbABlAGkAbgBlAG4AIABoAGEAcgBtAGEAYQBuACAAZwBhAG0AbQBhACAAMgAsADIAIAAtAHAAcgBvAGYAaQBpAGwAaQBHAGUAbgBlAHIAaQENAGsAaQAgAEcAcgBhAHkAIABHAGEAbQBtAGEAIAAyAC4AMgAgAHAAcgBvAGYAaQBsAFUAbgBpAHcAZQByAHMAYQBsAG4AeQAgAHAAcgBvAGYAaQBsACAAcwB6AGEAcgBvAVsAYwBpACAAZwBhAG0AbQBhACAAMgAsADIGOgYnBkUGJwAgADIALgAyACAGRAZIBkYAIAYxBkUGJwYvBkoAIAY5BicGRQQeBDEESQQwBE8AIARBBDUEQAQwBE8AIAQzBDAEPAQ8BDAAIAAyACwAMgAtBD8EQAQ+BEQEOAQ7BEwARwBlAG4AZQByAGkAYwAgAEcAcgBhAHkAIABHAGEAbQBtAGEAIAAyAC4AMgAgAFAAcgBvAGYAaQBsAGUAAHRleHQAAAAAQ29weXJpZ2h0IEFwcGxlIEluYy4sIDIwMTIAAFhZ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';
-function badge(name, size=40, color=null){
+function badge(name, size=40, color=null, photoUrl=null){
+  if(photoUrl){
+    return `<div class="badge breathe" style="width:${size}px;height:${size}px;">
+      <img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;display:block;">
+    </div>`;
+  }
   const c = color || colorFor(name);
   const faceColor = isLightHex(c) ? '#18181B' : '#fff';
   const eyeW = Math.max(1.5, size*0.06), eyeH = size*0.13;
@@ -347,12 +395,30 @@ function history(days, end, wobble=0.06){
 
 const SAMPLE_ROUTE = [[32.8328,-117.2713],[32.8352,-117.2726],[32.8367,-117.2701],[32.8349,-117.2680],[32.8328,-117.2713]];
 
+// App Lock is the one thing that survives a reload — a device-local PIN,
+// not a real account, so it's honest to store in localStorage rather than
+// pretending it needs a backend. Everything else in S resets on reload.
+function loadAppLock(){
+  try {
+    const raw = localStorage.getItem('pactAppLock');
+    return raw ? JSON.parse(raw) : {enabled:false, pin:null};
+  } catch(e) { return {enabled:false, pin:null}; }
+}
+function saveAppLock(){
+  try { localStorage.setItem('pactAppLock', JSON.stringify(S.appLock)); } catch(e) {}
+}
+
 let S = {
-  onboarded:false, obStep:0, obName:'', obColorIdx:0, obAgeBand:'20–39',
-  obMotivation:null, obCrewName:'', obInvitedCrew:[],
+  onboarded:false, obStep:0, obName:'', obColorIdx:0,
+  obMotivation:null, obCrewName:'', obInvitedCrew:[], obPhotoUrl:null,
+  obUnits:'Imperial', obHeightCm:170, obWeightKg:70, obSex:'Other', obAge:30, obActivity:'Moderate',
   tab:'home', moodOpen:false,
   me:{name:'You', ageBand:'20–39'},
   meColor: SWATCH[0],
+  myPhotoUrl: null,
+  units: 'Imperial',
+  bodyProfile: {heightCm:170, weightKg:70, sex:'Other', age:30, activityLevel:'Moderate'},
+  appLock: loadAppLock(), locked: loadAppLock().enabled, lockError: false,
   crew:[
     {name:'Mom', ageBand:'40–59'}, {name:'Dad', ageBand:'40–59'},
     {name:'Grandma Rose', ageBand:'60+'}, {name:'Jordan', ageBand:'20–39'},
@@ -389,7 +455,7 @@ let S = {
   unreadGroup:new Set(['Family']),
   chatListOpen:false, chatThread:null, chatDraft:'',
   justCreated:false, justRevealed:null, justLoggedMood:false,
-  settingsOpen:false, settingsName:'', settingsColorIdx:0, settingsAgeBand:'20–39',
+  settingsOpen:false, settingsName:'', settingsColorIdx:0,
   suggestionIdx:0,
   suggestions:[
     {title:'Balboa Park 5K — Race Day', icon:'route', kind:'Distance', venue:'Balboa Park', photo:'balboa5k',
@@ -406,6 +472,14 @@ let S = {
      payoff:'Loser does 20 burpees on video', payoffIcon:'dumbbell'},
   ],
   challenges:[
+    {id:'c0', title:'Family Target Run', icon:'shopping-cart', kind:'Steps', venue:'Target · Mission Valley',
+     rules:"Ranked by % of each person's personalized daily step target (Fair Play scoring).", photo:'steps',
+     daysLeft:1, durationDays:1, dailyTarget:'6,000 steps', fair:true, blind:false, status:'active', isMap:false, winner:null,
+     payoff:'Loser pushes the cart the whole trip', payoffIcon:'shopping-cart',
+      standings:[
+        {name:'You', rank:1, progress:0, delta:'—', hist:[0]}, {name:'Mom', rank:2, progress:0, delta:'—', hist:[0]},
+        {name:'Dad', rank:3, progress:0, delta:'—', hist:[0]}, {name:'Grandma Rose', rank:4, progress:0, delta:'—', hist:[0]},
+      ]},
     {id:'c1', title:"America's Finest City Steps Challenge", icon:'footprints', kind:'Steps', venue:'Citywide · San Diego',
      rules:"Ranked by % of each person's personalized daily step target (Fair Play scoring).", photo:'steps',
      daysLeft:6, durationDays:14, dailyTarget:'8,000 steps', fair:true, blind:false, status:'active', isMap:false, winner:null,
@@ -468,9 +542,7 @@ function fitnessScore(){
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 function personalizedStepTarget(){
-  const base = ageBandTarget('You');
-  const mult = 0.8 + (fitnessScore()/100)*0.4;
-  return Math.round((base*mult)/50)*50;
+  return personalizedTarget(S.bodyProfile);
 }
 
 // Rudy — sarcastic-but-real motivational voice, grounded in actual state.
@@ -633,8 +705,32 @@ function computeScreenKey(){
   return 'tab:'+S.tab;
 }
 function isTabKey(k){ return !!k && k.indexOf('tab:')===0; }
+function renderAppLockScreen(){
+  return `<div class="screen" style="padding-top:80px;text-align:center;">
+    ${pactMark(32)}
+    <div style="color:var(--purple);margin:16px 0 8px;">${icon('lock-keyhole',44)}</div>
+    <h2 class="h2" style="margin-bottom:6px;">Pact is locked</h2>
+    <p class="body-text" style="margin-bottom:20px;">Enter your PIN to continue.</p>
+    <input type="password" inputmode="numeric" maxlength="6" id="lockPinInput" class="textfield"
+      style="text-align:center;font-size:22px;letter-spacing:6px;margin-bottom:12px;" placeholder="••••"
+      onkeydown="if(event.key==='Enter'){tryUnlock();}">
+    ${S.lockError?'<p class="caption" style="color:var(--coral);margin-bottom:12px;">Incorrect PIN — try again.</p>':''}
+    <button class="btn btn-primary" onclick="tryUnlock()">Unlock</button>
+  </div>`;
+}
+function tryUnlock(){
+  const val = document.getElementById('lockPinInput').value;
+  if(val === S.appLock.pin){ S.locked=false; S.lockError=false; render(); }
+  else { S.lockError=true; render(); }
+}
+
 function render(){
   const shell = document.getElementById('shell');
+  if(S.appLock.enabled && S.locked){
+    shell.innerHTML = renderAppLockScreen();
+    window.scrollTo(0,0);
+    return;
+  }
   const key = computeScreenKey();
   const changed = key !== lastScreenKey && !(isTabKey(key) && isTabKey(lastScreenKey));
   lastScreenKey = key;
@@ -682,16 +778,17 @@ const MOTIVATIONS = [
   {id:'fun', label:'Just here to have fun', icon:'sparkles'},
 ];
 function onboardingRecommendation(){
-  const band = AGE_BANDS.find(b=>b.label===S.obAgeBand) || AGE_BANDS[1];
+  const bandLabel = ageBandForAge(S.obAge);
   let kind, icon_, blurb;
   if(S.obMotivation==='friends'){ kind='Distance'; icon_='route'; blurb="You're motivated by competition — distance challenges give the clearest head-to-head numbers."; }
-  else if(band.label==='60+'){ kind='Steps'; icon_='footprints'; blurb='Low-impact and easy to sustain — perfect for building a daily habit without overdoing it.'; }
-  else if(band.label==='13–19'){ kind='Distance'; icon_='route'; blurb="You've got room to push — distance challenges will keep it interesting."; }
+  else if(bandLabel==='60+'){ kind='Steps'; icon_='footprints'; blurb='Low-impact and easy to sustain — perfect for building a daily habit without overdoing it.'; }
+  else if(bandLabel==='13–19'){ kind='Distance'; icon_='route'; blurb="You've got room to push — distance challenges will keep it interesting."; }
   else { kind='Steps'; icon_='footprints'; blurb='A steady daily step goal is the easiest place to start a streak.'; }
-  return {target: band.target, kind, icon: icon_, blurb};
+  const target = personalizedTarget({heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity});
+  return {target, kind, icon: icon_, blurb};
 }
 function renderOnboarding(){
-  const total = 5, step = S.obStep;
+  const total = 7, step = S.obStep;
   const dotsHtml = Array.from({length:total},(_,i)=>`<div class="dot ${i<step?'done':i===step?'active':''}"></div>`).join('');
   const header = `<div class="flow-header">
       ${step>0?`<button class="back-link" onclick="S.obStep--;render()">${icon('chevron-left',16)} Back</button>`:'<span></span>'}
@@ -702,23 +799,35 @@ function renderOnboarding(){
     body = `
       ${pactMark(28)}
       <h1 class="h1" style="margin:10px 0 6px;">Let's set you up</h1>
-      <p class="body-text" style="margin-bottom:20px;">One screen, then you're in.</p>
-      <div class="row gap-md" style="margin-bottom:18px;">
-        <span id="obBadge">${badge(S.obName||'?', 60, SWATCH[S.obColorIdx])}</span>
+      <p class="body-text" style="margin-bottom:20px;">A few quick things, then you're in.</p>
+      <div class="row gap-md" style="margin-bottom:24px;">
+        <label style="position:relative;cursor:pointer;">
+          <span id="obBadge">${badge(S.obName||'?', 60, SWATCH[S.obColorIdx], S.obPhotoUrl)}</span>
+          <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1);color:#fff;">${icon('camera',10)}</div>
+          <input type="file" accept="image/*" style="display:none;" onchange="handleObPhoto(this)">
+        </label>
         <input id="nameInput" class="textfield" placeholder="Your name" value="${S.obName}"
           style="flex:1;height:56px;font-size:18px;font-weight:800;"
           oninput="S.obName=this.value;syncNameStep();">
       </div>
+      <label class="caption" style="display:block;margin-bottom:6px;">COLOR</label>
       <div class="row gap-sm" style="margin-bottom:24px;">
-        ${SWATCH.map((c,i)=>{const on=i===S.obColorIdx; return `<div onclick="S.obColorIdx=${i};render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
+        ${SWATCH.map((c,i)=>{const on=i===S.obColorIdx; return `<div onclick="S.obColorIdx=${i};syncNameStep();render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
       </div>
-      <label class="caption" style="display:block;margin-bottom:6px;">FAIR PLAY AGE BAND</label>
-      <select class="dropdown" style="margin-bottom:10px;" onchange="S.obAgeBand=this.value">
-        ${AGE_BANDS.map(b=>`<option value="${b.label}" ${S.obAgeBand===b.label?'selected':''}>${b.label} — ${b.target.toLocaleString()} steps/day</option>`).join('')}
-      </select>
-      <p class="caption" style="margin-bottom:24px;">Fair Play races everyone against their own personalized target, so people of any age can compete evenly.</p>
       <button class="btn btn-primary" id="obContinueBtn" ${S.obName.trim()?'':'disabled'} onclick="S.obStep=1;render()">Continue</button>`;
   } else if(step===1){
+    body = `
+      <h1 class="h1" style="margin:10px 0 6px;">About you</h1>
+      <p class="body-text" style="margin-bottom:20px;">This is what turns a generic step count into your step count.</p>
+      ${bodyProfileEditorHtml('ob')}
+      <button class="btn btn-primary" style="margin-top:20px;" onclick="S.obStep=2;render()">Continue</button>`;
+  } else if(step===2){
+    body = `
+      <h1 class="h1" style="margin:10px 0 6px;">How active are you day to day?</h1>
+      <p class="body-text" style="margin-bottom:20px;">Outside of challenges — your normal week.</p>
+      ${activityPickerHtml('ob')}
+      <button class="btn btn-primary" style="margin-top:16px;" onclick="S.obStep=3;render()">Continue</button>`;
+  } else if(step===3){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">What brings you to Pact?</h1>
       <p class="body-text" style="margin-bottom:20px;">Pick what fits best — it shapes what we suggest.</p>
@@ -728,8 +837,8 @@ function renderOnboarding(){
             <span style="color:${on?'var(--purple)':'var(--ink2)'};">${icon(m.icon,16)}</span><span class="body-text" style="color:var(--ink);flex:1;">${m.label}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('circle',18)+'</span>'}</div>`;
         }).join('')}
       </div>
-      <button class="btn btn-primary" ${S.obMotivation?'':'disabled'} onclick="S.obStep=2;render()">Continue</button>`;
-  } else if(step===2){
+      <button class="btn btn-primary" ${S.obMotivation?'':'disabled'} onclick="S.obStep=4;render()">Continue</button>`;
+  } else if(step===4){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">Who's coming with you?</h1>
       <p class="body-text" style="margin-bottom:20px;">Add a few people now, or skip and do it later.</p>
@@ -745,24 +854,30 @@ function renderOnboarding(){
               ${badge(n,36)}<span class="body-text" style="color:var(--ink);flex:1;">${n}</span>
               <span style="cursor:pointer;color:var(--ink3);" onclick="removeObCrew('${n}')">${icon('x',16)}</span>
             </div>`).join('')}</div>`}
-      <button class="btn ${S.obInvitedCrew.length?'btn-primary':'btn-outline'}" onclick="S.obStep=3;render()">${S.obInvitedCrew.length?'Continue':'Skip for now'}</button>`;
-  } else if(step===3){
+      <button class="btn ${S.obInvitedCrew.length?'btn-primary':'btn-outline'}" onclick="S.obStep=5;render()">${S.obInvitedCrew.length?'Continue':'Skip for now'}</button>`;
+  } else if(step===5){
     const rec = onboardingRecommendation();
+    const profile = {heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity};
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">Here's your overview, ${S.obName||'champ'}</h1>
-      <p class="body-text" style="margin-bottom:20px;">Based on what you just told us.</p>
+      <p class="body-text" style="margin-bottom:20px;">Calculated from what you just told us — not a generic number.</p>
       <div class="card tint-cyan" style="margin-bottom:14px;">
         <div class="row gap-sm" style="margin-bottom:8px;"><span style="color:var(--cyan);">${icon('footprints',18)}</span><span class="h3">Your daily step target</span></div>
         <div class="num holo" style="font-size:32px;margin-bottom:4px;">${rec.target.toLocaleString()}</div>
-        <p class="caption">Set by your Fair Play age band — this is what challenges will race you against, not a raw leaderboard number.</p>
+        <p class="caption">From your age band (${ageBandForAge(S.obAge)}) and activity level (${activityById(S.obActivity).label}) — this is what challenges race you against, not a raw leaderboard number.</p>
+      </div>
+      <div class="card tint-gold" style="margin-bottom:14px;">
+        <div class="row gap-sm" style="margin-bottom:8px;"><span style="color:var(--gold);">${icon('bolt',18)}</span><span class="h3">Estimated daily burn</span></div>
+        <div class="num holo" style="font-size:26px;margin-bottom:4px;">${estimatedDailyCalories(profile).toLocaleString()} cal</div>
+        <p class="caption">A Mifflin-St Jeor estimate from your height, weight, age, and activity level — a ballpark, not a diagnosis.</p>
       </div>
       <div class="card tint-purple" style="margin-bottom:14px;">
         <div class="row gap-sm" style="margin-bottom:8px;"><span style="color:var(--purple);">${icon(rec.icon,18)}</span><span class="h3">What to work on first</span></div>
         <p class="body-text" style="margin-bottom:4px;">Start with <b>${rec.kind}</b> challenges.</p>
         <p class="caption">${rec.blurb}</p>
       </div>
-      <p class="caption" style="margin-bottom:20px;">This updates automatically as you log mood check-ins and challenge progress.</p>
-      <button class="btn btn-primary" onclick="S.obStep=4;render()">Continue</button>`;
+      <p class="caption" style="margin-bottom:20px;">All of this updates automatically as you log mood check-ins and challenge progress.</p>
+      <button class="btn btn-primary" onclick="S.obStep=6;render()">Continue</button>`;
   } else {
     body = `
       <div style="text-align:center;padding-top:12px;">
@@ -773,13 +888,104 @@ function renderOnboarding(){
           ? `${S.obInvitedCrew.length} crew member${S.obInvitedCrew.length===1?'':'s'} added — find them in the Crew tab.`
           : `Add your crew from the Crew tab whenever you're ready.`}</p>
         <div class="row gap-sm" style="margin:22px 0;">
-          <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--blue);">${S.obAgeBand}</div><div class="caption">GOAL SET</div></div>
+          <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--blue);">${personalizedTarget({heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity}).toLocaleString()}</div><div class="caption">GOAL SET</div></div>
           <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--lime);">Ready</div><div class="caption">STATUS</div></div>
         </div>
         <button class="btn btn-primary" onclick="finishOnboarding()">Let's Go</button>
       </div>`;
   }
   return `<div class="screen" style="padding-top:24px;">${header}${body}</div>`;
+}
+
+// Shared height/weight/age/sex editor — used by onboarding ("ob" prefix)
+// and Settings ("set" prefix) so the markup and math live in one place.
+function bodyProfileEditorHtml(prefix){
+  const units = S[prefix+'Units'] !== undefined ? S[prefix+'Units'] : S.units;
+  const heightCm = S[prefix+'HeightCm'];
+  const weightKg = S[prefix+'WeightKg'];
+  const age = S[prefix+'Age'];
+  const sex = S[prefix+'Sex'];
+  const hw = cmToFtIn(heightCm);
+  return `
+    <div class="row gap-xs" style="margin-bottom:16px;background:var(--glass);border-radius:12px;padding:3px;">
+      <button class="btn" style="flex:1;height:38px;font-size:13px;${units==='Imperial'?'background:var(--card);box-shadow:0 2px 6px rgba(0,0,0,0.08);':'background:transparent;box-shadow:none;color:var(--ink2);'}" onclick="setUnits('${prefix}','Imperial')">Imperial</button>
+      <button class="btn" style="flex:1;height:38px;font-size:13px;${units==='Metric'?'background:var(--card);box-shadow:0 2px 6px rgba(0,0,0,0.08);':'background:transparent;box-shadow:none;color:var(--ink2);'}" onclick="setUnits('${prefix}','Metric')">Metric</button>
+    </div>
+    <label class="caption" style="display:block;margin-bottom:6px;">HEIGHT</label>
+    <div class="row gap-sm" style="margin-bottom:16px;">
+      ${units==='Imperial' ? `
+        <div class="row between" style="flex:1;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+          <span class="body-text" style="color:var(--ink);">${hw.ft} ft</span>
+          <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightFt('${prefix}',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightFt('${prefix}',1)">+</button></div>
+        </div>
+        <div class="row between" style="flex:1;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+          <span class="body-text" style="color:var(--ink);">${hw.inch} in</span>
+          <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightIn('${prefix}',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightIn('${prefix}',1)">+</button></div>
+        </div>
+      ` : `
+        <div class="row between" style="flex:1;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+          <span class="body-text" style="color:var(--ink);">${Math.round(heightCm)} cm</span>
+          <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','HeightCm',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','HeightCm',1)">+</button></div>
+        </div>
+      `}
+    </div>
+    <label class="caption" style="display:block;margin-bottom:6px;">WEIGHT</label>
+    <div class="row between" style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+      <span class="body-text" style="color:var(--ink);">${units==='Imperial' ? Math.round(kgToLb(weightKg))+' lb' : Math.round(weightKg)+' kg'}</span>
+      <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepWeight('${prefix}',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepWeight('${prefix}',1)">+</button></div>
+    </div>
+    <label class="caption" style="display:block;margin-bottom:6px;">AGE</label>
+    <div class="row between" style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+      <span class="body-text" style="color:var(--ink);">${age} years old</span>
+      <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','Age',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','Age',1)">+</button></div>
+    </div>
+    <label class="caption" style="display:block;margin-bottom:2px;">SEX</label>
+    <p class="caption" style="margin-bottom:8px;">Used only for the calorie-burn estimate below.</p>
+    <div class="row gap-sm">
+      ${['Female','Male','Other'].map(s=>{const on=sex===s; return `<button class="btn" style="flex:1;height:44px;font-size:13px;${on?'background:var(--purple);color:#fff;':'background:var(--card);color:var(--ink);border:1px solid var(--border);box-shadow:none;'}" onclick="S.${prefix}Sex='${s}';render()">${s==='Other'?'Prefer not to say':s}</button>`;}).join('')}
+    </div>`;
+}
+function activityPickerHtml(prefix){
+  const current = S[prefix+'Activity'];
+  return `<div class="stack gap-xs">${ACTIVITY_LEVELS.map(a=>{const on=current===a.id;
+    return `<div onclick="S.${prefix}Activity='${a.id}';render()" class="row between" style="padding:14px;border-radius:16px;cursor:pointer;background:${on?'rgba(124,181,24,0.14)':'var(--card)'};border:1px solid ${on?'var(--purple)':'var(--border)'};">
+      <div><div class="h3">${a.label}</div><div class="caption">${a.sub}</div></div>
+      ${on?icon('circle-check',22):'<span style="color:var(--ink3);">'+icon('circle',22)+'</span>'}
+    </div>`;}).join('')}</div>`;
+}
+function setUnits(prefix, val){ S[prefix+'Units']=val; render(); }
+function stepHeightFt(prefix, delta){
+  const hw = cmToFtIn(S[prefix+'HeightCm']);
+  const ft = Math.max(3, Math.min(7, hw.ft+delta));
+  S[prefix+'HeightCm'] = ftInToCm(ft, hw.inch); render();
+}
+function stepHeightIn(prefix, delta){
+  const hw = cmToFtIn(S[prefix+'HeightCm']);
+  const inch = Math.max(0, Math.min(11, hw.inch+delta));
+  S[prefix+'HeightCm'] = ftInToCm(hw.ft, inch); render();
+}
+function stepWeight(prefix, delta){
+  const units = S[prefix+'Units'] !== undefined ? S[prefix+'Units'] : S.units;
+  if(units==='Imperial'){
+    const lb = Math.max(60, Math.min(400, Math.round(kgToLb(S[prefix+'WeightKg']))+delta));
+    S[prefix+'WeightKg'] = lbToKg(lb);
+  } else {
+    S[prefix+'WeightKg'] = Math.max(30, Math.min(180, Math.round(S[prefix+'WeightKg'])+delta));
+  }
+  render();
+}
+function stepField(prefix, field, delta){
+  const bounds = {HeightCm:[100,230], Age:[13,100]};
+  const [min,max] = bounds[field];
+  S[prefix+field] = Math.max(min, Math.min(max, Math.round(S[prefix+field])+delta));
+  render();
+}
+function handleObPhoto(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { S.obPhotoUrl = reader.result; syncNameStep(); };
+  reader.readAsDataURL(file);
 }
 function addObCrew(){
   const trimmed = S.obCrewName.trim();
@@ -790,14 +996,18 @@ function removeObCrew(name){
   S.obInvitedCrew = S.obInvitedCrew.filter(n=>n!==name); render();
 }
 function syncNameStep(){
-  document.getElementById('obBadge').innerHTML = badge(S.obName||'?', 60, SWATCH[S.obColorIdx]);
+  const el = document.getElementById('obBadge');
+  if(el) el.innerHTML = badge(S.obName||'?', 60, SWATCH[S.obColorIdx], S.obPhotoUrl);
   const btn = document.getElementById('obContinueBtn');
   if(btn) btn.disabled = !S.obName.trim();
 }
 function finishOnboarding(){
   S.me.name = S.obName.trim() || 'You';
-  S.me.ageBand = S.obAgeBand;
+  S.me.ageBand = ageBandForAge(S.obAge);
   S.meColor = SWATCH[S.obColorIdx];
+  S.myPhotoUrl = S.obPhotoUrl;
+  S.units = S.obUnits;
+  S.bodyProfile = {heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity};
   S.obInvitedCrew.forEach(n=>{ if(!S.crew.some(m=>m.name===n)) S.crew.push({name:n, ageBand:'20–39'}); });
   S.onboarded = true;
   render();
@@ -927,7 +1137,7 @@ function renderHome(){
         </div>
         ${totalUnreadChats()>0?`<div style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;border-radius:50%;background:var(--pink);border:2px solid var(--bg1);"></div>`:''}
       </div>
-      ${badge(S.me.name, 46, S.meColor)}
+      ${badge(S.me.name, 46, S.meColor, S.myPhotoUrl)}
     </div>
     <div class="row gap-sm" style="margin-bottom:18px;align-items:flex-start;">
       <span style="color:var(--gold);margin-top:2px;">${icon('megaphone',18)}</span>
@@ -1098,7 +1308,7 @@ function renderGroupDetail(){
         ${orbitMembers}
       </div>
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;">
-        <div class="orbit-you">${badge(S.me.name,74,S.meColor)}</div>
+        <div class="orbit-you">${badge(S.me.name,74,S.meColor,S.myPhotoUrl)}</div>
         <div class="caption" style="margin-top:4px;color:var(--ink);font-weight:800;">${S.me.name}</div>
       </div>
     </div>
@@ -1678,7 +1888,7 @@ function renderProfile(){
       <button class="btn-icon" onclick="openSettings()">${icon('settings',18)}</button>
     </div>
     <div style="text-align:center;margin-bottom:18px;">
-      ${badge(S.me.name,72,S.meColor)}
+      ${badge(S.me.name,72,S.meColor,S.myPhotoUrl)}
       <h1 class="h1" style="margin-top:10px;">${S.me.name}</h1>
       <p class="caption">${S.me.ageBand}</p>
     </div>
@@ -1690,6 +1900,7 @@ function renderProfile(){
         <span style="color:var(--cyan);">${icon(fit.icon,16)}</span><span class="body-text">${fit.label}</span>
       </div>
       <div class="row between" style="margin-top:8px;"><span class="body-text">Personalized step goal</span><span class="h3">${personalizedStepTarget().toLocaleString()}/day</span></div>
+      <div class="row between" style="margin-top:8px;"><span class="body-text">Estimated daily burn</span><span class="h3">${estimatedDailyCalories(S.bodyProfile).toLocaleString()} cal</span></div>
     </div>
     <div class="row gap-sm" style="margin-bottom:16px;">
       <div class="card" style="flex:1;text-align:center;padding:12px;"><div class="num" style="font-size:18px;color:var(--lime);">${wins}</div><div class="caption">WINS</div></div>
@@ -1718,7 +1929,13 @@ function renderProfile(){
 function openSettings(){
   S.settingsName = S.me.name;
   S.settingsColorIdx = SWATCH.indexOf(S.meColor); if(S.settingsColorIdx<0) S.settingsColorIdx=0;
-  S.settingsAgeBand = S.me.ageBand;
+  S.settingsPhotoUrl = S.myPhotoUrl;
+  S.setUnits = S.units;
+  S.setHeightCm = S.bodyProfile.heightCm;
+  S.setWeightKg = S.bodyProfile.weightKg;
+  S.setAge = S.bodyProfile.age;
+  S.setSex = S.bodyProfile.sex;
+  S.setActivity = S.bodyProfile.activityLevel;
   S.settingsOpen = true; render();
 }
 function closeSettings(){ S.settingsOpen=false; render(); }
@@ -1726,7 +1943,10 @@ function saveSettings(){
   const trimmed = S.settingsName.trim();
   if(trimmed) S.me.name = trimmed;
   S.meColor = SWATCH[S.settingsColorIdx];
-  S.me.ageBand = S.settingsAgeBand;
+  S.myPhotoUrl = S.settingsPhotoUrl;
+  S.units = S.setUnits;
+  S.bodyProfile = {heightCm:S.setHeightCm, weightKg:S.setWeightKg, sex:S.setSex, age:S.setAge, activityLevel:S.setActivity};
+  S.me.ageBand = ageBandForAge(S.setAge);
   S.settingsOpen = false;
   render();
 }
@@ -1736,23 +1956,65 @@ function renderSettings(){
       <button class="btn-icon" onclick="closeSettings()">${icon('chevron-left',18)}</button>
       <span class="h2">Settings</span><span style="width:40px;"></span>
     </div>
-    <div class="row gap-md" style="margin-bottom:18px;">
-      <span id="setBadge">${badge(S.settingsName||'?', 60, SWATCH[S.settingsColorIdx])}</span>
+
+    <label class="caption" style="display:block;margin-bottom:6px;">PROFILE</label>
+    <div class="row gap-md" style="margin-bottom:12px;">
+      <label style="position:relative;cursor:pointer;">
+        <span id="setBadge">${badge(S.settingsName||'?', 60, SWATCH[S.settingsColorIdx], S.settingsPhotoUrl)}</span>
+        <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1);color:#fff;">${icon('camera',10)}</div>
+        <input type="file" accept="image/*" style="display:none;" onchange="handleSetPhoto(this)">
+      </label>
       <input class="textfield" placeholder="Your name" value="${S.settingsName}"
         style="flex:1;height:56px;font-size:18px;font-weight:800;"
-        oninput="S.settingsName=this.value;document.getElementById('setBadge').innerHTML=badge(this.value||'?',60,SWATCH[S.settingsColorIdx]);">
+        oninput="S.settingsName=this.value;document.getElementById('setBadge').innerHTML=badge(this.value||'?',60,SWATCH[S.settingsColorIdx],S.settingsPhotoUrl);">
     </div>
+    ${S.settingsPhotoUrl?`<button class="caption" style="color:var(--coral);background:none;border:none;padding:0;margin-bottom:12px;cursor:pointer;" onclick="S.settingsPhotoUrl=null;render()">Remove Photo</button>`:''}
     <label class="caption" style="display:block;margin-bottom:6px;">COLOR</label>
-    <div class="row gap-sm" style="margin-bottom:20px;">
+    <div class="row gap-sm" style="margin-bottom:24px;">
       ${SWATCH.map((c,i)=>{const on=i===S.settingsColorIdx; return `<div onclick="S.settingsColorIdx=${i};render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
     </div>
-    <label class="caption" style="display:block;margin-bottom:6px;">FAIR PLAY AGE BAND</label>
-    <select class="dropdown" style="margin-bottom:24px;" onchange="S.settingsAgeBand=this.value">
-      ${AGE_BANDS.map(b=>`<option value="${b.label}" ${S.settingsAgeBand===b.label?'selected':''}>${b.label} — ${b.target.toLocaleString()} steps/day</option>`).join('')}
-    </select>
+
+    <label class="caption" style="display:block;margin-bottom:10px;">BODY &amp; ACTIVITY</label>
+    ${bodyProfileEditorHtml('set')}
+    <div style="margin:16px 0 24px;">${activityPickerHtml('set')}</div>
+    <div class="card tint-cyan" style="margin-bottom:24px;">
+      <div class="row between"><span class="body-text">Personalized step goal</span><span class="h3">${personalizedTarget({heightCm:S.setHeightCm,weightKg:S.setWeightKg,sex:S.setSex,age:S.setAge,activityLevel:S.setActivity}).toLocaleString()}/day</span></div>
+      <div class="row between" style="margin-top:6px;"><span class="body-text">Est. daily burn</span><span class="h3">${estimatedDailyCalories({heightCm:S.setHeightCm,weightKg:S.setWeightKg,sex:S.setSex,age:S.setAge,activityLevel:S.setActivity}).toLocaleString()} cal</span></div>
+    </div>
+
+    <label class="caption" style="display:block;margin-bottom:10px;">SECURITY</label>
+    <div class="card" style="margin-bottom:24px;">
+      <div class="row between">
+        <div><div class="h3">App Lock (PIN)</div><div class="caption">A device-local privacy screen — not a real account.</div></div>
+        <span class="pill ${S.appLock.enabled?'on':''}" style="cursor:pointer;" onclick="toggleAppLock()">${S.appLock.enabled?'On':'Off'}</span>
+      </div>
+    </div>
+
     <button class="btn btn-primary" style="margin-bottom:12px;" onclick="saveSettings()">Save Changes</button>
     <button class="btn btn-outline" onclick="closeSettings()">Cancel</button>
   </div>`;
+}
+function handleSetPhoto(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { S.settingsPhotoUrl = reader.result; render(); };
+  reader.readAsDataURL(file);
+}
+function toggleAppLock(){
+  if(S.appLock.enabled){
+    S.appLock = {enabled:false, pin:null};
+    S.locked = false;
+    saveAppLock();
+    render();
+  } else {
+    const pin = prompt('Set a 4–6 digit PIN for App Lock (stored on this device only):');
+    if(pin && /^\d{4,6}$/.test(pin)){
+      S.appLock = {enabled:true, pin};
+      saveAppLock();
+      render();
+    }
+  }
 }
 function sharePact(){
   const shareData = {title:'Pact', text:'Try Pact with me — a points-based challenge app for friends and family.', url: location.href};

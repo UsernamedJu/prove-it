@@ -18,6 +18,15 @@ enum AgeBand: String, CaseIterable, Identifiable {
         case .senior: return 6_500
         }
     }
+
+    static func forAge(_ age: Int) -> AgeBand {
+        switch age {
+        case ..<20: return .teen
+        case 20..<40: return .adult
+        case 40..<60: return .midlife
+        default: return .senior
+        }
+    }
 }
 
 /// A person in your crew. No avatar image or generated illustration — people

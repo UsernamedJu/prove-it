@@ -54,6 +54,25 @@ final class AppModel {
     var moodStreak = 3
     var moodLoggedToday = false
 
+    // MARK: Personalization — height/weight/sex/age/activity, feeding the
+    // step-target and calorie-burn calculations. "Me" only; crew don't need it.
+    var myBodyProfile = BodyProfile()
+    var myProfilePhotoData: Data?
+    var unitSystem: UnitSystem = .imperial
+
+    // MARK: Apple Health / Watch — see HealthKitManager for why this stays
+    // fully functional to toggle even before the capability is provisioned.
+    var healthKitConnected = false
+
+    // MARK: Sign in with Apple + Face ID / Touch ID app lock. Both are real,
+    // working security — Sign in with Apple just needs the paid Developer
+    // Program membership to actually authenticate (same restriction as
+    // HealthKit); the biometric lock works today on any account.
+    var isSignedIn = false
+    var signedInName: String?
+    var appLockEnabled = false
+    var isUnlocked = true
+
     // MARK: Chat — keyed by Member.id / ContactGroup.id. No real backend:
     // sending appends immediately, then a canned reply lands a beat later.
     var directMessages: [UUID: [ChatMessage]] = Fixtures.directMessages
@@ -96,10 +115,7 @@ final class AppModel {
     }
 
     var personalizedStepTarget: Int {
-        let base = Double(me.ageBand.fairPlayStepTarget)
-        let multiplier = 0.8 + (Double(fitnessScore) / 100) * 0.4
-        let raw = base * multiplier
-        return Int((raw / 50).rounded()) * 50
+        myBodyProfile.personalizedStepTarget(ageBand: me.ageBand)
     }
 
     /// A short, deterministic "this suits you" tag for a crew member — the
@@ -121,6 +137,21 @@ final class AppModel {
                                         motivation: motivation, sleep: sleep))
         moodStreak += 1
         moodLoggedToday = true
+    }
+
+    // MARK: Apple Health
+
+    func connectHealthKit() async {
+        healthKitConnected = await HealthKitManager.shared.requestAuthorization()
+    }
+
+    /// Pulls today's step count from Health and logs it against a steps
+    /// challenge, in place of the manual "Log Today" tap.
+    func syncTodayStepsFromHealth(for challengeID: UUID) async {
+        guard healthKitConnected, let steps = await HealthKitManager.shared.fetchTodaySteps() else { return }
+        guard let challenge = challenges.first(where: { $0.id == challengeID }), challenge.kind == .steps else { return }
+        let target = Double(challenge.dailyTarget)
+        logActivity(for: challengeID, hitTarget: target > 0 && Double(steps) >= target)
     }
 
     // MARK: Activity — appends real history, so charts read actual data

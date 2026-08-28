@@ -117,7 +117,27 @@ enum Fixtures {
         routeCoordinates: nil, winnerName: "You"
     )
 
-    static var challenges: [Challenge] { [finestCitySteps, laJollaCoastal, petcoParkFanWalk, balboaParkFamily] }
+    /// Fresh, just-started, and freely editable — the one to actually try
+    /// out today. (Named from "family Target ... challenge" in the request;
+    /// this is a best guess at a Target-run family step challenge — rename
+    /// freely if that's not what was meant.)
+    static let familyTargetRun = Challenge(
+        id: UUID(), title: "Family Target Run", icon: "cart.fill", kind: .steps,
+        venue: "Target · Mission Valley", rules: "Ranked by % of each person's personalized daily step target (Fair Play scoring).",
+        photoName: "photo-steps",
+        durationDays: 1, daysLeft: 1, dailyTarget: 6_000,
+        payoff: Payoff(icon: "cart.fill", text: "Loser pushes the cart the whole trip"),
+        standings: [
+            Standing(member: me, rank: 1, progress: 0, trendDelta: "—", progressHistory: [0]),
+            Standing(member: mom, rank: 2, progress: 0, trendDelta: "—", progressHistory: [0]),
+            Standing(member: dad, rank: 3, progress: 0, trendDelta: "—", progressHistory: [0]),
+            Standing(member: grandmaRose, rank: 4, progress: 0, trendDelta: "—", progressHistory: [0]),
+        ],
+        myMemberID: me.id, blindReveal: false, fairPlay: true, status: .active,
+        routeCoordinates: nil, winnerName: nil
+    )
+
+    static var challenges: [Challenge] { [familyTargetRun, finestCitySteps, laJollaCoastal, petcoParkFanWalk, balboaParkFamily] }
     static var activeChallenges: [Challenge] { challenges.filter { $0.status != .complete } }
 
     // MARK: Suggested challenges (Home shows exactly one at a time, cycling through these)

@@ -67,7 +67,7 @@ struct HomeView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                InitialBadge(name: app.me.name, size: 44, overrideColor: app.meColor)
+                InitialBadge(name: app.me.name, size: 44, overrideColor: app.meColor, photoData: app.myProfilePhotoData)
             }
             HStack(alignment: .top, spacing: Theme.Space.sm) {
                 Image(systemName: "megaphone.fill")

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Stable per-identity color (no avatar generation, just a deterministic tag)
 
@@ -30,20 +31,28 @@ struct InitialBadge: View {
     let name: String
     var size: CGFloat = 40
     var overrideColor: Color? = nil
+    /// A real uploaded photo, when present, replaces the plush-avatar face
+    /// entirely — the face is the fallback for everyone who hasn't set one.
+    var photoData: Data? = nil
 
     @State private var breathe = false
 
     private var fill: Color { overrideColor ?? swatchColor(for: name) }
+    private var photoImage: UIImage? { photoData.flatMap(UIImage.init(data:)) }
 
     var body: some View {
         ZStack {
-            Circle().fill(fill)
-            Image("texture-plush")
-                .resizable()
-                .scaledToFill()
-                .blendMode(.multiply)
-                .opacity(0.55)
-            SimpleFace(size: size, dark: isLightColor(fill))
+            if let photoImage {
+                Image(uiImage: photoImage).resizable().scaledToFill()
+            } else {
+                Circle().fill(fill)
+                Image("texture-plush")
+                    .resizable()
+                    .scaledToFill()
+                    .blendMode(.multiply)
+                    .opacity(0.55)
+                SimpleFace(size: size, dark: isLightColor(fill))
+            }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
@@ -375,6 +384,119 @@ struct PactDropdown<T: Hashable>: View {
             .glassSurface(cornerRadius: Theme.Radius.md)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Body profile inputs — shared by onboarding and Settings so the
+// height/weight/sex/age/activity entry UI only exists in one place.
+
+struct BodyProfileEditor: View {
+    @Binding var profile: BodyProfile
+    @Binding var units: UnitSystem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.lg) {
+            Picker("Units", selection: $units) {
+                ForEach(UnitSystem.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .tint(Theme.Brand.purple)
+
+            field(label: "Height") {
+                if units == .imperial {
+                    let hw = profile.heightFeetInches
+                    HStack(spacing: Theme.Space.md) {
+                        Stepper("\(hw.feet) ft", value: Binding(
+                            get: { hw.feet },
+                            set: { profile.setHeight(feet: $0, inches: hw.inches) }
+                        ), in: 3...7)
+                        Stepper("\(hw.inches) in", value: Binding(
+                            get: { hw.inches },
+                            set: { profile.setHeight(feet: hw.feet, inches: $0) }
+                        ), in: 0...11)
+                    }
+                } else {
+                    Stepper("\(Int(profile.heightCm)) cm", value: Binding(
+                        get: { Int(profile.heightCm) },
+                        set: { profile.heightCm = Double($0) }
+                    ), in: 100...230)
+                }
+            }
+
+            field(label: "Weight") {
+                if units == .imperial {
+                    Stepper("\(Int(profile.weightLb)) lb", value: Binding(
+                        get: { Int(profile.weightLb) },
+                        set: { profile.setWeightLb(Double($0)) }
+                    ), in: 60...400)
+                } else {
+                    Stepper("\(Int(profile.weightKg)) kg", value: Binding(
+                        get: { Int(profile.weightKg) },
+                        set: { profile.weightKg = Double($0) }
+                    ), in: 30...180)
+                }
+            }
+
+            field(label: "Age") {
+                Stepper("\(profile.age) years old", value: $profile.age, in: 13...100)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("SEX").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                Text("Used only for the calorie-burn estimate below.").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                HStack(spacing: Theme.Space.sm) {
+                    ForEach(Sex.allCases) { s in
+                        let on = profile.sex == s
+                        Button { profile.sex = s } label: {
+                            Text(s.rawValue).font(Theme.Font.caption()).fontWeight(.semibold)
+                                .foregroundStyle(on ? .white : Theme.Ink.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(on ? Theme.Brand.purple : Theme.Surface.card)
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous).stroke(Theme.Surface.border, lineWidth: on ? 0 : 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func field<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased()).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+            content()
+                .padding(Theme.Space.md)
+                .glassSurface(cornerRadius: Theme.Radius.md)
+        }
+    }
+}
+
+struct ActivityLevelPicker: View {
+    @Binding var level: ActivityLevel
+
+    var body: some View {
+        VStack(spacing: Theme.Space.xs) {
+            ForEach(ActivityLevel.allCases) { l in
+                let on = level == l
+                Button { level = l } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(l.rawValue).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                            Text(l.subtitle).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        }
+                        Spacer()
+                        Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 22)).foregroundStyle(on ? Theme.Brand.purple : Theme.Ink.tertiary)
+                    }
+                    .padding(Theme.Space.md)
+                    .frame(minHeight: 56)
+                    .glassSurface(cornerRadius: Theme.Radius.md, tint: on ? Theme.Brand.purple : nil)
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 

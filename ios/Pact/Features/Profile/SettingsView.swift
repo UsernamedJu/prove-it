@@ -162,7 +162,7 @@ struct SettingsView: View {
                 )) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Require Face ID / Touch ID").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Locks Pact whenever it's reopened.").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        Text("Locks Prove it whenever it's reopened.").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     }
                 }
                 .tint(Theme.Brand.purple)

@@ -131,8 +131,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = B7H47WD4BU;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Pact securely with Face ID.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pact reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
+				INFOPLIST_KEY_CFBundleDisplayName = "Prove it";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Prove it securely with Face ID.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Prove it reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
@@ -156,8 +157,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = B7H47WD4BU;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Pact securely with Face ID.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pact reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
+				INFOPLIST_KEY_CFBundleDisplayName = "Prove it";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Prove it securely with Face ID.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Prove it reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;

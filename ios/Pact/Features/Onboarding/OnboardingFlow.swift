@@ -163,7 +163,7 @@ struct OnboardingFlow: View {
     private var motivationStep: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Text("What brings you to Pact?").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
+                Text("What brings you to Prove it?").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                 Text("Pick what fits best — it shapes what we suggest.").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
             }
             .padding(.top, Theme.Space.xl)

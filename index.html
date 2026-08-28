@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Pact</title>
+<title>Prove it</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   :root{
@@ -709,7 +709,7 @@ function renderAppLockScreen(){
   return `<div class="screen" style="padding-top:80px;text-align:center;">
     ${pactMark(32)}
     <div style="color:var(--purple);margin:16px 0 8px;">${icon('lock-keyhole',44)}</div>
-    <h2 class="h2" style="margin-bottom:6px;">Pact is locked</h2>
+    <h2 class="h2" style="margin-bottom:6px;">Prove it is locked</h2>
     <p class="body-text" style="margin-bottom:20px;">Enter your PIN to continue.</p>
     <input type="password" inputmode="numeric" maxlength="6" id="lockPinInput" class="textfield"
       style="text-align:center;font-size:22px;letter-spacing:6px;margin-bottom:12px;" placeholder="••••"
@@ -829,7 +829,7 @@ function renderOnboarding(){
       <button class="btn btn-primary" style="margin-top:16px;" onclick="S.obStep=3;render()">Continue</button>`;
   } else if(step===3){
     body = `
-      <h1 class="h1" style="margin:10px 0 6px;">What brings you to Pact?</h1>
+      <h1 class="h1" style="margin:10px 0 6px;">What brings you to Prove it?</h1>
       <p class="body-text" style="margin-bottom:20px;">Pick what fits best — it shapes what we suggest.</p>
       <div class="stack gap-sm" style="margin-bottom:24px;">
         ${MOTIVATIONS.map(m=>{const on=S.obMotivation===m.id;
@@ -1714,7 +1714,7 @@ function detailDetails(c){
 }
 function detailMap(c){
   return `<div class="maptile"><div id="detail-map" style="height:320px;"></div></div>
-    <p class="caption" style="margin-top:10px;">Real map tiles, themed to match Pact — drag or pinch to explore the route.</p>`;
+    <p class="caption" style="margin-top:10px;">Real map tiles, themed to match Prove it — drag or pinch to explore the route.</p>`;
 }
 function resolveChallenge(id){
   const c = S.challenges.find(c=>c.id===id);
@@ -1912,7 +1912,7 @@ function renderProfile(){
       <p class="h3" style="margin:8px 0 6px;">${q.text}</p>
       <p class="caption">— ${q.athlete}</p>
     </div>
-    <button class="btn btn-outline" style="margin-bottom:20px;" onclick="sharePact()">${icon('share-2',18)} Share Pact with Friends &amp; Family</button>
+    <button class="btn btn-outline" style="margin-bottom:20px;" onclick="sharePact()">${icon('share-2',18)} Share Prove it with Friends &amp; Family</button>
     <h2 class="h2" style="margin-bottom:10px;">Recent Challenges</h2>
     ${completed.length===0?`<p class="caption">Nothing settled yet — your first result will show up here.</p>`:''}
     ${completed.map(c=>{
@@ -2017,9 +2017,9 @@ function toggleAppLock(){
   }
 }
 function sharePact(){
-  const shareData = {title:'Pact', text:'Try Pact with me — a points-based challenge app for friends and family.', url: location.href};
+  const shareData = {title:'Prove it', text:'Try Prove it with me — a points-based challenge app for friends and family.', url: location.href};
   if(navigator.share){ navigator.share(shareData).catch(()=>{}); }
-  else { alert("Share this page's link or send the Pact HTML file directly — Web Share isn't available in this browser."); }
+  else { alert("Share this page's link or send the Prove it HTML file directly — Web Share isn't available in this browser."); }
 }
 
 // ---------- Tab bar ----------

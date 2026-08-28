@@ -18,7 +18,7 @@ struct SignInView: View {
                 Spacer()
                 PactMark(size: 44)
                 VStack(spacing: Theme.Space.sm) {
-                    Text("Welcome to Pact").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
+                    Text("Welcome to Prove it").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                     Text("Sign in to keep your challenges and crew tied to your account.")
                         .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
                         .multilineTextAlignment(.center)

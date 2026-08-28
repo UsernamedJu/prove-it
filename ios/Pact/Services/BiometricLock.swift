@@ -6,7 +6,7 @@ import LocalAuthentication
 /// Program membership is required for `LocalAuthentication`.
 @MainActor
 enum BiometricLock {
-    static func unlock(reason: String = "Unlock Pact") async -> Bool {
+    static func unlock(reason: String = "Unlock Prove it") async -> Bool {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return false }

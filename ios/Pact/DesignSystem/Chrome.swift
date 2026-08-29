@@ -75,11 +75,17 @@ private struct SimpleFace: View {
     var size: CGFloat
     var dark: Bool = false
 
+    /// Blinks on its own randomized clock rather than a fixed
+    /// `repeatForever` interval, so a screen full of avatars doesn't blink
+    /// in creepy unison — each `SimpleFace` schedules its own next blink
+    /// independently.
+    @State private var eyesClosed = false
+
     var body: some View {
         ZStack {
             HStack(spacing: size * 0.22) {
-                Capsule().frame(width: size * 0.06, height: size * 0.13)
-                Capsule().frame(width: size * 0.06, height: size * 0.13)
+                eye
+                eye
             }
             .offset(y: -size * 0.16)
 
@@ -89,6 +95,21 @@ private struct SimpleFace: View {
                 .offset(y: size * 0.15)
         }
         .foregroundStyle(dark ? Theme.Ink.primary : Color.white)
+        .onAppear(perform: scheduleNextBlink)
+    }
+
+    private var eye: some View {
+        Capsule().frame(width: size * 0.06, height: eyesClosed ? size * 0.02 : size * 0.13)
+    }
+
+    private func scheduleNextBlink() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .random(in: 2.2...5.5)) {
+            withAnimation(.easeInOut(duration: 0.08)) { eyesClosed = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) {
+                withAnimation(.easeInOut(duration: 0.13)) { eyesClosed = false }
+                scheduleNextBlink()
+            }
+        }
     }
 }
 
@@ -973,19 +994,26 @@ struct RaceTrackProgress: View {
 // bar stays quiet until you look for the thing you want.
 
 struct PillTabBar: View {
-    @Binding var selection: Tab
+    var selection: Tab
+    var onSelect: (Tab) -> Void
+    /// Ties every tab's highlight background to one shared geometry, so
+    /// switching tabs slides the *pill* laterally from the old icon to the
+    /// new one instead of fading out in one spot and back in at another —
+    /// the page behind the bar still cuts instantly (see `MainTabView`).
+    @Namespace private var indicator
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Tab.allCases) { tab in
                 let isOn = tab == selection
                 Button {
-                    selection = tab
+                    onSelect(tab)
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: tab.icon).font(.system(size: 18, weight: .semibold))
                         if isOn {
                             Text(tab.rawValue).font(Theme.Font.h3()).lineLimit(1)
+                                .transition(.opacity)
                         }
                     }
                     .foregroundStyle(isOn ? Color.white : Theme.Ink.tertiary)
@@ -998,6 +1026,7 @@ struct PillTabBar: View {
                                 Capsule().fill(Theme.Brand.cyan.opacity(0.92))
                                 Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.85)
                             }
+                            .matchedGeometryEffect(id: "activeTabPill", in: indicator)
                         }
                     }
                     .clipShape(Capsule())

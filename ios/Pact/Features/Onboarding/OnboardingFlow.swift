@@ -14,6 +14,9 @@ struct OnboardingFlow: View {
     @State private var motivation: Motivation?
     @State private var crewName = ""
     @State private var invitedCrew: [String] = []
+    /// Drives which edge each step slides in/out from, so Back visibly
+    /// reverses Continue instead of every step sliding the same direction.
+    @State private var navigatingBack = false
 
     private let totalSteps = 7
 
@@ -38,7 +41,7 @@ struct OnboardingFlow: View {
             PactBackground()
             VStack(spacing: Theme.Space.lg) {
                 if step > 0 {
-                    FlowHeader(step: step, total: totalSteps, onBack: { withAnimation(Theme.Motion.pop) { step -= 1 } })
+                    FlowHeader(step: step, total: totalSteps, onBack: { goTo(step - 1) })
                         .padding(.horizontal, Theme.Space.lg)
                         .padding(.top, Theme.Space.md)
                 }
@@ -55,22 +58,32 @@ struct OnboardingFlow: View {
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                .transition(.asymmetric(
+                    insertion: .move(edge: navigatingBack ? .leading : .trailing),
+                    removal: .move(edge: navigatingBack ? .trailing : .leading)
+                ))
                 .id(step)
             }
         }
+    }
+
+    /// Advances or retreats the flow with a direction-aware slide instead of
+    /// a bouncy fade — a plain push/pop feel, closer to `UINavigationController`.
+    private func goTo(_ target: Int) {
+        navigatingBack = target < step
+        withAnimation(Theme.Motion.push) { step = target }
     }
 
     // MARK: Step 0 — name, photo, color
 
     private var setupStep: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
-            Spacer()
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 PactMark(size: 30)
                 Text("Let's set you up").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                 Text("A few quick things, then you're in.").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
             }
+            .padding(.top, Theme.Space.xl)
 
             HStack(spacing: Theme.Space.md) {
                 PhotosPicker(selection: $photoItem, matching: .images) {
@@ -110,7 +123,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button("Continue →") { withAnimation(Theme.Motion.pop) { step = 1 } }
+            Button("Continue →") { goTo(1) }
                 .buttonStyle(PactButtonStyle(kind: .primary))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
@@ -132,7 +145,7 @@ struct OnboardingFlow: View {
                 BodyProfileEditor(profile: $bodyProfile, units: $units)
 
                 Spacer(minLength: Theme.Space.xl)
-                Button("Continue →") { withAnimation(Theme.Motion.pop) { step = 2 } }
+                Button("Continue →") { goTo(2) }
                     .buttonStyle(PactButtonStyle(kind: .primary))
             }
             .padding(.horizontal, Theme.Space.lg)
@@ -152,7 +165,7 @@ struct OnboardingFlow: View {
             ActivityLevelPicker(level: $bodyProfile.activityLevel)
 
             Spacer()
-            Button("Continue →") { withAnimation(Theme.Motion.pop) { step = 3 } }
+            Button("Continue →") { goTo(3) }
                 .buttonStyle(PactButtonStyle(kind: .primary))
         }
         .padding(.horizontal, Theme.Space.lg)
@@ -188,7 +201,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button("Continue →") { withAnimation(Theme.Motion.pop) { step = 4 } }
+            Button("Continue →") { goTo(4) }
                 .buttonStyle(PactButtonStyle(kind: .primary))
                 .disabled(motivation == nil)
                 .opacity(motivation == nil ? 0.5 : 1)
@@ -249,7 +262,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button(invitedCrew.isEmpty ? "Skip for now →" : "Continue →") { withAnimation(Theme.Motion.pop) { step = 5 } }
+            Button(invitedCrew.isEmpty ? "Skip for now →" : "Continue →") { goTo(5) }
                 .buttonStyle(PactButtonStyle(kind: invitedCrew.isEmpty ? .outline : .primary))
         }
         .padding(.horizontal, Theme.Space.lg)
@@ -330,7 +343,7 @@ struct OnboardingFlow: View {
                     .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 
                 Spacer(minLength: Theme.Space.xl)
-                Button("Continue →") { withAnimation(Theme.Motion.pop) { step = 6 } }
+                Button("Continue →") { goTo(6) }
                     .buttonStyle(PactButtonStyle(kind: .primary))
             }
             .padding(.horizontal, Theme.Space.lg)

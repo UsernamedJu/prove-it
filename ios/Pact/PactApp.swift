@@ -61,7 +61,6 @@ struct MainTabView: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        @Bindable var app = app
         Group {
             switch app.tab {
             case .home: NavigationStack { HomeView() }
@@ -71,12 +70,13 @@ struct MainTabView: View {
             case .me: NavigationStack { ProfileView() }
             }
         }
-        // Tab switches are instant, like the system Health app — this
-        // transaction guard guarantees no ambient animation ever sneaks in
-        // and fades the content, regardless of what triggered the switch.
+        // The screen itself cuts instantly, like the system Health app or
+        // Strava — the lateral slide lives entirely in the tab bar's own
+        // highlight pill (see `PillTabBar`), not the page behind it.
+        .transition(.identity)
         .transaction { $0.animation = nil }
         .safeAreaInset(edge: .bottom) {
-            PillTabBar(selection: $app.tab)
+            PillTabBar(selection: app.tab, onSelect: { tab in withAnimation(Theme.Motion.push) { app.tab = tab } })
                 .padding(.horizontal, Theme.Space.xs)
                 .padding(.bottom, Theme.Space.xs)
         }

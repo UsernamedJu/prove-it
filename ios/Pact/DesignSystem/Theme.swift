@@ -83,6 +83,11 @@ enum Theme {
         static func caption() -> SwiftUI.Font { .system(size: 14, weight: .medium, design: .rounded) }
         static func eyebrow() -> SwiftUI.Font { .system(size: 12, weight: .bold, design: .rounded) }
         static func button() -> SwiftUI.Font { .system(size: 17, weight: .bold, design: .rounded) }
+        /// The "Prove it" wordmark — a plain (not rounded) bold sans, paired
+        /// with tight tracking. The rounded/black `display()` face reads as
+        /// playful and works for stat numbers, but felt too bubbly/childish
+        /// as the actual logotype; this is the more grown-up alternative.
+        static func wordmark(_ size: CGFloat = 32) -> SwiftUI.Font { .system(size: size, weight: .bold, design: .default) }
     }
 
     enum Space {
@@ -107,6 +112,11 @@ enum Theme {
         static let pop = Animation.spring(response: 0.34, dampingFraction: 0.62)
         static let settle = Animation.spring(response: 0.45, dampingFraction: 0.82)
         static let fade = Animation.easeOut(duration: 0.28)
+        /// Lateral slides — onboarding/flow steps and the main tab bar.
+        /// A snappy, near-critically-damped spring reads as fluid iOS motion
+        /// without the visible overshoot of `pop`, which is reserved for
+        /// in-place UI feedback (taps, selection, toggles), not navigation.
+        static let push = Animation.spring(response: 0.34, dampingFraction: 0.86)
     }
 }
 

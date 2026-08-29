@@ -130,6 +130,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 339T9XTQ3F;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Prove it";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Prove it securely with Face ID.";
@@ -156,6 +157,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 339T9XTQ3F;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Prove it";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Prove it securely with Face ID.";

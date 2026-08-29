@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var photoData: Data?
     @State private var bodyProfile: BodyProfile
     @State private var units: UnitSystem
+    @State private var showAgeRange: Bool
     @State private var connectingHealth = false
 
     init(app: AppModel) {
@@ -21,6 +22,7 @@ struct SettingsView: View {
         _photoData = State(initialValue: app.myProfilePhotoData)
         _bodyProfile = State(initialValue: app.myBodyProfile)
         _units = State(initialValue: app.unitSystem)
+        _showAgeRange = State(initialValue: app.showAgeRangeOnProfile)
     }
 
     var body: some View {
@@ -96,6 +98,17 @@ struct SettingsView: View {
                         .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: colorIndex == i ? 3 : 0).padding(-4))
                         .onTapGesture { withAnimation(Theme.Motion.pop) { colorIndex = i } }
                 }
+            }
+
+            PactCard(tint: Theme.Ink.tertiary, showsAccent: false) {
+                Toggle(isOn: $showAgeRange) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Show age range on profile").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text("Displays your age band (e.g. \"\(AgeBand.forAge(bodyProfile.age).rawValue)\") under your name.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
+                }
+                .tint(Theme.Brand.purple)
             }
         }
     }
@@ -201,6 +214,7 @@ struct SettingsView: View {
         app.myBodyProfile = bodyProfile
         app.unitSystem = units
         app.me.ageBand = AgeBand.forAge(bodyProfile.age)
+        app.showAgeRangeOnProfile = showAgeRange
         dismiss()
     }
 }

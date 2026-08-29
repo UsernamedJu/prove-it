@@ -21,8 +21,11 @@ enum Tab: String, CaseIterable, Identifiable {
 }
 
 /// The single source of truth for the running app — onboarding state, the
-/// crew, groups, and challenges. Fixtures seed it; everything after that is
-/// in-memory only (no persistence layer yet).
+/// crew, groups, and challenges. Fixtures seed the social graph (crew,
+/// challenges, chat) fresh every launch — there's still no backend for that.
+/// The session itself (signed in / onboarded / who "me" is) now survives a
+/// relaunch via `PersistedSession`, below, so reopening the app doesn't
+/// dump a returning user back on the sign-in screen.
 ///
 /// There is no point balance, wallet, or stake/pot. Winning a challenge is
 /// just a recorded result — nothing is spent or credited anywhere. The only
@@ -32,19 +35,25 @@ enum Tab: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppModel {
-    var hasOnboarded = false
+    var hasOnboarded = false { didSet { persistSession() } }
     var tab: Tab = .home
-    var meColorIndex = 0
+    var meColorIndex = 0 { didSet { persistSession() } }
     var meColor: Color { Theme.Brand.swatch[meColorIndex % Theme.Brand.swatch.count] }
+    /// Off by default — the age band drives personalization (step target,
+    /// Fair Play scoring) whether or not it's ever shown; this only governs
+    /// whether it's printed under the name on Profile.
+    var showAgeRangeOnProfile = false { didSet { persistSession() } }
 
     var me = Fixtures.me {
         didSet {
-            guard me.name != oldValue.name else { return }
-            for i in challenges.indices {
-                if let j = challenges[i].standings.firstIndex(where: { $0.member.id == me.id }) {
-                    challenges[i].standings[j].member.name = me.name
+            if me.name != oldValue.name {
+                for i in challenges.indices {
+                    if let j = challenges[i].standings.firstIndex(where: { $0.member.id == me.id }) {
+                        challenges[i].standings[j].member.name = me.name
+                    }
                 }
             }
+            persistSession()
         }
     }
     var crew: [Member] = Fixtures.crew
@@ -56,9 +65,9 @@ final class AppModel {
 
     // MARK: Personalization — height/weight/sex/age/activity, feeding the
     // step-target and calorie-burn calculations. "Me" only; crew don't need it.
-    var myBodyProfile = BodyProfile()
-    var myProfilePhotoData: Data?
-    var unitSystem: UnitSystem = .imperial
+    var myBodyProfile = BodyProfile() { didSet { persistSession() } }
+    var myProfilePhotoData: Data? { didSet { persistSession() } }
+    var unitSystem: UnitSystem = .imperial { didSet { persistSession() } }
 
     // MARK: Apple Health / Watch — see HealthKitManager for why this stays
     // fully functional to toggle even before the capability is provisioned.
@@ -68,13 +77,13 @@ final class AppModel {
     // working security — Sign in with Apple just needs the paid Developer
     // Program membership to actually authenticate (same restriction as
     // HealthKit); the biometric lock works today on any account.
-    var isSignedIn = false
-    var signedInName: String?
+    var isSignedIn = false { didSet { persistSession() } }
+    var signedInName: String? { didSet { persistSession() } }
     /// How they got signed in — shown in Settings. Email/phone sign-in has
     /// no backend to verify against, so it's an identity label, not a
     /// verified credential; framed that way rather than faking security.
-    var signInMethod: String?
-    var appLockEnabled = false
+    var signInMethod: String? { didSet { persistSession() } }
+    var appLockEnabled = false { didSet { persistSession() } }
     var isUnlocked = true
 
     // MARK: Chat — keyed by Member.id / ContactGroup.id. No real backend:
@@ -263,6 +272,57 @@ final class AppModel {
             let reply = imageData != nil ? "Nice pic." : ChatBanter.reply(from: replier, sharedChallenge: context, seed: seed)
             groupMessages[groupID, default: []].append(ChatMessage(senderID: replier.id, text: reply))
             if openGroupChatID != groupID { unreadGroupIDs.insert(groupID) }
+        }
+    }
+
+    // MARK: Session persistence — just enough state to skip the sign-in and
+    // onboarding screens on a returning launch. The crew/challenges/chat
+    // fixtures still reset every launch; only "am I signed in, am I
+    // onboarded, and who am I" survives.
+
+    private static let sessionDefaultsKey = "com.jean.pact.session"
+
+    private struct PersistedSession: Codable {
+        var isSignedIn: Bool
+        var hasOnboarded: Bool
+        var signedInName: String?
+        var signInMethod: String?
+        var appLockEnabled: Bool
+        var showAgeRangeOnProfile: Bool
+        var meName: String
+        var meAgeBand: AgeBand
+        var meColorIndex: Int
+        var myProfilePhotoData: Data?
+        var myBodyProfile: BodyProfile
+        var unitSystem: UnitSystem
+    }
+
+    init() {
+        guard let data = UserDefaults.standard.data(forKey: Self.sessionDefaultsKey),
+              let saved = try? JSONDecoder().decode(PersistedSession.self, from: data) else { return }
+        isSignedIn = saved.isSignedIn
+        hasOnboarded = saved.hasOnboarded
+        signedInName = saved.signedInName
+        signInMethod = saved.signInMethod
+        appLockEnabled = saved.appLockEnabled
+        showAgeRangeOnProfile = saved.showAgeRangeOnProfile
+        me.name = saved.meName
+        me.ageBand = saved.meAgeBand
+        meColorIndex = saved.meColorIndex
+        myProfilePhotoData = saved.myProfilePhotoData
+        myBodyProfile = saved.myBodyProfile
+        unitSystem = saved.unitSystem
+    }
+
+    private func persistSession() {
+        let saved = PersistedSession(
+            isSignedIn: isSignedIn, hasOnboarded: hasOnboarded, signedInName: signedInName,
+            signInMethod: signInMethod, appLockEnabled: appLockEnabled, showAgeRangeOnProfile: showAgeRangeOnProfile,
+            meName: me.name, meAgeBand: me.ageBand, meColorIndex: meColorIndex,
+            myProfilePhotoData: myProfilePhotoData, myBodyProfile: myBodyProfile, unitSystem: unitSystem
+        )
+        if let data = try? JSONEncoder().encode(saved) {
+            UserDefaults.standard.set(data, forKey: Self.sessionDefaultsKey)
         }
     }
 }

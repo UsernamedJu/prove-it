@@ -3,7 +3,7 @@ import Foundation
 /// Age band drives Fair Play scoring — the mechanic that lets very different
 /// people compete as equals by racing a personalized target instead of a
 /// raw number.
-enum AgeBand: String, CaseIterable, Identifiable {
+enum AgeBand: String, CaseIterable, Identifiable, Codable {
     case teen = "13–19"
     case adult = "20–39"
     case midlife = "40–59"

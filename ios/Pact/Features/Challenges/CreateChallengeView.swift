@@ -17,6 +17,7 @@ struct CreateChallengeView: View {
     @State private var selectedInvitees: Set<UUID> = []
     @State private var selectedGroup: ContactGroup?
     @State private var step = 0
+    @State private var navigatingBack = false
     private let photoName: String
 
     private let totalSteps = 3
@@ -42,7 +43,7 @@ struct CreateChallengeView: View {
     var body: some View {
         VStack(spacing: Theme.Space.lg) {
             FlowHeader(step: step, total: totalSteps,
-                       onBack: { step == 0 ? dismiss() : withAnimation(Theme.Motion.pop) { step -= 1 } })
+                       onBack: { step == 0 ? dismiss() : goTo(step - 1) })
                 .padding(.horizontal, Theme.Space.lg)
                 .padding(.top, Theme.Space.md)
 
@@ -55,10 +56,19 @@ struct CreateChallengeView: View {
             }
             .frame(maxHeight: .infinity, alignment: .top)
             .id(step)
-            .transition(.opacity.combined(with: .move(edge: .trailing)))
+            .transition(.asymmetric(
+                insertion: .move(edge: navigatingBack ? .leading : .trailing),
+                removal: .move(edge: navigatingBack ? .trailing : .leading)
+            ))
         }
         .background(PactBackground())
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    /// Direction-aware slide instead of a bouncy fade — matches the Onboarding flow.
+    private func goTo(_ target: Int) {
+        navigatingBack = target < step
+        withAnimation(Theme.Motion.push) { step = target }
     }
 
     // MARK: Step 0 — basics: name, kind, venue, duration
@@ -297,7 +307,7 @@ struct CreateChallengeView: View {
     }
 
     private func continueButton(disabled: Bool) -> some View {
-        Button("Continue →") { withAnimation(Theme.Motion.pop) { step += 1 } }
+        Button("Continue →") { goTo(step + 1) }
             .buttonStyle(PactButtonStyle(kind: .primary))
             .disabled(disabled)
             .opacity(disabled ? 0.5 : 1)

@@ -1,6 +1,6 @@
 import Foundation
 
-enum Sex: String, CaseIterable, Identifiable {
+enum Sex: String, CaseIterable, Identifiable, Codable {
     case female = "Female"
     case male = "Male"
     case other = "Prefer not to say"
@@ -10,7 +10,7 @@ enum Sex: String, CaseIterable, Identifiable {
 /// Drives both the calorie-burn estimate (a real multiplier) and a gentler
 /// nudge on the step-count target — steps don't scale with activity the way
 /// calories do, so the two multipliers below are deliberately different.
-enum ActivityLevel: String, CaseIterable, Identifiable {
+enum ActivityLevel: String, CaseIterable, Identifiable, Codable {
     case sedentary = "Sedentary"
     case light = "Lightly active"
     case moderate = "Moderately active"
@@ -50,7 +50,7 @@ enum ActivityLevel: String, CaseIterable, Identifiable {
     }
 }
 
-enum UnitSystem: String, CaseIterable, Identifiable {
+enum UnitSystem: String, CaseIterable, Identifiable, Codable {
     case imperial = "Imperial"
     case metric = "Metric"
     var id: String { rawValue }
@@ -59,7 +59,7 @@ enum UnitSystem: String, CaseIterable, Identifiable {
 /// Everything used to personalize a step target and a calorie estimate for
 /// the signed-in user. Kept separate from `Member` since crew members never
 /// need this — only "me" does.
-struct BodyProfile: Hashable {
+struct BodyProfile: Hashable, Codable {
     var heightCm: Double = 170
     var weightKg: Double = 70
     var sex: Sex = .other

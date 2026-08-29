@@ -198,7 +198,92 @@
 <div class="shell" id="shell"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
+// ---------- Live sync (Firebase Firestore) ----------
+// Lets a challenge be shared as a link — anyone who opens it joins the same
+// "room" doc and sees live progress from everyone else. Config comes from
+// a free Firebase project (console.firebase.google.com): create one,
+// enable Firestore, register a Web app, and paste its config below. Until
+// then `db` stays null and shareChallenge() just tells the user sync isn't
+// set up yet — nothing else in the app depends on this.
+const FIREBASE_CONFIG = {
+  apiKey: "REPLACE_ME",
+  authDomain: "REPLACE_ME.firebaseapp.com",
+  projectId: "REPLACE_ME",
+  storageBucket: "REPLACE_ME.appspot.com",
+  messagingSenderId: "REPLACE_ME",
+  appId: "REPLACE_ME"
+};
+let db = null;
+const roomUnsubs = {};
+function initFirebase(){
+  try {
+    if (FIREBASE_CONFIG.apiKey !== "REPLACE_ME" && window.firebase) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    }
+  } catch(e){ console.warn('Firebase not configured yet:', e); }
+}
+function genRoomId(){
+  return Math.random().toString(36).slice(2,8).toUpperCase();
+}
+// Storage always keys the local viewer's own row as 'You' (see dn()) —
+// swap it for their real name before it leaves the device, and swap
+// whichever row matches their real name back to 'You' on the way in, so
+// every device keeps controlling its own row via the same 'You' lookups
+// the rest of the app already uses.
+function challengeForNetwork(c){
+  const copy = JSON.parse(JSON.stringify(c));
+  copy.standings.forEach(s=>{ if(s.name==='You') s.name = S.me.name; });
+  delete copy.roomId;
+  return copy;
+}
+function mergeChallengeFromNetwork(remote, roomId){
+  const merged = JSON.parse(JSON.stringify(remote));
+  merged.roomId = roomId;
+  merged.standings.forEach(s=>{ if(s.name===S.me.name) s.name = 'You'; });
+  if(!merged.standings.some(s=>s.name==='You')){
+    merged.standings.push({name:'You', rank: merged.standings.length+1, progress:0, delta:'—', hist:[0]});
+  }
+  const local = S.challenges.find(c=>c.id===merged.id);
+  if(local){ Object.assign(local, merged); } else { S.challenges.unshift(merged); }
+}
+function pushChallenge(c){
+  if(!db || !c.roomId) return;
+  db.collection('rooms').doc(c.roomId).set({
+    challenge: challengeForNetwork(c),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e=>console.warn('Sync push failed:', e));
+}
+function subscribeRoom(roomId){
+  if(!db || roomUnsubs[roomId]) return;
+  roomUnsubs[roomId] = db.collection('rooms').doc(roomId).onSnapshot(doc=>{
+    const data = doc.data();
+    if(!data || !data.challenge) return;
+    mergeChallengeFromNetwork(data.challenge, roomId);
+    render();
+  }, e=>console.warn('Sync subscribe failed:', e));
+}
+function shareChallenge(id){
+  const c = S.challenges.find(c=>c.id===id);
+  if(!c) return;
+  if(!db){ alert("Live sync isn't set up on this copy of the app yet."); return; }
+  if(!c.roomId) c.roomId = genRoomId();
+  pushChallenge(c);
+  subscribeRoom(c.roomId);
+  const url = location.origin + location.pathname + '?room=' + c.roomId;
+  if(navigator.share){ navigator.share({title:c.title, text:'Join my challenge on Prove it!', url}).catch(()=>{}); }
+  else if(navigator.clipboard){ navigator.clipboard.writeText(url).then(()=>alert('Link copied — send it to your crew:\n'+url)); }
+  else { prompt('Send this link to your crew:', url); }
+  render();
+}
+function joinRoomFromURL(){
+  const roomId = new URLSearchParams(location.search).get('room');
+  if(roomId && db) subscribeRoom(roomId);
+}
+
 // ---------- Icons (Lucide, MIT licensed) ----------
 const ICON_PATHS = {
   'footprints': `<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z" /> <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z" /> <path d="M16 17h4" /> <path d="M4 13h4" />`,
@@ -1226,6 +1311,7 @@ function logToday(id){
   const c = S.challenges.find(c=>c.id===id);
   const mine = c.standings.find(s=>s.name==='You');
   if(mine){ mine.progress = Math.min(1, mine.progress + 0.08); mine.hist.push(mine.progress); }
+  if(c.roomId) pushChallenge(c);
   render();
 }
 
@@ -1607,7 +1693,10 @@ function renderDetail(){
   }
   return `
     <div class="hero" style="background:linear-gradient(160deg, ${tint}cc, rgba(0,0,0,0.55)), url('${photoOf(c.photo)}'); background-size:cover; background-position:center; background-blend-mode:multiply;">
-      <button class="btn-icon" style="background:rgba(0,0,0,0.35);margin-bottom:14px;" onclick="closeChallenge()">${icon('chevron-left',18)}</button>
+      <div class="row between" style="margin-bottom:14px;">
+        <button class="btn-icon" style="background:rgba(0,0,0,0.35);" onclick="closeChallenge()">${icon('chevron-left',18)}</button>
+        <button class="btn-icon" style="background:rgba(0,0,0,0.35);" onclick="shareChallenge('${c.id}')" title="${c.roomId?'Synced — share the link again':'Share & sync with friends'}">${icon(c.roomId?'refresh-cw':'share-2',18)}</button>
+      </div>
       <div style="color:#fff;">${icon(c.icon,36)}</div>
       <h1 style="font-size:24px;font-weight:800;color:#fff;margin:6px 0 4px;">${c.title}</h1>
       <p style="color:rgba(255,255,255,.85);font-weight:600;margin-bottom:10px;font-size:14px;">${c.venue} · ${c.standings.length} people · ${c.daysLeft}d left</p>
@@ -1615,6 +1704,7 @@ function renderDetail(){
         <span class="tag" style="background:${tint};color:#fff;">${icon(c.icon,12)} ${c.kind}</span>
         ${c.blind?`<span class="tag" style="background:rgba(255,255,255,.25);color:#fff;">${icon('eye-off',12)} Blind Reveal</span>`:''}
         ${c.fair?`<span class="tag" style="background:rgba(255,255,255,.25);color:#fff;">${icon('scale',12)} Fair Play</span>`:''}
+        ${c.roomId?`<span class="tag" style="background:rgba(47,168,79,0.9);color:#fff;">${icon('refresh-cw',12)} Live synced</span>`:''}
       </div>
       <div class="row gap-sm">
         ${heroStat(mine?('#'+mine.rank):'—','Rank')}
@@ -1755,6 +1845,7 @@ function resolveChallenge(id){
   const winner = [...c.standings].sort((a,b)=>a.rank-b.rank)[0];
   c.status='complete'; c.winner=winner.name;
   S.justRevealed = id;
+  if(c.roomId) pushChallenge(c);
   render();
 }
 function celebrationOverlay(){
@@ -2069,6 +2160,8 @@ function renderTabbar(){
     </button>`).join('')}</div>`;
 }
 
+initFirebase();
+joinRoomFromURL();
 render();
 </script>
 </body>

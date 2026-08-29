@@ -65,12 +65,12 @@ struct OnboardingFlow: View {
 
     private var setupStep: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
+            Spacer()
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 PactMark(size: 30)
                 Text("Let's set you up").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                 Text("A few quick things, then you're in.").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
             }
-            .padding(.top, Theme.Space.xl)
 
             HStack(spacing: Theme.Space.md) {
                 PhotosPicker(selection: $photoItem, matching: .images) {

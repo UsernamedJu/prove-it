@@ -698,14 +698,28 @@ function mountMap(divId, coords, markers){
 // A real coordinate for a venue string — every challenge/suggestion is
 // grounded in an actual San Diego place, so the Map tab can drop a pin for
 // kinds (Steps/Custom) that don't carry a full route.
-function venueCoordinate(venue){
+// Only a handful of neighborhoods are known, so anything sharing one
+// (e.g. two different Balboa Park challenges) would otherwise land on the
+// exact same point and stack into unreadable overlapping pins. `seed`
+// (the challenge/suggestion's own title) nudges each by a small,
+// deterministic offset — same item always lands in the same spot, but
+// different items sharing a neighborhood spread out enough to read.
+function venueCoordinate(venue, seed){
   const v = (venue||'').toLowerCase();
-  if(v.includes('la jolla')) return [32.8508,-117.2713];
-  if(v.includes('gaslamp')||v.includes('petco')) return [32.7076,-117.1570];
-  if(v.includes('balboa')) return [32.7341,-117.1449];
-  if(v.includes('coronado')) return [32.6859,-117.1831];
-  if(v.includes('mission bay')) return [32.7757,-117.2264];
-  return [32.7157,-117.1611]; // Citywide · Downtown San Diego
+  let base;
+  if(v.includes('la jolla')) base = [32.8508,-117.2713];
+  else if(v.includes('gaslamp')||v.includes('petco')) base = [32.7076,-117.1570];
+  else if(v.includes('balboa')) base = [32.7341,-117.1449];
+  else if(v.includes('coronado')) base = [32.6859,-117.1831];
+  else if(v.includes('mission bay')) base = [32.7757,-117.2264];
+  else if(v.includes('mission valley')) base = [32.7677,-117.1670];
+  else base = [32.7157,-117.1611]; // Citywide · Downtown San Diego
+  if(!seed) return base;
+  const h = hashName(seed);
+  const jitter = 0.02; // ~2km — visible even at the city-wide zoom fitBounds() lands on
+  const dLat = ((h % 1000) / 1000 - 0.5) * jitter;
+  const dLng = ((Math.floor(h/1000) % 1000) / 1000 - 0.5) * jitter;
+  return [base[0]+dLat, base[1]+dLng];
 }
 function mountExploreMap(divId){
   requestAnimationFrame(()=>{
@@ -727,14 +741,14 @@ function mountExploreMap(divId){
         allPts.push(...latlngs);
         addExploreLivePin(map, latlngs[latlngs.length-1], c, tint);
       } else {
-        const pos = venueCoordinate(c.venue);
+        const pos = venueCoordinate(c.venue, c.title);
         addExploreLivePin(map, pos, c, tint);
         allPts.push(pos);
       }
     });
 
     S.suggestions.forEach(s=>{
-      const pos = venueCoordinate(s.venue);
+      const pos = venueCoordinate(s.venue, s.title);
       addExplorePendingPin(map, pos, s);
       allPts.push(pos);
     });
@@ -903,21 +917,21 @@ function renderOnboarding(){
       <div class="row gap-sm" style="margin-bottom:24px;">
         ${SWATCH.map((c,i)=>{const on=i===S.obColorIdx; return `<div onclick="S.obColorIdx=${i};syncNameStep();render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
       </div>
-      <div style="flex:1;min-height:20px;"></div>
+      <div style="height:22px;"></div>
       <button class="btn btn-primary" id="obContinueBtn" ${S.obName.trim()?'':'disabled'} onclick="S.obStep=1;render()">Continue</button>`;
   } else if(step===1){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">About you</h1>
       <p class="body-text" style="margin-bottom:20px;">This is what turns a generic step count into your step count.</p>
       ${bodyProfileEditorHtml('ob')}
-      <div style="flex:1;min-height:20px;"></div>
+      <div style="height:22px;"></div>
       <button class="btn btn-primary" onclick="S.obStep=2;render()">Continue</button>`;
   } else if(step===2){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">How active are you day to day?</h1>
       <p class="body-text" style="margin-bottom:20px;">Outside of challenges — your normal week.</p>
       ${activityPickerHtml('ob')}
-      <div style="flex:1;min-height:16px;"></div>
+      <div style="height:22px;"></div>
       <button class="btn btn-primary" onclick="S.obStep=3;render()">Continue</button>`;
   } else if(step===3){
     body = `
@@ -929,7 +943,7 @@ function renderOnboarding(){
             <span style="color:${on?'var(--purple)':'var(--ink2)'};">${icon(m.icon,16)}</span><span class="body-text" style="color:var(--ink);flex:1;">${m.label}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('circle',18)+'</span>'}</div>`;
         }).join('')}
       </div>
-      <div style="flex:1;min-height:20px;"></div>
+      <div style="height:22px;"></div>
       <button class="btn btn-primary" ${S.obMotivation?'':'disabled'} onclick="S.obStep=4;render()">Continue</button>`;
   } else if(step===4){
     body = `
@@ -947,7 +961,7 @@ function renderOnboarding(){
               ${badge(n,36)}<span class="body-text" style="color:var(--ink);flex:1;">${n}</span>
               <span style="cursor:pointer;color:var(--ink3);" onclick="removeObCrew('${n}')">${icon('x',16)}</span>
             </div>`).join('')}</div>`}
-      <div style="flex:1;min-height:20px;"></div>
+      <div style="height:22px;"></div>
       <button class="btn ${S.obInvitedCrew.length?'btn-primary':'btn-outline'}" onclick="S.obStep=5;render()">${S.obInvitedCrew.length?'Continue':'Skip for now'}</button>`;
   } else if(step===5){
     const rec = onboardingRecommendation();
@@ -971,11 +985,11 @@ function renderOnboarding(){
         <p class="caption">${rec.blurb}</p>
       </div>
       <p class="caption" style="margin-bottom:20px;">All of this updates automatically as you log mood check-ins and challenge progress.</p>
-      <div style="flex:1;min-height:8px;"></div>
+      <div style="height:24px;"></div>
       <button class="btn btn-primary" onclick="S.obStep=6;render()">Continue</button>`;
   } else {
     body = `
-      <div style="text-align:center;padding-top:12px;flex:1;display:flex;flex-direction:column;">
+      <div style="text-align:center;padding-top:12px;">
         <img src="${photoOf('onboarding')}" style="width:100%;height:180px;object-fit:cover;border-radius:22px;margin-bottom:16px;border:1px solid var(--border);">
         <div style="color:var(--gold);">${icon('sparkles',44)}</div>
         <h1 class="holo" style="font-size:27px;margin:12px 0 6px;">You're in, ${S.obName||'champ'}!</h1>
@@ -986,11 +1000,11 @@ function renderOnboarding(){
           <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--blue);">${personalizedTarget({heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity}).toLocaleString()}</div><div class="caption">GOAL SET</div></div>
           <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--lime);">Ready</div><div class="caption">STATUS</div></div>
         </div>
-        <div style="flex:1;min-height:12px;"></div>
+        <div style="height:20px;"></div>
         <button class="btn btn-primary" onclick="finishOnboarding()">Let's Go</button>
       </div>`;
   }
-  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">${header}<div style="flex:1;display:flex;flex-direction:column;">${body}</div></div>`;
+  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">${header}<div style="flex:1;display:flex;flex-direction:column;justify-content:center;">${body}</div></div>`;
 }
 
 // Shared height/weight/age/sex editor — used by onboarding ("ob" prefix)
@@ -1926,7 +1940,7 @@ function renderCreate(){
       </div>
       ${cr.useCustomPayoff?`<input class="textfield" value="${cr.customPayoff}" oninput="S.create.customPayoff=this.value;" placeholder="e.g. Loser walks the dog for a month"
         style="margin-bottom:16px;">`:'<div style="margin-bottom:16px;"></div>'}
-      <div style="flex:1;min-height:8px;"></div>
+      <div style="height:24px;"></div>
       <button class="btn btn-primary" id="createContinueBtn" ${cr.title.trim()?'':'disabled'} onclick="S.create.step=1;render()">Continue</button>`;
   } else if(step===1){
     body = `
@@ -1945,7 +1959,7 @@ function renderCreate(){
         ${toggleRow('Blind Reveal','Hide scores until the final 72 hours.','eye-off','blind')}
         ${toggleRow('Fair Play',"Score by % of each person's own daily target.",'scale','fair')}
       </div>
-      <div style="flex:1;min-height:8px;"></div>
+      <div style="height:24px;"></div>
       <button class="btn btn-primary" onclick="S.create.step=2;render()">Continue</button>`;
   } else {
     const payoffText = cr.useCustomPayoff ? (cr.customPayoff.trim()||'Loser’s choice — decide later') : PAYOFFS[cr.payoffIdx].text;
@@ -1963,10 +1977,10 @@ function renderCreate(){
       <div class="card tint-gold" style="margin-bottom:20px;">
         <div class="row gap-sm"><span style="color:var(--gold);">${icon(payoffIcon,20)}</span><div><div class="caption" style="margin-bottom:2px;">THE DEAL</div><div class="body-text" style="color:var(--ink);">${payoffText}</div></div></div>
       </div>
-      <div style="flex:1;min-height:8px;"></div>
+      <div style="height:24px;"></div>
       <button class="btn btn-primary" onclick="sendChallenge()">${icon('sparkles',18)} Send Challenge</button>`;
   }
-  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">${header}<div style="flex:1;display:flex;flex-direction:column;">${body}</div></div>`;
+  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">${header}<div style="flex:1;display:flex;flex-direction:column;justify-content:center;">${body}</div></div>`;
 }
 function selectGroup(name){
   const cr = S.create;

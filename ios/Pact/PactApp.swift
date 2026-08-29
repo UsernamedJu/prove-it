@@ -71,6 +71,10 @@ struct MainTabView: View {
             case .me: NavigationStack { ProfileView() }
             }
         }
+        // Tab switches are instant, like the system Health app — this
+        // transaction guard guarantees no ambient animation ever sneaks in
+        // and fades the content, regardless of what triggered the switch.
+        .transaction { $0.animation = nil }
         .safeAreaInset(edge: .bottom) {
             PillTabBar(selection: $app.tab)
                 .padding(.horizontal, Theme.Space.xs)

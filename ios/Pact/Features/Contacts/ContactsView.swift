@@ -47,6 +47,11 @@ struct ContactsView: View {
             .padding(Theme.Space.lg)
             .padding(.bottom, Theme.Space.xxl)
         }
+        // Without this, ScrollView's own interactive keyboard dismissal
+        // swallows the *first* tap on the "+" button whenever the name
+        // field is focused — it just closes the keyboard instead of
+        // adding the contact, so the button reads as broken.
+        .scrollDismissesKeyboard(.immediately)
         .background(PactBackground())
         .sheet(isPresented: $showNewGroup) { NewGroupSheet() }
         .navigationDestination(for: Route.self) { route in

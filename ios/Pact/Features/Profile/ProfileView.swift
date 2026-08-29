@@ -74,12 +74,14 @@ struct ProfileView: View {
         let fit = app.fitTag(for: app.me)
         return PactCard(tint: Theme.Brand.cyan) {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                HStack {
-                    Text("Fitness Score").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                HStack(spacing: Theme.Space.md) {
+                    FitnessRing(score: app.fitnessScore)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Fitness Score").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text("Recent mood + activity").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
                     Spacer()
-                    Text("\(app.fitnessScore)").font(Theme.Font.number(22)).foregroundStyle(Theme.Brand.cyan)
                 }
-                ProgressPill(progress: Double(app.fitnessScore) / 100, tint: Theme.Brand.cyan, height: 8)
                 Text("From your recent mood trend and how often you're logging progress. Used only to recommend workout types and gauge challenge fit — not a currency.")
                     .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                 Divider().overlay(Theme.Surface.border)
@@ -144,6 +146,27 @@ struct ProfileView: View {
                 Divider().overlay(Theme.Surface.border)
             }
         }
+    }
+}
+
+/// A ring instead of a linear bar — the same visual language as Apple's
+/// own Activity rings, reads at a glance instead of needing a number+bar.
+/// The arc uses the same holo gradient (purple→gold→pink) as the app's
+/// logo/wordmark, not a flat tint.
+private struct FitnessRing: View {
+    let score: Int
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Theme.Ink.tertiary.opacity(0.15), lineWidth: 8)
+            Circle()
+                .trim(from: 0, to: CGFloat(score) / 100)
+                .stroke(Theme.Brand.holo, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(Theme.Motion.settle, value: score)
+            Text("\(score)").font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
+        }
+        .frame(width: 64, height: 64)
     }
 }
 

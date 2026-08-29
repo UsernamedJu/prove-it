@@ -8,12 +8,16 @@ struct ChatMessage: Identifiable, Hashable {
     var senderID: UUID
     var text: String
     var date: Date
+    /// A picture attached to the message — held in memory only, matching
+    /// how the rest of the app has no persistence layer.
+    var imageData: Data?
 
-    init(id: UUID = UUID(), senderID: UUID, text: String, date: Date = Date()) {
+    init(id: UUID = UUID(), senderID: UUID, text: String, date: Date = Date(), imageData: Data? = nil) {
         self.id = id
         self.senderID = senderID
         self.text = text
         self.date = date
+        self.imageData = imageData
     }
 }
 

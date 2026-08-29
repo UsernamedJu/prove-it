@@ -53,6 +53,14 @@ enum Theme {
             colors: [purple, gold, pink],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
+
+        /// A spread of greens (yellow-green → mint → forest → deep teal-green)
+        /// for onboarding/settings body-profile sliders — a "rainbow" that
+        /// stays inside the green family, distinct from `holo`'s purple/gold/pink.
+        static let greenHolo = LinearGradient(
+            colors: [Color(hex: 0xA3E635), Color(hex: 0x4ADE80), Color(hex: 0x16A34A), Color(hex: 0x065F46)],
+            startPoint: .leading, endPoint: .trailing
+        )
     }
 
     enum Status {

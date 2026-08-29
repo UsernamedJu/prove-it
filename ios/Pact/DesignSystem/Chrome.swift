@@ -405,40 +405,46 @@ struct BodyProfileEditor: View {
             field(label: "Height") {
                 if units == .imperial {
                     let hw = profile.heightFeetInches
-                    HStack(spacing: Theme.Space.md) {
-                        Stepper("\(hw.feet) ft", value: Binding(
-                            get: { hw.feet },
-                            set: { profile.setHeight(feet: $0, inches: hw.inches) }
-                        ), in: 3...7)
-                        Stepper("\(hw.inches) in", value: Binding(
-                            get: { hw.inches },
-                            set: { profile.setHeight(feet: hw.feet, inches: $0) }
-                        ), in: 0...11)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(hw.feet) ft \(hw.inches) in").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        GradientRangeSlider(value: Binding(
+                            get: { profile.heightCm / 2.54 },
+                            set: { profile.heightCm = $0 * 2.54 }
+                        ), range: 40...84, step: 1)
                     }
                 } else {
-                    Stepper("\(Int(profile.heightCm)) cm", value: Binding(
-                        get: { Int(profile.heightCm) },
-                        set: { profile.heightCm = Double($0) }
-                    ), in: 100...230)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(Int(profile.heightCm)) cm").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        GradientRangeSlider(value: $profile.heightCm, range: 100...230, step: 1)
+                    }
                 }
             }
 
             field(label: "Weight") {
                 if units == .imperial {
-                    Stepper("\(Int(profile.weightLb)) lb", value: Binding(
-                        get: { Int(profile.weightLb) },
-                        set: { profile.setWeightLb(Double($0)) }
-                    ), in: 60...400)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(Int(profile.weightLb)) lb").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        GradientRangeSlider(value: Binding(
+                            get: { profile.weightLb },
+                            set: { profile.setWeightLb($0) }
+                        ), range: 60...400, step: 1)
+                    }
                 } else {
-                    Stepper("\(Int(profile.weightKg)) kg", value: Binding(
-                        get: { Int(profile.weightKg) },
-                        set: { profile.weightKg = Double($0) }
-                    ), in: 30...180)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(Int(profile.weightKg)) kg").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        GradientRangeSlider(value: $profile.weightKg, range: 30...180, step: 1)
+                    }
                 }
             }
 
             field(label: "Age") {
-                Stepper("\(profile.age) years old", value: $profile.age, in: 13...100)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                    GradientRangeSlider(value: Binding(
+                        get: { Double(profile.age) },
+                        set: { profile.age = Int($0) }
+                    ), range: 13...100, step: 1)
+                }
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -614,6 +620,51 @@ struct PactSlider: View {
                     .onChanged { g in
                         let frac = min(max(0, g.location.x / width), 1)
                         value = (Double(frac) * 9 + 1).rounded()
+                    }
+            )
+        }
+        .frame(height: 24)
+        .sensoryFeedback(.selection, trigger: value)
+    }
+}
+
+// MARK: - Green-gradient range slider (onboarding/settings body-profile fields)
+// A custom track instead of the system Slider, since Slider's `.tint()` only
+// takes a flat Color — no way to get a gradient fill on it. Mirrors
+// PactSlider's drag mechanics but generalized to an arbitrary range/step.
+
+struct GradientRangeSlider: View {
+    @Binding var value: Double
+    var range: ClosedRange<Double>
+    var step: Double = 1
+
+    @GestureState private var isDragging = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let fraction = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.Surface.border2).frame(height: 6)
+                Capsule().fill(Theme.Brand.greenHolo).frame(width: max(14, width * fraction), height: 6)
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 24, height: 24)
+                    .overlay(Circle().stroke(Color(hex: 0x16A34A), lineWidth: 3))
+                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                    .scaleEffect(isDragging ? 1.3 : 1.0)
+                    .offset(x: max(0, min(width, width * fraction)) - 12)
+                    .animation(Theme.Motion.pop, value: isDragging)
+            }
+            .frame(height: 24)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($isDragging) { _, state, _ in state = true }
+                    .onChanged { g in
+                        let frac = min(max(0, g.location.x / width), 1)
+                        let raw = range.lowerBound + Double(frac) * (range.upperBound - range.lowerBound)
+                        value = (raw / step).rounded() * step
                     }
             )
         }

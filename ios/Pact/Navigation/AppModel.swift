@@ -70,6 +70,10 @@ final class AppModel {
     // HealthKit); the biometric lock works today on any account.
     var isSignedIn = false
     var signedInName: String?
+    /// How they got signed in — shown in Settings. Email/phone sign-in has
+    /// no backend to verify against, so it's an identity label, not a
+    /// verified credential; framed that way rather than faking security.
+    var signInMethod: String?
     var appLockEnabled = false
     var isUnlocked = true
 
@@ -233,30 +237,30 @@ final class AppModel {
         return (challenge.title, standing.rank, challenge.myStanding?.rank)
     }
 
-    func sendDirectMessage(to memberID: UUID, text: String) {
+    func sendDirectMessage(to memberID: UUID, text: String, imageData: Data? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let member = crew.first(where: { $0.id == memberID }) else { return }
-        directMessages[memberID, default: []].append(ChatMessage(senderID: me.id, text: trimmed))
+        guard !trimmed.isEmpty || imageData != nil, let member = crew.first(where: { $0.id == memberID }) else { return }
+        directMessages[memberID, default: []].append(ChatMessage(senderID: me.id, text: trimmed, imageData: imageData))
         let seed = directMessages[memberID]?.count ?? 0
         let context = sharedChallengeContext(for: memberID)
         Task {
             try? await Task.sleep(for: .seconds(Double.random(in: 1.1...2.4)))
-            let reply = ChatBanter.reply(from: member, sharedChallenge: context, seed: seed)
+            let reply = imageData != nil ? "Nice pic." : ChatBanter.reply(from: member, sharedChallenge: context, seed: seed)
             directMessages[memberID, default: []].append(ChatMessage(senderID: memberID, text: reply))
             if openDirectChatID != memberID { unreadDirectIDs.insert(memberID) }
         }
     }
 
-    func sendGroupMessage(to groupID: UUID, text: String) {
+    func sendGroupMessage(to groupID: UUID, text: String, imageData: Data? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let group = groups.first(where: { $0.id == groupID }),
+        guard !trimmed.isEmpty || imageData != nil, let group = groups.first(where: { $0.id == groupID }),
               let replier = members(in: group).randomElement() else { return }
-        groupMessages[groupID, default: []].append(ChatMessage(senderID: me.id, text: trimmed))
+        groupMessages[groupID, default: []].append(ChatMessage(senderID: me.id, text: trimmed, imageData: imageData))
         let seed = groupMessages[groupID]?.count ?? 0
         let context = sharedChallengeContext(for: replier.id)
         Task {
             try? await Task.sleep(for: .seconds(Double.random(in: 1.2...2.6)))
-            let reply = ChatBanter.reply(from: replier, sharedChallenge: context, seed: seed)
+            let reply = imageData != nil ? "Nice pic." : ChatBanter.reply(from: replier, sharedChallenge: context, seed: seed)
             groupMessages[groupID, default: []].append(ChatMessage(senderID: replier.id, text: reply))
             if openGroupChatID != groupID { unreadGroupIDs.insert(groupID) }
         }

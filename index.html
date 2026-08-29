@@ -22,7 +22,7 @@
     font-family:-apple-system,'SF Pro Rounded',system-ui,sans-serif;
     display:flex; justify-content:center; min-height:100vh;
   }
-  .shell{ width:100%; max-width:430px; min-height:100vh; position:relative; overflow-x:hidden; z-index:2; transition:opacity .16s ease; }
+  .shell{ width:100%; max-width:430px; min-height:100vh; position:relative; overflow-x:hidden; z-index:2; }
   h1,h2,h3,p{margin:0;}
   .icon{color:inherit;}
   .eyebrow{font-size:12px; font-weight:800; color:var(--purple); letter-spacing:.3px;}
@@ -140,7 +140,7 @@
   input[type=range]{-webkit-appearance:none; width:100%; height:6px; border-radius:999px; background:var(--border2);}
   input[type=range]::-webkit-slider-thumb{
     -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:#fff;
-    border:3px solid var(--purple); box-shadow:0 2px 8px rgba(0,0,0,.4); cursor:pointer; margin-top:-9px;
+    border:3px solid #16A34A; box-shadow:0 2px 8px rgba(0,0,0,.4); cursor:pointer; margin-top:-9px;
   }
 
   .dots{display:flex; gap:6px; align-items:center;}
@@ -453,7 +453,7 @@ let S = {
   },
   unreadDirect:new Set(['Sam']),
   unreadGroup:new Set(['Family']),
-  chatListOpen:false, chatThread:null, chatDraft:'',
+  chatListOpen:false, chatThread:null, chatDraft:'', chatImageDraft:null,
   justCreated:false, justRevealed:null, justLoggedMood:false,
   settingsOpen:false, settingsName:'', settingsColorIdx:0,
   suggestionIdx:0,
@@ -540,6 +540,25 @@ function fitnessScore(){
   const freqAvg = active.length ? active.reduce((a,c)=>{const m=c.standings.find(s=>s.name==='You'); return a+(m?m.progress:0);},0)/active.length : 0.5;
   const score = (moodAvg/10*0.5 + freqAvg*0.5)*100;
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+// A ring instead of a number+bar — same visual language as Apple's own
+// Activity rings, reads at a glance. Stroke uses the same holo gradient
+// (purple→gold→pink) as the app's logo/wordmark, not a flat tint.
+function fitnessRingSvg(score, size=64){
+  const r = size/2 - 4;
+  const c = 2*Math.PI*r;
+  const offset = c * (1 - score/100);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;flex-shrink:0;">
+    <defs><linearGradient id="fitnessRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:var(--purple);"/>
+      <stop offset="50%" style="stop-color:var(--gold);"/>
+      <stop offset="100%" style="stop-color:var(--pink);"/>
+    </linearGradient></defs>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" style="stroke:var(--border2);" stroke-width="8"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="url(#fitnessRingGrad)" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${offset}" transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="${size*0.3}" font-weight="800" style="fill:var(--ink);">${score}</text>
+  </svg>`;
 }
 function personalizedStepTarget(){
   return personalizedTarget(S.bodyProfile);
@@ -692,19 +711,6 @@ function openCreate(seed){
 // Switching between bottom tabs is deliberately excluded: the pill bar
 // already gives its own chroma-pulse feedback, so tab clicks stay instant.
 let lastScreenKey = null;
-function computeScreenKey(){
-  if(!S.onboarded) return 'onboarding';
-  if(S.tab==='create') return 'create';
-  if(S.settingsOpen) return 'settings';
-  if(S.memberDetailName) return 'member:'+S.memberDetailName;
-  if(S.groupDetailName) return 'group:'+S.groupDetailName;
-  if(S.detailId) return 'detail:'+S.detailId;
-  if(S.moodOpen) return 'mood';
-  if(S.chatThread) return 'chat:'+S.chatThread.type+':'+S.chatThread.name;
-  if(S.chatListOpen) return 'chatlist';
-  return 'tab:'+S.tab;
-}
-function isTabKey(k){ return !!k && k.indexOf('tab:')===0; }
 function renderAppLockScreen(){
   return `<div class="screen" style="padding-top:80px;text-align:center;">
     ${pactMark(32)}
@@ -724,6 +730,9 @@ function tryUnlock(){
   else { S.lockError=true; render(); }
 }
 
+// Instant, like the system Health app — no crossfade on navigation, tab
+// switch or otherwise. (An earlier version faded through screen changes;
+// that read as sluggish, so it's gone — every render() paints immediately.)
 function render(){
   const shell = document.getElementById('shell');
   if(S.appLock.enabled && S.locked){
@@ -731,43 +740,31 @@ function render(){
     window.scrollTo(0,0);
     return;
   }
-  const key = computeScreenKey();
-  const changed = key !== lastScreenKey && !(isTabKey(key) && isTabKey(lastScreenKey));
-  lastScreenKey = key;
-  const paint = () => {
-    teardownMaps();
-    let html;
-    if(!S.onboarded){ html = renderOnboarding(); }
-    else if(S.tab==='create'){ html = renderCreate(); }
-    else if(S.settingsOpen){ html = renderSettings(); }
-    else if(S.memberDetailName){ html = renderMemberDetail(); }
-    else if(S.groupDetailName){ html = renderGroupDetail(); }
-    else if(S.detailId){ html = renderDetail(); }
-    else if(S.moodOpen){ html = renderMood(); }
-    else if(S.chatThread){ html = renderChatThread(); }
-    else if(S.chatListOpen){ html = renderChatList(); }
-    else if(S.tab==='map'){
-      html = renderMapExplore() + renderTabbar();
-    }
-    else {
-      html = `<div class="screen">${
-        S.tab==='home'?renderHome():
-        S.tab==='challenges'?renderChallenges():
-        S.tab==='contacts'?renderContacts():renderProfile()
-      }</div>` + renderTabbar();
-    }
-    shell.innerHTML = html + celebrationOverlay();
-    if(S.chatThread){ window.scrollTo(0, document.body.scrollHeight); } else { window.scrollTo(0,0); }
-    if(window.__mapInit){ window.__mapInit(); window.__mapInit=null; }
-    if(window.__moodInit){ window.__moodInit(); window.__moodInit=null; }
-    if(changed){ setTimeout(()=>{ shell.style.opacity='1'; }, 20); }
-  };
-  if(changed){
-    shell.style.opacity='0';
-    setTimeout(paint, 150);
-  } else {
-    paint();
+  teardownMaps();
+  let html;
+  if(!S.onboarded){ html = renderOnboarding(); }
+  else if(S.tab==='create'){ html = renderCreate(); }
+  else if(S.settingsOpen){ html = renderSettings(); }
+  else if(S.memberDetailName){ html = renderMemberDetail(); }
+  else if(S.groupDetailName){ html = renderGroupDetail(); }
+  else if(S.detailId){ html = renderDetail(); }
+  else if(S.moodOpen){ html = renderMood(); }
+  else if(S.chatThread){ html = renderChatThread(); }
+  else if(S.chatListOpen){ html = renderChatList(); }
+  else if(S.tab==='map'){
+    html = renderMapExplore() + renderTabbar();
   }
+  else {
+    html = `<div class="screen">${
+      S.tab==='home'?renderHome():
+      S.tab==='challenges'?renderChallenges():
+      S.tab==='contacts'?renderContacts():renderProfile()
+    }</div>` + renderTabbar();
+  }
+  shell.innerHTML = html + celebrationOverlay();
+  if(S.chatThread){ window.scrollTo(0, document.body.scrollHeight); } else { window.scrollTo(0,0); }
+  if(window.__mapInit){ window.__mapInit(); window.__mapInit=null; }
+  if(window.__moodInit){ window.__moodInit(); window.__moodInit=null; }
 }
 
 // ---------- Onboarding (2 steps) ----------
@@ -814,19 +811,22 @@ function renderOnboarding(){
       <div class="row gap-sm" style="margin-bottom:24px;">
         ${SWATCH.map((c,i)=>{const on=i===S.obColorIdx; return `<div onclick="S.obColorIdx=${i};syncNameStep();render()" style="position:relative;width:34px;height:34px;border-radius:50%;background:${c};cursor:pointer;${on?`box-shadow:0 0 0 2.5px var(--ink), 0 0 0 5px var(--bg1);`:''}">${on?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;">${icon('circle-check',16)}</div>`:''}</div>`;}).join('')}
       </div>
+      <div style="flex:1;min-height:20px;"></div>
       <button class="btn btn-primary" id="obContinueBtn" ${S.obName.trim()?'':'disabled'} onclick="S.obStep=1;render()">Continue</button>`;
   } else if(step===1){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">About you</h1>
       <p class="body-text" style="margin-bottom:20px;">This is what turns a generic step count into your step count.</p>
       ${bodyProfileEditorHtml('ob')}
-      <button class="btn btn-primary" style="margin-top:20px;" onclick="S.obStep=2;render()">Continue</button>`;
+      <div style="flex:1;min-height:20px;"></div>
+      <button class="btn btn-primary" onclick="S.obStep=2;render()">Continue</button>`;
   } else if(step===2){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">How active are you day to day?</h1>
       <p class="body-text" style="margin-bottom:20px;">Outside of challenges — your normal week.</p>
       ${activityPickerHtml('ob')}
-      <button class="btn btn-primary" style="margin-top:16px;" onclick="S.obStep=3;render()">Continue</button>`;
+      <div style="flex:1;min-height:16px;"></div>
+      <button class="btn btn-primary" onclick="S.obStep=3;render()">Continue</button>`;
   } else if(step===3){
     body = `
       <h1 class="h1" style="margin:10px 0 6px;">What brings you to Prove it?</h1>
@@ -837,6 +837,7 @@ function renderOnboarding(){
             <span style="color:${on?'var(--purple)':'var(--ink2)'};">${icon(m.icon,16)}</span><span class="body-text" style="color:var(--ink);flex:1;">${m.label}</span>${on?icon('circle-check',18):'<span style="color:var(--ink3);">'+icon('circle',18)+'</span>'}</div>`;
         }).join('')}
       </div>
+      <div style="flex:1;min-height:20px;"></div>
       <button class="btn btn-primary" ${S.obMotivation?'':'disabled'} onclick="S.obStep=4;render()">Continue</button>`;
   } else if(step===4){
     body = `
@@ -854,6 +855,7 @@ function renderOnboarding(){
               ${badge(n,36)}<span class="body-text" style="color:var(--ink);flex:1;">${n}</span>
               <span style="cursor:pointer;color:var(--ink3);" onclick="removeObCrew('${n}')">${icon('x',16)}</span>
             </div>`).join('')}</div>`}
+      <div style="flex:1;min-height:20px;"></div>
       <button class="btn ${S.obInvitedCrew.length?'btn-primary':'btn-outline'}" onclick="S.obStep=5;render()">${S.obInvitedCrew.length?'Continue':'Skip for now'}</button>`;
   } else if(step===5){
     const rec = onboardingRecommendation();
@@ -877,10 +879,11 @@ function renderOnboarding(){
         <p class="caption">${rec.blurb}</p>
       </div>
       <p class="caption" style="margin-bottom:20px;">All of this updates automatically as you log mood check-ins and challenge progress.</p>
+      <div style="flex:1;min-height:8px;"></div>
       <button class="btn btn-primary" onclick="S.obStep=6;render()">Continue</button>`;
   } else {
     body = `
-      <div style="text-align:center;padding-top:12px;">
+      <div style="text-align:center;padding-top:12px;flex:1;display:flex;flex-direction:column;">
         <img src="${photoOf('onboarding')}" style="width:100%;height:180px;object-fit:cover;border-radius:22px;margin-bottom:16px;border:1px solid var(--border);">
         <div style="color:var(--gold);">${icon('sparkles',44)}</div>
         <h1 class="holo" style="font-size:27px;margin:12px 0 6px;">You're in, ${S.obName||'champ'}!</h1>
@@ -891,10 +894,11 @@ function renderOnboarding(){
           <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--blue);">${personalizedTarget({heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity}).toLocaleString()}</div><div class="caption">GOAL SET</div></div>
           <div class="card" style="flex:1;text-align:center;padding:14px;"><div class="num" style="font-size:18px;color:var(--lime);">Ready</div><div class="caption">STATUS</div></div>
         </div>
+        <div style="flex:1;min-height:12px;"></div>
         <button class="btn btn-primary" onclick="finishOnboarding()">Let's Go</button>
       </div>`;
   }
-  return `<div class="screen" style="padding-top:24px;">${header}${body}</div>`;
+  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">${header}<div style="flex:1;display:flex;flex-direction:column;">${body}</div></div>`;
 }
 
 // Shared height/weight/age/sex editor — used by onboarding ("ob" prefix)
@@ -912,32 +916,23 @@ function bodyProfileEditorHtml(prefix){
       <button class="btn" style="flex:1;height:38px;font-size:13px;${units==='Metric'?'background:var(--card);box-shadow:0 2px 6px rgba(0,0,0,0.08);':'background:transparent;box-shadow:none;color:var(--ink2);'}" onclick="setUnits('${prefix}','Metric')">Metric</button>
     </div>
     <label class="caption" style="display:block;margin-bottom:6px;">HEIGHT</label>
-    <div class="row gap-sm" style="margin-bottom:16px;">
-      ${units==='Imperial' ? `
-        <div class="row between" style="flex:1;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
-          <span class="body-text" style="color:var(--ink);">${hw.ft} ft</span>
-          <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightFt('${prefix}',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightFt('${prefix}',1)">+</button></div>
-        </div>
-        <div class="row between" style="flex:1;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
-          <span class="body-text" style="color:var(--ink);">${hw.inch} in</span>
-          <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightIn('${prefix}',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepHeightIn('${prefix}',1)">+</button></div>
-        </div>
-      ` : `
-        <div class="row between" style="flex:1;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
-          <span class="body-text" style="color:var(--ink);">${Math.round(heightCm)} cm</span>
-          <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','HeightCm',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','HeightCm',1)">+</button></div>
-        </div>
-      `}
+    <div style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+      <div class="body-text" id="${prefix}HeightLabel" style="color:var(--ink);margin-bottom:8px;">${units==='Imperial' ? hw.ft+' ft '+hw.inch+' in' : Math.round(heightCm)+' cm'}</div>
+      ${units==='Imperial'
+        ? sliderHtml(prefix+'Height', hw.ft*12+hw.inch, 40, 84, `onHeightSlide('${prefix}', this.value)`)
+        : sliderHtml(prefix+'Height', Math.round(heightCm), 100, 230, `onHeightSlideMetric('${prefix}', this.value)`)}
     </div>
     <label class="caption" style="display:block;margin-bottom:6px;">WEIGHT</label>
-    <div class="row between" style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
-      <span class="body-text" style="color:var(--ink);">${units==='Imperial' ? Math.round(kgToLb(weightKg))+' lb' : Math.round(weightKg)+' kg'}</span>
-      <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepWeight('${prefix}',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepWeight('${prefix}',1)">+</button></div>
+    <div style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+      <div class="body-text" id="${prefix}WeightLabel" style="color:var(--ink);margin-bottom:8px;">${units==='Imperial' ? Math.round(kgToLb(weightKg))+' lb' : Math.round(weightKg)+' kg'}</div>
+      ${units==='Imperial'
+        ? sliderHtml(prefix+'Weight', Math.round(kgToLb(weightKg)), 60, 400, `onWeightSlide('${prefix}', this.value)`)
+        : sliderHtml(prefix+'Weight', Math.round(weightKg), 30, 180, `onWeightSlideMetric('${prefix}', this.value)`)}
     </div>
     <label class="caption" style="display:block;margin-bottom:6px;">AGE</label>
-    <div class="row between" style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
-      <span class="body-text" style="color:var(--ink);">${age} years old</span>
-      <div class="row gap-xs"><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','Age',-1)">−</button><button class="btn-icon" style="width:32px;height:32px;" onclick="stepField('${prefix}','Age',1)">+</button></div>
+    <div style="margin-bottom:16px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+      <div class="body-text" id="${prefix}AgeLabel" style="color:var(--ink);margin-bottom:8px;">${age} years old</div>
+      ${sliderHtml(prefix+'Age', age, 13, 100, `onAgeSlide('${prefix}', this.value)`)}
     </div>
     <label class="caption" style="display:block;margin-bottom:2px;">SEX</label>
     <p class="caption" style="margin-bottom:8px;">Used only for the calorie-burn estimate below.</p>
@@ -954,31 +949,47 @@ function activityPickerHtml(prefix){
     </div>`;}).join('')}</div>`;
 }
 function setUnits(prefix, val){ S[prefix+'Units']=val; render(); }
-function stepHeightFt(prefix, delta){
-  const hw = cmToFtIn(S[prefix+'HeightCm']);
-  const ft = Math.max(3, Math.min(7, hw.ft+delta));
-  S[prefix+'HeightCm'] = ftInToCm(ft, hw.inch); render();
+
+// Onboarding/Settings body-profile sliders — filled portion is a green-hue
+// "rainbow" (yellow-green → mint → forest → deep teal-green), stops scaled
+// to the current fill fraction so the full spread always shows regardless
+// of how far the thumb is dragged, rather than getting clipped near zero.
+const GREEN_HUES = ['#A3E635','#4ADE80','#16A34A','#065F46'];
+function sliderFillCss(frac){
+  const pct = Math.max(0, Math.min(1, frac)) * 100;
+  const stops = GREEN_HUES.map((c,i)=> `${c} ${(i/(GREEN_HUES.length-1))*pct}%`).join(', ');
+  return `linear-gradient(90deg, ${stops}, var(--border2) ${pct}%)`;
 }
-function stepHeightIn(prefix, delta){
-  const hw = cmToFtIn(S[prefix+'HeightCm']);
-  const inch = Math.max(0, Math.min(11, hw.inch+delta));
-  S[prefix+'HeightCm'] = ftInToCm(hw.ft, inch); render();
+// Sliders update S + the visible label directly on 'input' (no render()),
+// so dragging stays smooth — the dependent step-target/calorie cards only
+// need to catch up once the drag ends, via 'change'.
+function sliderHtml(id, value, min, max, oninput){
+  const frac = (value-min)/(max-min);
+  return `<input type="range" id="${id}Slider" min="${min}" max="${max}" value="${value}"
+    style="background:${sliderFillCss(frac)};"
+    oninput="${oninput}; this.style.background=sliderFillCss((this.value-${min})/(${max}-${min}));"
+    onchange="render();">`;
 }
-function stepWeight(prefix, delta){
-  const units = S[prefix+'Units'] !== undefined ? S[prefix+'Units'] : S.units;
-  if(units==='Imperial'){
-    const lb = Math.max(60, Math.min(400, Math.round(kgToLb(S[prefix+'WeightKg']))+delta));
-    S[prefix+'WeightKg'] = lbToKg(lb);
-  } else {
-    S[prefix+'WeightKg'] = Math.max(30, Math.min(180, Math.round(S[prefix+'WeightKg'])+delta));
-  }
-  render();
+function onHeightSlide(prefix, totalInches){
+  S[prefix+'HeightCm'] = totalInches*2.54;
+  const ft = Math.floor(totalInches/12), inch = Math.round(totalInches%12);
+  document.getElementById(prefix+'HeightLabel').textContent = ft+' ft '+inch+' in';
 }
-function stepField(prefix, field, delta){
-  const bounds = {HeightCm:[100,230], Age:[13,100]};
-  const [min,max] = bounds[field];
-  S[prefix+field] = Math.max(min, Math.min(max, Math.round(S[prefix+field])+delta));
-  render();
+function onHeightSlideMetric(prefix, cm){
+  S[prefix+'HeightCm'] = +cm;
+  document.getElementById(prefix+'HeightLabel').textContent = Math.round(cm)+' cm';
+}
+function onWeightSlide(prefix, lb){
+  S[prefix+'WeightKg'] = lbToKg(+lb);
+  document.getElementById(prefix+'WeightLabel').textContent = Math.round(lb)+' lb';
+}
+function onWeightSlideMetric(prefix, kg){
+  S[prefix+'WeightKg'] = +kg;
+  document.getElementById(prefix+'WeightLabel').textContent = Math.round(kg)+' kg';
+}
+function onAgeSlide(prefix, age){
+  S[prefix+'Age'] = +age;
+  document.getElementById(prefix+'AgeLabel').textContent = age+' years old';
 }
 function handleObPhoto(input){
   const file = input.files && input.files[0];
@@ -1434,18 +1445,26 @@ function closeChatList(){ S.chatListOpen = false; render(); }
 function openChat(type, name){ S.chatThread = {type, name}; render(); }
 function closeChat(){ S.chatThread = null; render(); }
 
+function handleChatPhoto(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { S.chatImageDraft = reader.result; render(); };
+  reader.readAsDataURL(file);
+}
 function sendChat(){
   const text = S.chatDraft.trim();
-  if(!text || !S.chatThread) return;
+  const image = S.chatImageDraft;
+  if((!text && !image) || !S.chatThread) return;
   const {type, name} = S.chatThread;
-  S.chatDraft = '';
+  S.chatDraft = ''; S.chatImageDraft = null;
   if(type==='direct'){
-    (S.directMessages[name] = S.directMessages[name]||[]).push({from:'You', text, date:Date.now()});
+    (S.directMessages[name] = S.directMessages[name]||[]).push({from:'You', text, image, date:Date.now()});
     S.unreadDirect.delete(name);
     render();
     const seed = S.directMessages[name].length;
     setTimeout(()=>{
-      const reply = chatReply(name, seed);
+      const reply = image ? 'Nice pic.' : chatReply(name, seed);
       (S.directMessages[name] = S.directMessages[name]||[]).push({from:name, text:reply, date:Date.now()});
       if(!S.chatThread || S.chatThread.type!=='direct' || S.chatThread.name!==name) S.unreadDirect.add(name);
       render();
@@ -1453,13 +1472,13 @@ function sendChat(){
   } else {
     const g = S.groups.find(g=>g.name===name);
     if(!g || !g.members.length) return;
-    (S.groupMessages[name] = S.groupMessages[name]||[]).push({from:'You', text, date:Date.now()});
+    (S.groupMessages[name] = S.groupMessages[name]||[]).push({from:'You', text, image, date:Date.now()});
     S.unreadGroup.delete(name);
     render();
     const replier = g.members[Math.floor(Math.random()*g.members.length)];
     const seed = S.groupMessages[name].length;
     setTimeout(()=>{
-      const reply = chatReply(replier, seed);
+      const reply = image ? 'Nice pic.' : chatReply(replier, seed);
       (S.groupMessages[name] = S.groupMessages[name]||[]).push({from:replier, text:reply, date:Date.now()});
       if(!S.chatThread || S.chatThread.type!=='group' || S.chatThread.name!==name) S.unreadGroup.add(name);
       render();
@@ -1467,16 +1486,20 @@ function sendChat(){
   }
 }
 
+function lastMsgPreview(m){
+  if(!m) return 'Say hi 👋';
+  return m.text || (m.image ? '📷 Photo' : '');
+}
 function renderChatList(){
   const directRows = S.crew.map(m=>{
     const last = lastMsg(S.directMessages[m.name]);
     return {type:'direct', name:m.name, isGroup:false,
-      preview: last ? last.text : 'Say hi 👋', date: last ? last.date : 0,
+      preview: lastMsgPreview(last), date: last ? last.date : 0,
       unread: S.unreadDirect.has(m.name)};
   });
   const groupRows = S.groups.map(g=>{
     const last = lastMsg(S.groupMessages[g.name]);
-    const preview = last ? `${last.from}: ${last.text}` : 'Say hi 👋';
+    const preview = last ? `${last.from}: ${lastMsgPreview(last)}` : 'Say hi 👋';
     return {type:'group', name:g.name, isGroup:true, preview, date: last ? last.date : 0,
       unread: S.unreadGroup.has(g.name)};
   });
@@ -1510,19 +1533,21 @@ function renderChatThread(){
   const list = (isGroup ? S.groupMessages[name] : S.directMessages[name]) || [];
   const bubbles = list.length ? list.map(m=>{
     const mine = m.from==='You';
+    const radius = mine?'18px 18px 4px 18px':'4px 18px 18px 18px';
     return `<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};margin-bottom:10px;">
       ${isGroup && !mine ? `<div class="caption" style="color:var(--ink3);margin:0 4px 2px;">${m.from}</div>` : ''}
-      <div style="max-width:78%;padding:10px 14px;font-size:15px;line-height:1.35;
+      ${m.image ? `<img src="${m.image}" style="width:200px;height:200px;object-fit:cover;border-radius:${radius};border:${mine?'none':'1px solid var(--border)'};margin-bottom:${m.text?'4px':'0'};">` : ''}
+      ${m.text ? `<div style="max-width:78%;padding:10px 14px;font-size:15px;line-height:1.35;
         background:${mine?'var(--purple)':'var(--card)'};color:${mine?'#fff':'var(--ink)'};
         border:${mine?'none':'1px solid var(--border)'};
-        border-radius:${mine?'18px 18px 4px 18px':'4px 18px 18px 18px'};">${m.text}</div>
+        border-radius:${radius};">${m.text}</div>` : ''}
       <div class="caption" style="color:var(--ink3);margin:2px 4px 0;">${new Date(m.date).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</div>
     </div>`;
   }).join('') : `<div style="text-align:center;margin-top:40px;">
       <div class="body-text" style="color:var(--ink2);margin-bottom:4px;">No messages yet</div>
       <div class="caption" style="color:var(--ink3);">Say hi 👋</div>
     </div>`;
-  return `<div class="screen" style="padding-top:24px;">
+  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">
     <div class="row gap-sm" style="margin-bottom:14px;align-items:center;">
       <button class="btn-icon" onclick="closeChat()">${icon('chevron-left',18)}</button>
       ${isGroup
@@ -1530,11 +1555,19 @@ function renderChatThread(){
         : badge(name,36)}
       <span class="h3">${name}</span>
     </div>
-    <div style="margin-bottom:14px;min-height:200px;">${bubbles}</div>
+    <div style="margin-bottom:14px;min-height:200px;flex:1;">${bubbles}</div>
+    ${S.chatImageDraft ? `<div style="position:relative;display:inline-block;margin-bottom:8px;">
+      <img src="${S.chatImageDraft}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;">
+      <span onclick="S.chatImageDraft=null;render();" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;">${icon('x',12)}</span>
+    </div>` : ''}
     <div class="row gap-sm">
+      <label class="btn-icon" style="cursor:pointer;">
+        ${icon('camera',18)}
+        <input type="file" accept="image/*" style="display:none;" onchange="handleChatPhoto(this)">
+      </label>
       <input class="textfield" placeholder="Message" value="${S.chatDraft.replace(/"/g,'&quot;')}"
         oninput="S.chatDraft=this.value;" onkeydown="if(event.key==='Enter'){sendChat();}" style="flex:1;">
-      <button class="btn-icon" style="border-radius:50%;width:44px;height:44px;background:${S.chatDraft.trim()?'var(--purple)':'var(--border2)'};color:#fff;border:none;" onclick="sendChat()">${icon('arrow-up',18)}</button>
+      <button class="btn-icon" style="border-radius:50%;width:44px;height:44px;background:${(S.chatDraft.trim()||S.chatImageDraft)?'var(--purple)':'var(--border2)'};color:#fff;border:none;" onclick="sendChat()">${icon('arrow-up',18)}</button>
     </div>
   </div>`;
 }
@@ -1795,6 +1828,7 @@ function renderCreate(){
       </div>
       ${cr.useCustomPayoff?`<input class="textfield" value="${cr.customPayoff}" oninput="S.create.customPayoff=this.value;" placeholder="e.g. Loser walks the dog for a month"
         style="margin-bottom:16px;">`:'<div style="margin-bottom:16px;"></div>'}
+      <div style="flex:1;min-height:8px;"></div>
       <button class="btn btn-primary" id="createContinueBtn" ${cr.title.trim()?'':'disabled'} onclick="S.create.step=1;render()">Continue</button>`;
   } else if(step===1){
     body = `
@@ -1813,6 +1847,7 @@ function renderCreate(){
         ${toggleRow('Blind Reveal','Hide scores until the final 72 hours.','eye-off','blind')}
         ${toggleRow('Fair Play',"Score by % of each person's own daily target.",'scale','fair')}
       </div>
+      <div style="flex:1;min-height:8px;"></div>
       <button class="btn btn-primary" onclick="S.create.step=2;render()">Continue</button>`;
   } else {
     const payoffText = cr.useCustomPayoff ? (cr.customPayoff.trim()||'Loser’s choice — decide later') : PAYOFFS[cr.payoffIdx].text;
@@ -1830,9 +1865,10 @@ function renderCreate(){
       <div class="card tint-gold" style="margin-bottom:20px;">
         <div class="row gap-sm"><span style="color:var(--gold);">${icon(payoffIcon,20)}</span><div><div class="caption" style="margin-bottom:2px;">THE DEAL</div><div class="body-text" style="color:var(--ink);">${payoffText}</div></div></div>
       </div>
+      <div style="flex:1;min-height:8px;"></div>
       <button class="btn btn-primary" onclick="sendChallenge()">${icon('sparkles',18)} Send Challenge</button>`;
   }
-  return `<div class="screen" style="padding-top:24px;">${header}${body}</div>`;
+  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">${header}<div style="flex:1;display:flex;flex-direction:column;">${body}</div></div>`;
 }
 function selectGroup(name){
   const cr = S.create;
@@ -1893,8 +1929,10 @@ function renderProfile(){
       <p class="caption">${S.me.ageBand}</p>
     </div>
     <div class="card tint-cyan" style="margin-bottom:16px;">
-      <div class="row between" style="margin-bottom:8px;"><span class="h3">Fitness Score</span><span class="num" style="font-size:21px;color:var(--cyan);">${fitnessScore()}</span></div>
-      <div class="progress" style="height:8px;margin-bottom:10px;"><div style="width:${fitnessScore()}%;background:var(--cyan);"></div></div>
+      <div class="row gap-sm" style="margin-bottom:10px;align-items:center;">
+        ${fitnessRingSvg(fitnessScore(), 64)}
+        <div style="flex:1;"><div class="h3">Fitness Score</div><div class="caption">Recent mood + activity</div></div>
+      </div>
       <p class="caption" style="margin-bottom:10px;">From your recent mood trend and challenge activity. Used only to recommend workout types and gauge fit — not a currency.</p>
       <div class="row gap-sm" style="border-top:1px solid var(--border);padding-top:10px;">
         <span style="color:var(--cyan);">${icon(fit.icon,16)}</span><span class="body-text">${fit.label}</span>

@@ -133,21 +133,22 @@ struct SettingsView: View {
                             .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     }
                     Spacer()
-                }
-                Button(app.healthKitConnected ? "Disconnect" : "Connect") {
-                    if app.healthKitConnected {
-                        app.healthKitConnected = false
-                    } else {
-                        connectingHealth = true
-                        Task {
-                            await app.connectHealthKit()
-                            connectingHealth = false
+                    Toggle(isOn: Binding(
+                        get: { app.healthKitConnected },
+                        set: { newValue in
+                            if newValue {
+                                connectingHealth = true
+                                Task { await app.connectHealthKit(); connectingHealth = false }
+                            } else {
+                                app.healthKitConnected = false
+                            }
                         }
-                    }
+                    )) { EmptyView() }
+                    .labelsHidden()
+                    .tint(Theme.Brand.lime)
+                    .scaleEffect(0.8)
+                    .disabled(connectingHealth)
                 }
-                .buttonStyle(PactButtonStyle(kind: .outline, height: 44))
-                .disabled(connectingHealth)
-                .padding(.top, Theme.Space.sm)
             }
         }
     }
@@ -177,11 +178,12 @@ struct SettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(app.signedInName ?? app.me.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text(app.isSignedIn ? "Signed in with Apple" : "Not signed in").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        Text(app.signInMethod.map { "Signed in with \($0)" } ?? "Not signed in").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     }
                     Spacer()
                     Button("Sign Out") {
                         app.isSignedIn = false
+                        app.signInMethod = nil
                         app.hasOnboarded = false
                         dismiss()
                     }

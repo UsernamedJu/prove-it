@@ -502,6 +502,7 @@ function saveAppLock(){
 }
 
 let S = {
+  signedIn:false, signInMethod:null, signInIdentifier:'',
   onboarded:false, obStep:0, obName:'', obColorIdx:0,
   obMotivation:null, obCrewName:'', obInvitedCrew:[], obPhotoUrl:null,
   obUnits:'Imperial', obHeightCm:170, obWeightKg:70, obSex:'Other', obAge:30, obActivity:'Moderate',
@@ -850,7 +851,8 @@ function render(){
   }
   teardownMaps();
   let html, screenKey;
-  if(!S.onboarded){ html = renderOnboarding(); screenKey = 'onboarding:'+S.obStep; }
+  if(!S.signedIn){ html = renderSignIn(); screenKey = 'signin'; }
+  else if(!S.onboarded){ html = renderOnboarding(); screenKey = 'onboarding:'+S.obStep; }
   else if(S.tab==='create'){ html = renderCreate(); screenKey = 'create:'+S.create.step; }
   else if(S.settingsOpen){ html = renderSettings(); screenKey = 'settings'; }
   else if(S.memberDetailName){ html = renderMemberDetail(); screenKey = 'member:'+S.memberDetailName; }
@@ -898,6 +900,46 @@ function onboardingRecommendation(){
   else { kind='Steps'; icon_='footprints'; blurb='A steady daily step goal is the easiest place to start a streak.'; }
   const target = personalizedTarget({heightCm:S.obHeightCm, weightKg:S.obWeightKg, sex:S.obSex, age:S.obAge, activityLevel:S.obActivity});
   return {target, kind, icon: icon_, blurb};
+}
+// ---------- Sign in (before onboarding, mirrors native SignInView) ----------
+// No backend to verify against on web either, same as native — an email/
+// phone entry is an identity label, not a verified credential, framed
+// that way rather than faking a code-verification step that can't happen.
+function renderSignIn(){
+  return `<div class="screen" style="padding-top:24px;display:flex;flex-direction:column;">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+      ${pactMark(44)}
+      <h1 class="h1" style="margin:16px 0 6px;">Welcome to Prove it</h1>
+      <p class="body-text" style="margin-bottom:28px;max-width:320px;">Sign in to keep your challenges and crew tied to your account.</p>
+      <div style="width:100%;max-width:340px;">
+        <input class="textfield" placeholder="Email or phone number" value="${S.signInIdentifier}"
+          oninput="S.signInIdentifier=this.value" style="margin-bottom:8px;">
+        <p class="caption" style="text-align:left;margin-bottom:14px;">No verification code — just an identity label, since there's no server behind this yet.</p>
+        <button class="btn btn-primary" id="signInContinueBtn" ${S.signInIdentifier.trim()?'':'disabled'} onclick="continueWithIdentifier()" style="margin-bottom:14px;">Continue</button>
+        <button class="btn btn-outline" onclick="continueSignedOut()">Continue without signing in</button>
+      </div>
+    </div>
+  </div>`;
+}
+function continueWithIdentifier(){
+  const trimmed = S.signInIdentifier.trim();
+  if(!trimmed) return;
+  S.signedIn = true;
+  S.signInMethod = trimmed.includes('@') ? 'Email' : 'Phone';
+  render();
+}
+function continueSignedOut(){
+  S.signedIn = true;
+  S.signInMethod = null;
+  render();
+}
+function signOut(){
+  S.signedIn = false;
+  S.signInMethod = null;
+  S.signInIdentifier = '';
+  S.onboarded = false;
+  S.settingsOpen = false;
+  render();
 }
 function renderOnboarding(){
   const total = 7, step = S.obStep;
@@ -2147,6 +2189,14 @@ function renderSettings(){
       <div class="row between">
         <div><div class="h3">App Lock (PIN)</div><div class="caption">A device-local privacy screen — not a real account.</div></div>
         <span class="pill ${S.appLock.enabled?'on':''}" style="cursor:pointer;" onclick="toggleAppLock()">${S.appLock.enabled?'On':'Off'}</span>
+      </div>
+    </div>
+
+    <label class="caption" style="display:block;margin-bottom:10px;">ACCOUNT</label>
+    <div class="card" style="margin-bottom:24px;">
+      <div class="row between">
+        <div><div class="h3">${S.me.name}</div><div class="caption">${S.signInMethod?`Signed in with ${S.signInMethod}`:'Not signed in'}</div></div>
+        <button class="btn btn-outline" style="width:auto;padding:0 16px;height:38px;" onclick="signOut()">Sign Out</button>
       </div>
     </div>
 

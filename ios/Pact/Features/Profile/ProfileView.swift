@@ -62,7 +62,7 @@ struct ProfileView: View {
                         .clipShape(Circle())
                 }
             }
-            InitialBadge(name: app.me.name, size: 72, overrideColor: app.meColor, photoData: app.myProfilePhotoData)
+            InitialBadge(name: app.me.name, size: 72, overrideColor: app.meColor, photoData: app.myProfilePhotoData, breathes: false)
             Text(app.me.name).font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
             Text(app.me.ageBand.rawValue).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
         }

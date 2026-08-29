@@ -34,6 +34,7 @@ struct InitialBadge: View {
     /// A real uploaded photo, when present, replaces the plush-avatar face
     /// entirely — the face is the fallback for everyone who hasn't set one.
     var photoData: Data? = nil
+    var breathes: Bool = true
 
     @State private var breathe = false
 
@@ -59,6 +60,7 @@ struct InitialBadge: View {
         .overlay(Circle().stroke(Theme.Ink.primary.opacity(0.1), lineWidth: 1))
         .scaleEffect(breathe ? 1.045 : 1.0)
         .onAppear {
+            guard breathes else { return }
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { breathe = true }
         }
     }

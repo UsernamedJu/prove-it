@@ -90,7 +90,12 @@ struct MoodSurveyView: View {
             .frame(width: 88, height: 88)
             .clipShape(Circle())
             .overlay(Circle().stroke(Theme.Ink.primary.opacity(0.1), lineWidth: 1))
+            // The glow itself carries the mood, not just the face inside
+            // it — warmer and brighter the higher the average climbs,
+            // rather than a fixed shadow regardless of how the check-in's
+            // actually going.
             .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+            .shadow(color: Theme.Brand.gold.opacity(max(0, (average - 6) / 4) * 0.5), radius: 22)
             .animation(Theme.Motion.settle, value: average)
 
             Text(rudyLine(for: average))
@@ -127,13 +132,20 @@ struct MoodSurveyView: View {
 
     private func sliderCard(for metric: MoodMetric) -> some View {
         let value = binding(for: metric.id)
+        let maxedOut = value.wrappedValue >= 10
         return PactCard(tint: metric.color) {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack(spacing: Theme.Space.sm) {
                     Image(systemName: metric.icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(metric.color)
+                        // A little flourish for maxing out a slider,
+                        // instead of 10/10 looking identical to any other
+                        // value.
+                        .symbolEffect(.bounce, value: maxedOut)
                     Text(metric.label).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                     Spacer()
                     Text("\(Int(value.wrappedValue))").font(Theme.Font.number(22)).foregroundStyle(metric.color)
+                        .contentTransition(.numericText(value: value.wrappedValue))
+                        .animation(Theme.Motion.pop, value: value.wrappedValue)
                     Text("/10").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                 }
                 PactSlider(value: value, tint: metric.color)
@@ -177,13 +189,19 @@ private struct MoodFaceView: View {
     var dark: Bool
     var size: CGFloat = 88
 
+    /// The mouth was the only thing that used to move — eyes just sat
+    /// there as plain fixed capsules regardless of how the sliders were
+    /// set. A happy squint (shorter, lifted eyes) at the high end reads as
+    /// genuinely reactive instead of only the smile doing all the work.
+    private var happiness: CGFloat { max(0, curvature) }
+
     var body: some View {
         ZStack {
             HStack(spacing: size * 0.22) {
-                Capsule().frame(width: size * 0.06, height: size * 0.13)
-                Capsule().frame(width: size * 0.06, height: size * 0.13)
+                Capsule().frame(width: size * 0.06, height: size * (0.13 - 0.06 * happiness))
+                Capsule().frame(width: size * 0.06, height: size * (0.13 - 0.06 * happiness))
             }
-            .offset(y: -size * 0.14)
+            .offset(y: -size * (0.14 + 0.02 * happiness))
 
             MoodMouth(curvature: curvature)
                 .stroke(style: StrokeStyle(lineWidth: max(1.5, size * 0.045), lineCap: .round))
@@ -191,6 +209,7 @@ private struct MoodFaceView: View {
                 .offset(y: size * 0.18)
         }
         .foregroundStyle(dark ? Theme.Ink.primary : Color.white)
+        .animation(Theme.Motion.settle, value: curvature)
     }
 }
 

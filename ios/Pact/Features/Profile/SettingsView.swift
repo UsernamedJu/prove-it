@@ -34,6 +34,7 @@ struct SettingsView: View {
                         profileSection
                         bodyProfileSection
                         healthSection
+                        iCloudSection
                         securitySection
                         accountSection
 
@@ -163,6 +164,47 @@ struct SettingsView: View {
                     .disabled(connectingHealth)
                 }
             }
+        }
+    }
+
+    /// No toggle here — unlike HealthKit this isn't something the user
+    /// opts into, it's just a status readout of whether this iCloud
+    /// account's own data (name, body profile, mood history) is following
+    /// them across devices. See CloudSyncManager for what this does and
+    /// doesn't cover — crew/challenges still aren't shared this way.
+    private var iCloudSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            SectionHeader(title: "iCloud Sync")
+            PactCard(tint: cloudStatusTint) {
+                HStack(spacing: Theme.Space.sm) {
+                    Image(systemName: "icloud.fill").foregroundStyle(cloudStatusTint)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(cloudStatusTitle).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text("Your profile and mood history follow you to your other devices and survive a reinstall. Crew, groups, and challenges aren't synced this way yet.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private var cloudStatusTint: Color {
+        switch app.cloudSyncStatus {
+        case .synced: Theme.Brand.lime
+        case .syncing: Theme.Brand.cyan
+        case .unavailable, .unknown: Theme.Ink.tertiary
+        case .failed: Theme.Brand.coral
+        }
+    }
+
+    private var cloudStatusTitle: String {
+        switch app.cloudSyncStatus {
+        case .unknown: "Checking…"
+        case .unavailable: "Not signed into iCloud"
+        case .syncing: "Syncing…"
+        case .synced(let date): "Synced \(date.formatted(date: .omitted, time: .shortened))"
+        case .failed: "Sync failed — will retry"
         }
     }
 

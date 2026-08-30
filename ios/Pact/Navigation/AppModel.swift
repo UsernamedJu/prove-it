@@ -59,7 +59,7 @@ final class AppModel {
     var crew: [Member] = Fixtures.crew
     var groups: [ContactGroup] = Fixtures.groups
     var challenges: [Challenge] = Fixtures.challenges
-    var moodHistory: [MoodCheckIn] = Fixtures.moodHistory
+    var moodHistory: [MoodCheckIn] = Fixtures.moodHistory { didSet { persistSession() } }
     var moodStreak = 3
     var moodLoggedToday = false
 
@@ -76,6 +76,13 @@ final class AppModel {
     // MARK: Apple Health / Watch — see HealthKitManager for why this stays
     // fully functional to toggle even before the capability is provisioned.
     var healthKitConnected = false
+
+    // MARK: iCloud sync — see CloudSyncManager. Transient, never persisted
+    // itself (it describes the *state* of persistence, not data to restore).
+    enum CloudSyncStatus: Equatable {
+        case unknown, unavailable, syncing, synced(Date), failed
+    }
+    var cloudSyncStatus: CloudSyncStatus = .unknown
 
     // MARK: Sign in with Apple + Face ID / Touch ID app lock. Both are real,
     // working security — Sign in with Apple just needs the paid Developer
@@ -303,9 +310,19 @@ final class AppModel {
     }
 
     // MARK: Session persistence — just enough state to skip the sign-in and
-    // onboarding screens on a returning launch. The crew/challenges/chat
-    // fixtures still reset every launch; only "am I signed in, am I
-    // onboarded, and who am I" survives.
+    // onboarding screens on a returning launch, plus enough of "you" (name,
+    // body profile, settings, mood history) to be worth syncing. The crew,
+    // groups, challenges, and chat are still Fixtures-seeded fresh every
+    // launch — making *those* real needs CKShare and a lot more
+    // infrastructure than one account's own private data. See
+    // CloudSyncManager for the CloudKit side of this.
+    //
+    // Sync strategy is deliberately simple: whole-blob last-write-wins,
+    // compared by `savedAt`. There's no field-level merge — if you changed
+    // your name on one device and your weight on another before either one
+    // synced, whichever device saved most recently wins outright and the
+    // other device's unsynced change is lost. Fine for one person moving
+    // between their own devices; not a real conflict-resolution system.
 
     private static let sessionDefaultsKey = "com.jean.pact.session"
 
@@ -323,11 +340,29 @@ final class AppModel {
         var myBodyProfile: BodyProfile
         var unitSystem: UnitSystem
         var profileAnniversary: Date?
+        var moodHistory: [MoodCheckIn]
+        /// When this blob was written — the only thing that decides which
+        /// of two conflicting copies (local vs. iCloud) wins.
+        var savedAt: Date
     }
 
     init() {
-        guard let data = UserDefaults.standard.data(forKey: Self.sessionDefaultsKey),
-              let saved = try? JSONDecoder().decode(PersistedSession.self, from: data) else { return }
+        if let data = UserDefaults.standard.data(forKey: Self.sessionDefaultsKey),
+           let saved = try? JSONDecoder().decode(PersistedSession.self, from: data) {
+            apply(saved)
+        }
+        Task { await reconcileWithCloud() }
+    }
+
+    /// Suppresses `persistSession()` while `apply(_:)` is bulk-assigning
+    /// restored fields — without this, restoring ~10 `didSet`-observed
+    /// properties one at a time would re-save (and re-upload to CloudKit)
+    /// the same blob up to 10 times on every single launch.
+    private var isApplyingRestoredSession = false
+
+    private func apply(_ saved: PersistedSession) {
+        isApplyingRestoredSession = true
+        defer { isApplyingRestoredSession = false }
         isSignedIn = saved.isSignedIn
         hasOnboarded = saved.hasOnboarded
         signedInName = saved.signedInName
@@ -341,7 +376,72 @@ final class AppModel {
         myBodyProfile = saved.myBodyProfile
         unitSystem = saved.unitSystem
         profileAnniversary = saved.profileAnniversary
+        moodHistory = saved.moodHistory
         advanceAgeIfAnniversaryPassed()
+        recomputeMoodStreakState()
+    }
+
+    /// Compares the local copy against whatever's in the user's private
+    /// CloudKit database and keeps whichever is newer — covers both
+    /// directions: a fresh reinstall with nothing local yet pulls the cloud
+    /// copy down, and a device that's ahead pushes its copy up. Runs once
+    /// per launch, after the local restore already happened synchronously
+    /// above, so the app never waits on the network just to open.
+    private func reconcileWithCloud() async {
+        guard await CloudSyncManager.shared.isAvailable else {
+            cloudSyncStatus = .unavailable
+            return
+        }
+        cloudSyncStatus = .syncing
+        let localData = UserDefaults.standard.data(forKey: Self.sessionDefaultsKey)
+        let local = localData.flatMap { try? JSONDecoder().decode(PersistedSession.self, from: $0) }
+        guard let cloudData = await CloudSyncManager.shared.fetch(),
+              let cloud = try? JSONDecoder().decode(PersistedSession.self, from: cloudData) else {
+            // Nothing in the cloud yet — push what we have locally, if any,
+            // so the very next device to reconcile finds something.
+            if let localData {
+                cloudSyncStatus = await CloudSyncManager.shared.upload(localData) ? .synced(Date()) : .failed
+            } else {
+                cloudSyncStatus = .synced(Date())
+            }
+            return
+        }
+        if let local, local.savedAt >= cloud.savedAt {
+            cloudSyncStatus = .synced(Date())
+            return
+        }
+        // The cloud copy is newer (or there was no local copy at all, e.g.
+        // right after a reinstall) — adopt it, and cache it locally too so
+        // the next offline launch already has it without a network round
+        // trip. `apply` suppresses persistSession's own upload while it
+        // runs, so this explicit write is the only place this direction
+        // actually lands on disk.
+        apply(cloud)
+        UserDefaults.standard.set(cloudData, forKey: Self.sessionDefaultsKey)
+        cloudSyncStatus = .synced(Date())
+    }
+
+    /// Derives `moodStreak`/`moodLoggedToday` from the real history instead
+    /// of trusting stored flags that could drift out of sync with it (e.g.
+    /// a streak counted on a device that's since had days restored from an
+    /// older or newer cloud copy).
+    private func recomputeMoodStreakState() {
+        let cal = Calendar.current
+        moodLoggedToday = moodHistory.last.map { cal.isDateInToday($0.date) } ?? false
+        let days = Set(moodHistory.map { cal.startOfDay(for: $0.date) })
+        var day = cal.startOfDay(for: Date())
+        if !days.contains(day) {
+            // Haven't logged yet today — that alone shouldn't zero out an
+            // existing streak, only a missed day should.
+            day = cal.date(byAdding: .day, value: -1, to: day) ?? day
+        }
+        var streak = 0
+        while days.contains(day) {
+            streak += 1
+            guard let previous = cal.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previous
+        }
+        moodStreak = streak
     }
 
     /// There's no real birthdate to check against, so a full year elapsed
@@ -360,15 +460,19 @@ final class AppModel {
     }
 
     private func persistSession() {
+        guard !isApplyingRestoredSession else { return }
         let saved = PersistedSession(
             isSignedIn: isSignedIn, hasOnboarded: hasOnboarded, signedInName: signedInName,
             signInMethod: signInMethod, appLockEnabled: appLockEnabled, showAgeRangeOnProfile: showAgeRangeOnProfile,
             meName: me.name, meAgeBand: me.ageBand, meColorIndex: meColorIndex,
             myProfilePhotoData: myProfilePhotoData, myBodyProfile: myBodyProfile, unitSystem: unitSystem,
-            profileAnniversary: profileAnniversary
+            profileAnniversary: profileAnniversary, moodHistory: moodHistory, savedAt: Date()
         )
-        if let data = try? JSONEncoder().encode(saved) {
-            UserDefaults.standard.set(data, forKey: Self.sessionDefaultsKey)
+        guard let data = try? JSONEncoder().encode(saved) else { return }
+        UserDefaults.standard.set(data, forKey: Self.sessionDefaultsKey)
+        Task {
+            let succeeded = await CloudSyncManager.shared.upload(data)
+            cloudSyncStatus = succeeded ? .synced(Date()) : (await CloudSyncManager.shared.isAvailable ? .failed : .unavailable)
         }
     }
 }

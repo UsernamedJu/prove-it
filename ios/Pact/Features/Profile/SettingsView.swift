@@ -196,6 +196,7 @@ struct SettingsView: View {
                     Spacer()
                     Button("Sign Out") {
                         app.isSignedIn = false
+                        app.isGuestSession = false
                         app.signInMethod = nil
                         app.hasOnboarded = false
                         dismiss()

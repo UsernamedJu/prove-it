@@ -31,25 +31,72 @@ struct PactApp: App {
 struct RootView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
+    /// Shown for a beat on cold launch, then fades into whichever screen
+    /// below actually applies — the logo-first-then-app sequence most
+    /// native apps open with, instead of jumping straight to content.
+    @State private var showSplash = true
 
     var body: some View {
         @Bindable var app = app
-        Group {
-            if app.appLockEnabled && !app.isUnlocked {
+        ZStack {
+            if showSplash {
+                SplashView()
+                    .transition(.opacity)
+            } else if app.appLockEnabled && !app.isUnlocked {
                 LockScreenView()
-            } else if !app.isSignedIn {
+                    .transition(.opacity)
+            } else if !app.isSignedIn && !app.isGuestSession {
                 SignInView()
+                    .transition(.opacity)
             } else if app.hasOnboarded {
                 MainTabView()
+                    .transition(.opacity)
             } else {
                 OnboardingFlow()
+                    .transition(.opacity)
             }
         }
+        .animation(Theme.Motion.fade, value: showSplash)
         .animation(Theme.Motion.fade, value: app.hasOnboarded)
         .animation(Theme.Motion.fade, value: app.isSignedIn)
+        .animation(Theme.Motion.fade, value: app.isGuestSession)
         .animation(Theme.Motion.fade, value: app.isUnlocked)
+        .task {
+            try? await Task.sleep(for: .seconds(1.1))
+            showSplash = false
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background && app.appLockEnabled { app.isUnlocked = false }
+        }
+    }
+}
+
+/// The logo-first moment every polished app opens with — a brief branded
+/// beat before the real screen takes over, not a blank flash straight into
+/// content. Kept intentionally plain (flat background, no photo) since a
+/// splash is system chrome, not a "hero" screen like Sign In.
+struct SplashView: View {
+    @State private var scale: CGFloat = 0.82
+    @State private var opacity: Double = 0
+
+    var body: some View {
+        ZStack {
+            Theme.Surface.bg.ignoresSafeArea()
+            VStack(spacing: Theme.Space.sm) {
+                PactMark(size: 52)
+                Text("Prove it")
+                    .font(Theme.Font.wordmark(28))
+                    .tracking(-0.3)
+                    .foregroundStyle(Theme.Ink.primary)
+            }
+            .scaleEffect(scale)
+            .opacity(opacity)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) {
+                scale = 1
+                opacity = 1
+            }
         }
     }
 }

@@ -189,7 +189,7 @@ struct SignInView: View {
     }
 
     private func continueAnyway() {
-        app.isSignedIn = true
+        app.isGuestSession = true
     }
 }
 

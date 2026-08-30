@@ -78,6 +78,12 @@ final class AppModel {
     // Program membership to actually authenticate (same restriction as
     // HealthKit); the biometric lock works today on any account.
     var isSignedIn = false { didSet { persistSession() } }
+    /// Set by "Continue without signing in" — deliberately **not**
+    /// persisted. There's no real identity behind it, so unlike a genuine
+    /// sign-in it shouldn't be remembered across a relaunch: it exists only
+    /// to get through the current session without repeating the prompt on
+    /// every screen, not to skip the sign-in screen forever.
+    var isGuestSession = false
     var signedInName: String? { didSet { persistSession() } }
     /// How they got signed in — shown in Settings. Email/phone sign-in has
     /// no backend to verify against, so it's an identity label, not a

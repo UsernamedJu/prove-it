@@ -121,11 +121,13 @@ final class AppModel {
     var justCreated = false
     var justRevealedID: UUID?
 
-    private var suggestionIndex = 0
+    /// Not private — Home binds a paging `TabView` directly to this so
+    /// suggestions are swiped through like a real horizontal track instead
+    /// of stepped one at a time with a refresh button.
+    var suggestionIndex = 0
     var currentSuggestion: ChallengeSuggestion {
         Fixtures.suggestions[suggestionIndex % Fixtures.suggestions.count]
     }
-    func nextSuggestion() { suggestionIndex += 1 }
 
     var activeChallenges: [Challenge] { challenges.filter { $0.status != .complete } }
 

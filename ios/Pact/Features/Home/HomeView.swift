@@ -3,6 +3,11 @@ import MapKit
 
 struct HomeView: View {
     @Environment(AppModel.self) private var app
+    /// Shared with `ChallengeRow` below and the `.challenge` destination
+    /// case's `.navigationTransition(.zoom)` — a tapped card visibly grows
+    /// into its detail screen instead of a flat push, iOS 18's native
+    /// "expand from the thing you tapped" pattern.
+    @Namespace private var challengeTransition
 
     private var distanceChallenge: Challenge? {
         app.activeChallenges.first { $0.isDistanceBased }
@@ -33,7 +38,9 @@ struct HomeView: View {
         }
         .navigationDestination(for: Route.self) { route in
             switch route {
-            case .challenge(let id): ChallengeDetailView(challengeID: id)
+            case .challenge(let id):
+                ChallengeDetailView(challengeID: id)
+                    .navigationTransition(.zoom(sourceID: id, in: challengeTransition))
             case .createChallenge(let seed): CreateChallengeView(seed: seed)
             case .moodSurvey: MoodSurveyView()
             case .group(let id): GroupDetailView(groupID: id)
@@ -58,8 +65,7 @@ struct HomeView: View {
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(Theme.Ink.secondary)
                             .frame(width: 44, height: 44)
-                            .glassSurface(cornerRadius: 22)
-                            .clipShape(Circle())
+                            .glassEffect(.regular.interactive(), in: Circle())
                         if app.totalUnreadChats > 0 {
                             Circle().fill(Theme.Brand.pink).frame(width: 11, height: 11)
                                 .overlay(Circle().stroke(Theme.Surface.bg, lineWidth: 2))
@@ -110,17 +116,46 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Suggested challenge — exactly one, never a rail
+    // MARK: Suggested challenge — a real horizontal scrolling track: swipe
+    // between suggestions like a native paging carousel (App Store "Today"
+    // cards, Apple Music) instead of stepping one at a time with a refresh
+    // button tap.
 
     private var suggestedCard: some View {
-        let s = app.currentSuggestion
-        return VStack(alignment: .leading, spacing: Theme.Space.md) {
+        let indexBinding = Binding(get: { app.suggestionIndex }, set: { app.suggestionIndex = $0 })
+        return VStack(spacing: Theme.Space.sm) {
+            TabView(selection: indexBinding) {
+                ForEach(Fixtures.suggestions.indices, id: \.self) { i in
+                    suggestionPage(Fixtures.suggestions[i]).tag(i)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            // A fixed height here is a hard ceiling, not a floor like the
+            // old `minHeight` was — 400 turned out too tight for a full
+            // 2-line title + 2-line description + everything else, so
+            // SwiftUI was quietly collapsing both down to 1 line with an
+            // ellipsis to fit, even though lineLimit(2) allows more.
+            .frame(height: 460)
+
+            HStack(spacing: 6) {
+                ForEach(Fixtures.suggestions.indices, id: \.self) { i in
+                    Capsule()
+                        .fill(i == app.suggestionIndex % Fixtures.suggestions.count ? Theme.Brand.purple : Theme.Surface.border)
+                        .frame(width: i == app.suggestionIndex % Fixtures.suggestions.count ? 16 : 6, height: 6)
+                        .animation(Theme.Motion.pop, value: app.suggestionIndex)
+                }
+            }
+        }
+    }
+
+    private func suggestionPage(_ s: ChallengeSuggestion) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
             HStack {
                 TagBadge(text: "SUGGESTED FOR YOU", tint: .white.opacity(0.25), filled: true)
                 Spacer()
                 KindIcon(systemName: s.icon, size: 30, tint: .white)
             }
-            Spacer()
+            Spacer(minLength: Theme.Space.md)
             VStack(alignment: .leading, spacing: 4) {
                 Text(s.title).font(Theme.Font.h1()).foregroundStyle(.white).lineLimit(2)
                 Text(s.venue).font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.8))
@@ -146,22 +181,10 @@ struct HomeView: View {
             .padding(.horizontal, Theme.Space.sm).padding(.vertical, 6)
             .photoOverlaySurface(cornerRadius: Theme.Radius.pill)
 
-            HStack(spacing: Theme.Space.sm) {
-                NavigationLink(value: Route.createChallenge(s)) {
-                    Text("Start This Challenge")
-                }
-                .buttonStyle(PactButtonStyle(kind: .primary))
-
-                Button {
-                    withAnimation(Theme.Motion.pop) { app.nextSuggestion() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 56, height: 56)
-                        .photoOverlaySurface(cornerRadius: Theme.Radius.md)
-                }
+            NavigationLink(value: Route.createChallenge(s)) {
+                Text("Start This Challenge")
             }
+            .buttonStyle(PactButtonStyle(kind: .primary))
         }
         .padding(Theme.Space.lg)
         .frame(minHeight: 340)
@@ -239,7 +262,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             SectionHeader(title: "Your Challenges")
             ForEach(app.activeChallenges) { challenge in
-                ChallengeRow(challenge: challenge)
+                ChallengeRow(challenge: challenge, transitionNamespace: challengeTransition)
             }
         }
     }
@@ -249,6 +272,16 @@ struct HomeView: View {
 struct ChallengeRow: View {
     @Environment(AppModel.self) private var app
     let challenge: Challenge
+    @State private var isSyncing = false
+    /// Only set on Home, where the zoom transition is wired end to end
+    /// (source here, destination in `HomeView`'s own `navigationDestination`).
+    /// Other screens that use this same row just fall back to a normal
+    /// push — `.matchedTransitionSource` with no matching
+    /// `.navigationTransition(.zoom)` on the far end is a harmless no-op,
+    /// not broken, but wiring every list's own NavigationStack + duplicate
+    /// `navigationDestination` switch for it wasn't worth doing five times
+    /// over for one polish detail.
+    var transitionNamespace: Namespace.ID? = nil
 
     private var mine: Standing? { challenge.myStanding }
 
@@ -297,18 +330,26 @@ struct ChallengeRow: View {
                         case .active:
                             let syncsFromHealth = app.healthKitConnected && challenge.kind != .custom
                             Button {
+                                isSyncing = true
                                 if syncsFromHealth {
-                                    Task { await app.syncTodayFromHealth(for: challenge.id) }
+                                    Task { await app.syncTodayFromHealth(for: challenge.id); isSyncing = false }
                                 } else {
                                     app.logActivity(for: challenge.id, hitTarget: true)
+                                    isSyncing = false
                                 }
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: syncsFromHealth ? "heart.fill" : "plus.circle.fill")
+                                        // Variable-color "breathing" is the
+                                        // system's own vocabulary for "working
+                                        // on it" (same family as Siri's/
+                                        // AirDrop's in-progress symbols).
+                                        .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isSyncing)
                                     Text(syncsFromHealth ? "Sync from Health" : "Log Today")
                                 }
                             }
                             .font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
+                            .disabled(isSyncing)
                         case .revealReady:
                             TagBadge(text: "Reveal!", icon: "sparkles", tint: Theme.Brand.lime, filled: true)
                         case .complete:
@@ -319,6 +360,9 @@ struct ChallengeRow: View {
             }
         }
         .buttonStyle(.plain)
+        .ifLet(transitionNamespace) { view, ns in
+            view.matchedTransitionSource(id: challenge.id, in: ns)
+        }
     }
 }
 

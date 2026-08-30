@@ -195,6 +195,19 @@ struct Pressable: ViewModifier {
 }
 extension View {
     func pressable() -> some View { modifier(Pressable()) }
+
+    /// Applies `transform` only when `value` is non-nil — for optional
+    /// modifiers (like a `Namespace.ID` only some call sites of a shared
+    /// view actually have) that can't be expressed as a plain `if` inside
+    /// a view builder chain without breaking out of it.
+    @ViewBuilder
+    func ifLet<Value, Content: View>(_ value: Value?, transform: (Self, Value) -> Content) -> some View {
+        if let value {
+            transform(self, value)
+        } else {
+            self
+        }
+    }
 }
 
 // MARK: - Card surface — flat white fill + a soft shadow, no blur. Legible
@@ -222,6 +235,20 @@ struct GlassSurface: ViewModifier {
 extension View {
     func glassSurface(cornerRadius: CGFloat = Theme.Radius.md, tint: Color? = nil, shadow: Bool = false) -> some View {
         modifier(GlassSurface(cornerRadius: cornerRadius, tint: tint, shadow: shadow))
+    }
+
+    /// Real Liquid Glass, for the *controls* layer only — floating icon
+    /// buttons that sit on top of content (the message-bell button, the
+    /// settings gear), same as the tab bar. HIG is specific that Liquid
+    /// Glass belongs on navigation/controls floating above content, not on
+    /// the content layer itself — which is exactly why this is a separate
+    /// modifier from `glassSurface()` above rather than a shared one: this
+    /// app's cards, rows, and inputs stay flat and legible on purpose, and
+    /// only the small set of floating chrome controls actually get glass.
+    func chromeGlass(cornerRadius: CGFloat = Theme.Radius.md, tint: Color? = nil, interactive: Bool = true) -> some View {
+        let base = Glass.regular
+        let tinted = tint.map { base.tint($0) } ?? base
+        return glassEffect(interactive ? tinted.interactive() : tinted, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
@@ -1023,6 +1050,7 @@ struct PillTabBar: View {
     /// new one instead of fading out in one spot and back in at another —
     /// the page behind the bar still cuts instantly (see `MainTabView`).
     @Namespace private var indicator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 2) {
@@ -1032,7 +1060,12 @@ struct PillTabBar: View {
                     onSelect(tab)
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: tab.icon).font(.system(size: 18, weight: .semibold))
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                            // `value` only ever flips when motion is allowed —
+                            // holding it at `false` under Reduce Motion means
+                            // the bounce simply never has anything to trigger on.
+                            .symbolEffect(.bounce, value: reduceMotion ? false : isOn)
                         if isOn {
                             Text(tab.rawValue).font(Theme.Font.h3()).lineLimit(1)
                                 .transition(.opacity)
@@ -1043,12 +1076,13 @@ struct PillTabBar: View {
                     .frame(height: 48)
                     .background {
                         if isOn {
-                            ZStack {
-                                Capsule().fill(.ultraThinMaterial)
-                                Capsule().fill(Theme.Brand.cyan.opacity(0.92))
-                                Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.85)
-                            }
-                            .matchedGeometryEffect(id: "activeTabPill", in: indicator)
+                            // Real Liquid Glass, not a hand-rolled material
+                            // stack — `.tint` carries the same cyan the old
+                            // fill used, `.interactive()` gives it the same
+                            // press-response every system glass control has.
+                            Capsule()
+                                .glassEffect(.regular.tint(Theme.Brand.cyan.opacity(0.92)).interactive(), in: Capsule())
+                                .matchedGeometryEffect(id: "activeTabPill", in: indicator)
                         }
                     }
                     .clipShape(Capsule())
@@ -1057,9 +1091,7 @@ struct PillTabBar: View {
             }
         }
         .padding(6)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(Theme.Surface.card.opacity(0.45), in: Capsule())
-        .overlay(Capsule().stroke(Theme.Brand.holo, lineWidth: 1.2).opacity(0.55))
+        .glassEffect(.regular, in: Capsule())
         .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
         .shadow(color: Theme.Brand.purple.opacity(0.22), radius: 14, y: 4)
         .shadow(color: Theme.Brand.pink.opacity(0.16), radius: 12, x: -5, y: 2)

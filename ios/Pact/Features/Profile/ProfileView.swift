@@ -58,8 +58,7 @@ struct ProfileView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.Ink.secondary)
                         .frame(width: 40, height: 40)
-                        .glassSurface(cornerRadius: 20)
-                        .clipShape(Circle())
+                        .glassEffect(.regular.interactive(), in: Circle())
                 }
             }
             InitialBadge(name: app.me.name, size: 72, overrideColor: app.meColor, photoData: app.myProfilePhotoData, breathes: false)

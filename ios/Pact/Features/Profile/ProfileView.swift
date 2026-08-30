@@ -162,6 +162,13 @@ private struct FitnessRing: View {
     /// already-full.
     @State private var animatedScore: Int = 0
 
+    /// A full second, not `Theme.Motion.settle`'s ~0.45s — the ring was
+    /// technically animating before (confirmed frame-by-frame: 0 right after
+    /// appear, full value moments later) but a half-second spring is easy to
+    /// miss entirely if you're not staring at the exact moment you switch
+    /// tabs. This is slow enough to be unmistakable without dragging.
+    private static let fillAnimation = Animation.easeOut(duration: 1.0)
+
     var body: some View {
         ZStack {
             Circle().stroke(Theme.Ink.tertiary.opacity(0.15), lineWidth: 8)
@@ -169,7 +176,13 @@ private struct FitnessRing: View {
                 .trim(from: 0, to: CGFloat(animatedScore) / 100)
                 .stroke(Theme.Brand.holo, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-            Text("\(animatedScore)").font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
+            Text("\(animatedScore)")
+                .font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
+                // Without this, the ring sweeps smoothly but the number
+                // itself just snaps straight from 0 to the final value —
+                // Text content isn't interpolated by default. This makes it
+                // visibly count up in sync with the ring instead.
+                .contentTransition(.numericText(value: Double(animatedScore)))
         }
         .frame(width: 64, height: 64)
         .onAppear {
@@ -180,12 +193,12 @@ private struct FitnessRing: View {
             // to the next run-loop tick via `asyncAfter` starts a fresh
             // transaction the tab switch's override can't reach.
             animatedScore = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(Theme.Motion.settle) { animatedScore = score }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(Self.fillAnimation) { animatedScore = score }
             }
         }
         .onChange(of: score) { _, newValue in
-            withAnimation(Theme.Motion.settle) { animatedScore = newValue }
+            withAnimation(Self.fillAnimation) { animatedScore = newValue }
         }
     }
 }

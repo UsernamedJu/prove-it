@@ -157,18 +157,27 @@ struct ProfileView: View {
 /// logo/wordmark, not a flat tint.
 private struct FitnessRing: View {
     let score: Int
+    /// Starts at 0 and animates up to `score` on appear, so the ring visibly
+    /// draws in every time you land on Profile instead of just materializing
+    /// already-full.
+    @State private var animatedScore: Int = 0
 
     var body: some View {
         ZStack {
             Circle().stroke(Theme.Ink.tertiary.opacity(0.15), lineWidth: 8)
             Circle()
-                .trim(from: 0, to: CGFloat(score) / 100)
+                .trim(from: 0, to: CGFloat(animatedScore) / 100)
                 .stroke(Theme.Brand.holo, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(Theme.Motion.settle, value: score)
-            Text("\(score)").font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
+            Text("\(animatedScore)").font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
         }
         .frame(width: 64, height: 64)
+        .onAppear {
+            withAnimation(Theme.Motion.settle.delay(0.1)) { animatedScore = score }
+        }
+        .onChange(of: score) { _, newValue in
+            withAnimation(Theme.Motion.settle) { animatedScore = newValue }
+        }
     }
 }
 

@@ -144,23 +144,29 @@ enum Fixtures {
     // Grounded in San Diego's actual race calendar — the Balboa Park 5K Running
     // Tour genuinely runs on Sundays, which is why it leads as "today."
 
+    // Each suggestion's payoff is bespoke and distinct from every active
+    // challenge's payoff above (and from the others here) — two of the four
+    // used to just repeat "Loser buys coffee for everyone" / "Bragging
+    // rights for a week" verbatim from active challenges, which is exactly
+    // why cycling through suggestions read as generic/interchangeable
+    // rather than each having its own stakes.
     static let suggestions: [ChallengeSuggestion] = [
         ChallengeSuggestion(title: "Balboa Park 5K — Race Day", icon: "route", kind: .distance,
                              venue: "Balboa Park", photoName: "photo-balboa5k",
                              line: "The Balboa Park 5K Running Tour starts today. Set a pace goal and race it together.",
-                             suggestedDuration: 1, payoff: Payoff(icon: "car.fill", text: "Winner picks the next challenge")),
+                             suggestedDuration: 1, payoff: Payoff(icon: "crown.fill", text: "Winner picks the next challenge — no vetoes")),
         ChallengeSuggestion(title: "Gaslamp Quarter Step Circuit", icon: "footprints", kind: .steps,
                              venue: "Gaslamp Quarter", photoName: "photo-gaslamp",
                              line: "The Gaslamp averages 11,000 steps on a Friday night. See who actually walks it.",
-                             suggestedDuration: 7, payoff: Payoff(icon: "cup.and.saucer.fill", text: "Loser buys coffee for everyone")),
+                             suggestedDuration: 7, payoff: Payoff(icon: "wineglass.fill", text: "Loser covers the first round downtown")),
         ChallengeSuggestion(title: "Coronado Bridge Walk Series", icon: "route", kind: .distance,
                              venue: "Coronado", photoName: "photo-coronado",
                              line: "Two weeks along one of San Diego's most recognizable routes. Everyone starts even.",
-                             suggestedDuration: 14, payoff: Payoff(icon: "trophy.fill", text: "Bragging rights for a week")),
+                             suggestedDuration: 14, payoff: Payoff(icon: "photo.fill", text: "Winner's photo becomes the crew's profile pic for a week")),
         ChallengeSuggestion(title: "Mission Bay Morning Circuit", icon: "footprints", kind: .steps,
                              venue: "Mission Bay", photoName: "photo-missionbay",
                              line: "Early miles around the bay. Built for consistency, not intensity.",
-                             suggestedDuration: 10, payoff: Payoff(icon: "figure.strengthtraining.traditional", text: "Loser does 20 burpees on video")),
+                             suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser makes smoothies for the crew after the last morning walk")),
     ]
 
     // MARK: Mood history

@@ -8,6 +8,7 @@ struct HomeView: View {
     /// into its detail screen instead of a flat push, iOS 18's native
     /// "expand from the thing you tapped" pattern.
     @Namespace private var challengeTransition
+    @State private var mapCameraPosition: MapCameraPosition = .automatic
 
     private var distanceChallenge: Challenge? {
         app.activeChallenges.first { $0.isDistanceBased }
@@ -218,7 +219,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 SectionHeader(title: "On the Map")
                 ZStack(alignment: .bottomLeading) {
-                    Map(initialPosition: .region(region(for: challenge)), interactionModes: []) {
+                    Map(position: $mapCameraPosition, interactionModes: []) {
                         if let coords = challenge.routeCoordinates {
                             MapPolyline(coordinates: coords).stroke(challenge.tint, lineWidth: 4)
                         }
@@ -226,6 +227,20 @@ struct HomeView: View {
                     .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))
                     .frame(height: 150)
                     .allowsHitTesting(false)
+                    // `initialPosition` only ever applies once, so if the
+                    // real route arrives after this view already rendered
+                    // (it's fetched asynchronously — see
+                    // AppModel.ensureRealRoute), the camera would stay
+                    // framed on whatever fallback region it started with. A
+                    // bound MapCameraPosition updated after the fetch keeps
+                    // the view actually centered on the real path.
+                    .task(id: challenge.id) {
+                        mapCameraPosition = .region(region(for: challenge))
+                        await app.ensureRealRoute(for: challenge.id)
+                        if let updated = app.challenges.first(where: { $0.id == challenge.id }) {
+                            withAnimation(Theme.Motion.settle) { mapCameraPosition = .region(region(for: updated)) }
+                        }
+                    }
 
                     Text("\(challenge.title) · \(challenge.daysLeft)d left")
                         .font(Theme.Font.caption())

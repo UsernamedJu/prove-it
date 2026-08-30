@@ -22,16 +22,6 @@ enum Fixtures {
     static let familyGroup = ContactGroup(name: "Family", memberIDs: [mom.id, dad.id, grandmaRose.id])
     static var groups: [ContactGroup] { [familyGroup] }
 
-    // MARK: Map route (a short loop, La Jolla — kept as a flat, non-live preview)
-
-    static let sampleRoute: [CLLocationCoordinate2D] = [
-        .init(latitude: 32.8328, longitude: -117.2713),
-        .init(latitude: 32.8352, longitude: -117.2726),
-        .init(latitude: 32.8367, longitude: -117.2701),
-        .init(latitude: 32.8349, longitude: -117.2680),
-        .init(latitude: 32.8328, longitude: -117.2713),
-    ]
-
     /// A real coordinate for a venue string — every challenge and suggestion
     /// is grounded in an actual San Diego place, so the Map tab can drop a
     /// pin for kinds (Steps/Custom) that don't carry a full route.
@@ -85,7 +75,10 @@ enum Fixtures {
             Standing(member: me, rank: 3, progress: 0.49, trendDelta: "-2", progressHistory: history(days: 12, end: 0.49)),
         ],
         myMemberID: me.id, blindReveal: true, fairPlay: false, status: .active,
-        routeCoordinates: sampleRoute, winnerName: nil
+        // `AppModel.ensureRealRoute` fills this in with a real MKDirections
+        // walking route the first time a map view for this challenge
+        // appears, rather than seeding it with a fake, hand-drawn loop.
+        routeCoordinates: nil, winnerName: nil
     )
 
     static let petcoParkFanWalk = Challenge(

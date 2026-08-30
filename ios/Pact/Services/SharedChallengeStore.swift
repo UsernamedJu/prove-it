@@ -1,5 +1,6 @@
 import Foundation
 import CloudKit
+import UserNotifications
 
 /// Owns every CKShare-backed challenge this device knows about: ones this
 /// iCloud account created (owner, records live in the private database)
@@ -7,22 +8,29 @@ import CloudKit
 /// in the shared database). See `SharedChallenge.swift` for why this is a
 /// separate system from the Fixtures-based `Challenge`/`AppModel.challenges`.
 ///
-/// Scoping notes, honestly stated rather than glossed over:
-/// - No push notifications / CKSubscription — updates from the other
-///   participant show up on `refresh()`, not automatically the instant
-///   they log something. That's a real, separate piece of infrastructure
-///   (remote notification registration, subscriptions, background
-///   delivery handling) that wasn't part of this pass.
-/// - The list of "which shared challenges am I in" is a small local index
-///   in UserDefaults (record IDs only, not the actual progress data —
-///   CloudKit stays the source of truth for that). It is *not* synced via
-///   CloudSyncManager's private-data sync, so accepting an invite on one
-///   device doesn't make it appear on your other devices automatically;
-///   you'd open the invite link on whichever device you want to use.
-/// - Discovery only covers shares accepted through this app's own accept
-///   flow (the CKShare URL → `application(_:userDidAcceptCloudKitShareWith:)`
-///   path). There's no fallback enumeration of `sharedCloudDatabase` zones
-///   for shares that ended up accepted some other way.
+/// Formerly-scoped-out limitations, now closed:
+/// - **Real-time delivery**: each zone gets a `CKRecordZoneSubscription` on
+///   whichever database this account reads it from, with silent push
+///   (`shouldSendContentAvailable`). `CloudShareDelegate` registers for
+///   remote notifications at launch and refreshes on receipt — CloudKit
+///   sends these directly, no server of this app's own involved. Progress
+///   from the other participant now shows up without waiting for the app
+///   to be foregrounded. A visible local notification ("so-and-so made
+///   progress") fires too, once notification permission is granted.
+/// - **Cross-device index**: "which shared challenges am I in" now syncs
+///   through a second `CloudSyncManager` instance, the same private-data
+///   sync AppModel's own profile uses, merged by simple union (these are
+///   just record-ID pointers to re-fetch, not opinionated state, so there's
+///   no last-write-wins conflict to resolve).
+/// - **Fallback discovery**: `refresh()` also enumerates
+///   `sharedCloudDatabase.allRecordZones()` for anything CloudKit says is
+///   shared with this account that isn't in the known index yet — covers a
+///   share accepted some other way, or a lost/never-synced local index.
+///
+/// What's still out of scope: this is still 1:1 challenge sharing, not the
+/// demo crew becoming real, and push delivery can only be verified against
+/// a real device with notification permission granted — the Simulator has
+/// no APNs token to receive an actual silent push against.
 ///
 /// Same "never crash, never leave the model in a broken state" philosophy
 /// as `HealthKitManager` / `CloudSyncManager` for the read paths (`refresh`
@@ -42,24 +50,57 @@ final class SharedChallengeStore {
     var challenges: [SharedChallenge] = []
     var lastError: String?
     var isBusy = false
+    /// Cached from the last `refresh`/`acceptShare`/`createSharedChallenge`
+    /// call — lets a silent push notification trigger a refresh (see
+    /// `CloudShareDelegate`) without needing to plumb "who am I" all the
+    /// way from AppModel into a bare UIApplicationDelegate callback.
+    private var lastKnownMe: (id: UUID, name: String)?
 
-    private init() {
-        loadIndex()
-    }
+    private init() {}
 
     // MARK: Local index — just enough to know what to re-fetch on launch
 
-    private struct IndexEntry: Codable {
+    private struct IndexEntry: Codable, Equatable {
         var zoneName: String
         var recordName: String
         var isOwnedByMe: Bool
         var shareRecordName: String?
     }
 
-    private func loadIndex() -> [IndexEntry] {
+    /// Syncs *which* challenges this account knows about (record IDs only —
+    /// CloudKit's own records stay the source of truth for the actual
+    /// progress data) across this account's devices, the same way
+    /// `CloudSyncManager.shared` syncs AppModel's profile. A distinct
+    /// record name so it doesn't collide with that one.
+    private let indexSync = CloudSyncManager(recordName: "SharedChallengeIndex", recordType: "SharedChallengeIndexRecord")
+
+    /// Merges the local index with whatever's in this account's synced
+    /// copy (a plain union by zone name — these are just pointers to check,
+    /// not opinionated state, so there's no last-write-wins conflict to
+    /// resolve) and writes the merged result back to both, so a challenge
+    /// accepted on one device shows up here on the next launch too.
+    private func loadIndex() async -> [IndexEntry] {
+        let local = localIndex()
+        guard let cloudData = await indexSync.fetch(),
+              let cloudEntries = try? JSONDecoder().decode([IndexEntry].self, from: cloudData) else { return local }
+        var merged = local
+        for entry in cloudEntries where !merged.contains(where: { $0.zoneName == entry.zoneName }) {
+            merged.append(entry)
+        }
+        if merged.count != local.count { writeIndex(merged) }
+        return merged
+    }
+
+    private func localIndex() -> [IndexEntry] {
         guard let data = UserDefaults.standard.data(forKey: Self.indexDefaultsKey),
               let entries = try? JSONDecoder().decode([IndexEntry].self, from: data) else { return [] }
         return entries
+    }
+
+    private func writeIndex(_ entries: [IndexEntry]) {
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        UserDefaults.standard.set(data, forKey: Self.indexDefaultsKey)
+        Task { await indexSync.upload(data) }
     }
 
     private func saveIndex() {
@@ -67,9 +108,7 @@ final class SharedChallengeStore {
             IndexEntry(zoneName: $0.zoneID.zoneName, recordName: $0.rootRecordID.recordName,
                        isOwnedByMe: $0.isOwnedByMe, shareRecordName: $0.shareRecordID?.recordName)
         }
-        if let data = try? JSONEncoder().encode(entries) {
-            UserDefaults.standard.set(data, forKey: Self.indexDefaultsKey)
-        }
+        writeIndex(entries)
     }
 
     // MARK: Create + invite
@@ -82,6 +121,7 @@ final class SharedChallengeStore {
     func createSharedChallenge(title: String, kind: ChallengeKind, venue: String, rules: String,
                                 dailyTarget: Int, durationDays: Int, payoff: Payoff,
                                 myLocalID: UUID, myName: String) async throws -> URL {
+        lastKnownMe = (myLocalID, myName)
         let zoneID = CKRecordZone.ID(zoneName: "Challenge-\(UUID().uuidString)")
         let zone = CKRecordZone(zoneID: zoneID)
         _ = try await container.privateCloudDatabase.save(zone)
@@ -127,6 +167,8 @@ final class SharedChallengeStore {
                                          payoff: payoff, createdAt: Date(), entries: [mine])
         challenges.append(challenge)
         saveIndex()
+        requestNotificationPermissionIfNeeded()
+        await subscribeToZoneChanges(zoneID: zoneID, database: container.privateCloudDatabase)
         return url
     }
 
@@ -145,6 +187,7 @@ final class SharedChallengeStore {
     /// the challenge it points to and adds this device's own entry record
     /// so there's something for the owner to actually see progress from.
     func acceptShare(metadata: CKShare.Metadata, myLocalID: UUID, myName: String) async {
+        lastKnownMe = (myLocalID, myName)
         isBusy = true
         defer { isBusy = false }
         do {
@@ -168,26 +211,120 @@ final class SharedChallengeStore {
     private func fetchJoinedChallenge(rootRecordID: CKRecord.ID, myLocalID: UUID, myName: String) async throws {
         let database = container.sharedCloudDatabase
         let root = try await database.record(for: rootRecordID)
-        var entries = try await fetchEntries(database: database, zoneID: rootRecordID.zoneID, myLocalID: myLocalID)
-
-        if !entries.contains(where: { $0.isMe }) {
-            let entry = CKRecord(recordType: entryType, recordID: CKRecord.ID(zoneID: rootRecordID.zoneID))
-            entry.parent = CKRecord.Reference(record: root, action: .none)
-            entry["localID"] = myLocalID.uuidString
-            entry["participantName"] = myName
-            entry["progress"] = 0.0
-            entry["progressHistory"] = [0.0]
-            entry["lastLogVerified"] = 0
-            _ = try await database.modifyRecords(saving: [entry], deleting: [])
-            entries.append(SharedEntry(localID: myLocalID.uuidString, recordID: entry.recordID,
-                                        participantName: myName, progress: 0, progressHistory: [0],
-                                        lastLogVerified: false, isMe: true))
-        }
-
+        let entries = await ensuringMyEntry(
+            in: try await fetchEntries(database: database, zoneID: rootRecordID.zoneID, myLocalID: myLocalID),
+            root: root, zoneID: rootRecordID.zoneID, database: database, myLocalID: myLocalID, myName: myName
+        )
         let challenge = try challenge(from: root, zoneID: rootRecordID.zoneID, isOwnedByMe: false, shareRecordID: nil, entries: entries)
         challenges.removeAll { $0.localID == challenge.localID }
         challenges.append(challenge)
         saveIndex()
+        requestNotificationPermissionIfNeeded()
+        await subscribeToZoneChanges(zoneID: rootRecordID.zoneID, database: database)
+    }
+
+    /// Bootstraps this account's own progress record into a shared zone if
+    /// it isn't there yet — the same "just joined, nothing written for me
+    /// here yet" step both the explicit accept flow and the fallback
+    /// discovery scan below need.
+    private func ensuringMyEntry(in entries: [SharedEntry], root: CKRecord, zoneID: CKRecordZone.ID,
+                                  database: CKDatabase, myLocalID: UUID, myName: String) async -> [SharedEntry] {
+        guard !entries.contains(where: { $0.isMe }) else { return entries }
+        let entry = CKRecord(recordType: entryType, recordID: CKRecord.ID(zoneID: zoneID))
+        entry.parent = CKRecord.Reference(record: root, action: .none)
+        entry["localID"] = myLocalID.uuidString
+        entry["participantName"] = myName
+        entry["progress"] = 0.0
+        entry["progressHistory"] = [0.0]
+        entry["lastLogVerified"] = 0
+        guard (try? await database.modifyRecords(saving: [entry], deleting: [])) != nil else { return entries }
+        return entries + [SharedEntry(localID: myLocalID.uuidString, recordID: entry.recordID,
+                                       participantName: myName, progress: 0, progressHistory: [0],
+                                       lastLogVerified: false, isMe: true)]
+    }
+
+    /// Finds challenges shared with this iCloud account that this app
+    /// never recorded in its own local index — e.g. a share accepted
+    /// through some path other than `CloudShareDelegate`'s callback, or a
+    /// fresh install that lost the local index. `sharedCloudDatabase`
+    /// itself is the authority on what's actually been shared with this
+    /// account, so this is a real fallback, not a guess: every zone
+    /// returned here is a zone CloudKit says this account can see.
+    private func discoverUnknownSharedZones(knownZoneNames: Set<String>, myLocalID: UUID, myName: String) async -> [SharedChallenge] {
+        guard let zones = try? await container.sharedCloudDatabase.allRecordZones() else { return [] }
+        var discovered: [SharedChallenge] = []
+        for zone in zones where !knownZoneNames.contains(zone.zoneID.zoneName) {
+            let query = CKQuery(recordType: challengeType, predicate: NSPredicate(value: true))
+            guard let result = try? await container.sharedCloudDatabase.records(matching: query, inZoneWith: zone.zoneID),
+                  let firstMatch = result.matchResults.first,
+                  let root = try? firstMatch.1.get(),
+                  let rawEntries = try? await fetchEntries(database: container.sharedCloudDatabase, zoneID: zone.zoneID, myLocalID: myLocalID) else { continue }
+            let entries = await ensuringMyEntry(in: rawEntries, root: root, zoneID: zone.zoneID,
+                                                 database: container.sharedCloudDatabase, myLocalID: myLocalID, myName: myName)
+            guard let found = try? challenge(from: root, zoneID: zone.zoneID, isOwnedByMe: false, shareRecordID: nil, entries: entries) else { continue }
+            discovered.append(found)
+            await subscribeToZoneChanges(zoneID: zone.zoneID, database: container.sharedCloudDatabase)
+        }
+        return discovered
+    }
+
+    // MARK: Real-time delivery — CKRecordZoneSubscription + silent push
+
+    /// One subscription per zone, on whichever database this account reads
+    /// that zone from. Fires (silently, `shouldSendContentAvailable`) for
+    /// *any* record change in the zone — since each challenge has its own
+    /// dedicated zone, that means "the other participant logged progress,"
+    /// which is exactly what should trigger a refresh. A deterministic
+    /// subscription ID means calling this again for a zone that's already
+    /// subscribed just overwrites the same subscription rather than piling
+    /// up duplicates.
+    private func subscribeToZoneChanges(zoneID: CKRecordZone.ID, database: CKDatabase) async {
+        let subscription = CKRecordZoneSubscription(zoneID: zoneID, subscriptionID: "zone-\(zoneID.zoneName)")
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        _ = try? await database.save(subscription)
+    }
+
+    /// The *visible* notification permission — separate from
+    /// `CloudShareDelegate` registering for silent remote notifications at
+    /// launch (which needs no user-facing prompt). Asked for at the moment
+    /// a shared challenge is actually created or joined, not at cold
+    /// launch out of context.
+    private func requestNotificationPermissionIfNeeded() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+
+    /// Triggered by a silent push (see `CloudShareDelegate`). Uses whichever
+    /// identity the last real refresh/create/accept call cached — if
+    /// nothing's cached yet (the app was force-quit and a push arrived
+    /// before it was ever reopened normally), there's nothing to refresh
+    /// with, so this just no-ops; the next normal foreground catches up.
+    func refreshFromPush() async {
+        guard let me = lastKnownMe else { return }
+        await refresh(myLocalID: me.id, myName: me.name)
+    }
+
+    /// Compares progress before/after a refresh and schedules a local
+    /// notification for any *other* participant's real increase — the part
+    /// that makes the silent push actually visible to the user, not just a
+    /// background data update they'd never notice.
+    private func notifyOfNewProgress(previous: [String: Double], in updated: [SharedChallenge]) {
+        for challenge in updated {
+            for entry in challenge.otherEntries {
+                let key = "\(challenge.localID)-\(entry.localID)"
+                guard let old = previous[key], entry.progress > old + 0.001 else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = "\(entry.participantName) made progress"
+                content.body = "\(entry.participantName) just logged progress on \(challenge.title)."
+                content.sound = .default
+                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+                UNUserNotificationCenter.current().getNotificationSettings { settings in
+                    guard settings.authorizationStatus == .authorized else { return }
+                    UNUserNotificationCenter.current().add(request)
+                }
+            }
+        }
     }
 
     // MARK: Refresh — re-pull the latest progress for every known challenge
@@ -198,8 +335,12 @@ final class SharedChallengeStore {
     /// better than the whole list vanishing because one challenge's zone
     /// had a transient fetch error.
     func refresh(myLocalID: UUID, myName: String) async {
+        lastKnownMe = (myLocalID, myName)
         guard (try? await container.accountStatus()) == .available else { return }
-        let known = challenges.isEmpty ? loadIndex() : []
+        let previousProgress: [String: Double] = Dictionary(
+            uniqueKeysWithValues: challenges.flatMap { c in c.otherEntries.map { ("\(c.localID)-\($0.localID)", $0.progress) } }
+        )
+        let known = challenges.isEmpty ? await loadIndex() : []
         var rebuilt: [SharedChallenge] = []
         for entry in known {
             let zoneID = CKRecordZone.ID(zoneName: entry.zoneName)
@@ -221,7 +362,16 @@ final class SharedChallengeStore {
             }
             rebuilt.append(updated)
         }
+
+        // Fallback: anything CloudKit says is shared with this account that
+        // wasn't already covered above (accepted some other way, or the
+        // local index was lost).
+        let knownZoneNames = Set((known.map(\.zoneName)) + challenges.map { $0.zoneID.zoneName })
+        let discovered = await discoverUnknownSharedZones(knownZoneNames: knownZoneNames, myLocalID: myLocalID, myName: myName)
+        rebuilt.append(contentsOf: discovered)
+
         if !rebuilt.isEmpty {
+            notifyOfNewProgress(previous: previousProgress, in: rebuilt)
             challenges = rebuilt
             saveIndex()
         }

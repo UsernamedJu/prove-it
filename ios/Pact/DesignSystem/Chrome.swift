@@ -918,6 +918,18 @@ struct RivalryChart: View {
         .frame(height: height)
     }
 
+    /// A Catmull-Rom spline, not the midpoint-quad-curve trick this used to
+    /// use. That old technique never actually touched most of the real data
+    /// points — it curved *toward* the midpoint between each pair and used
+    /// the real point only as a bezier control, so a genuine day-to-day
+    /// swing in `progressHistory` (which `Fixtures.history`'s wobble term
+    /// guarantees exists) was visibly flattened out. It also had a bugged
+    /// first segment (curved away from a stationary control point instead
+    /// of a normal line-in) and a bugged last segment (a hard straight line
+    /// instead of a curve, since the loop always stops one midpoint short).
+    /// A Catmull-Rom spline still renders smooth, but passes through every
+    /// real value exactly, at its correct x position — accurate *and*
+    /// good-looking, not one traded for the other.
     private func path(for line: Line, size: CGSize) -> Path {
         let values = line.points.isEmpty ? [0, 0] : line.points
         let points: [CGPoint] = values.enumerated().map { i, v in
@@ -926,11 +938,16 @@ struct RivalryChart: View {
         }
         var path = Path()
         path.move(to: points[0])
+        guard points.count > 1 else { return path }
         for i in 0..<points.count - 1 {
-            let mid = CGPoint(x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2)
-            path.addQuadCurve(to: mid, control: points[i])
+            let p0 = i > 0 ? points[i - 1] : points[i]
+            let p1 = points[i]
+            let p2 = points[i + 1]
+            let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
+            let control1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
+            let control2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+            path.addCurve(to: p2, control1: control1, control2: control2)
         }
-        path.addLine(to: points.last!)
         return path
     }
 }

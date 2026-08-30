@@ -55,6 +55,18 @@ struct MapExploreView: View {
             .colorScheme(.dark)
             .ignoresSafeArea(edges: .bottom)
             .onAppear { fitCamera() }
+            .task {
+                // Real routes (see AppModel.ensureRealRoute /
+                // RouteService) load asynchronously — refit once they're
+                // in so the camera actually frames the real paths instead
+                // of just each venue's plain coordinate.
+                await withTaskGroup(of: Void.self) { group in
+                    for challenge in liveChallenges where challenge.kind == .distance {
+                        group.addTask { await app.ensureRealRoute(for: challenge.id) }
+                    }
+                }
+                fitCamera()
+            }
 
             header
         }

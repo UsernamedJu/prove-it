@@ -160,13 +160,20 @@ private struct FitnessRing: View {
     /// draws in every time you land on Profile instead of just materializing
     /// already-full.
     @State private var animatedScore: Int = 0
+    /// The arc's rotation — starts a full turn behind its resting -90°
+    /// (12 o'clock) position and spins forward into place *while* filling,
+    /// so the ring visibly circles in rather than just growing in place.
+    @State private var rotationDegrees: Double = -90 - 360
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// A full second, not `Theme.Motion.settle`'s ~0.45s — the ring was
     /// technically animating before (confirmed frame-by-frame: 0 right after
     /// appear, full value moments later) but a half-second spring is easy to
     /// miss entirely if you're not staring at the exact moment you switch
-    /// tabs. This is slow enough to be unmistakable without dragging.
-    private static let fillAnimation = Animation.easeOut(duration: 1.0)
+    /// tabs. This is slow enough to be unmistakable without dragging. A
+    /// spring rather than easeOut so the spin-in has a touch of real
+    /// physical weight instead of mechanically decelerating to a stop.
+    private static let fillAnimation = Animation.spring(response: 0.9, dampingFraction: 0.78)
 
     var body: some View {
         ZStack {
@@ -174,7 +181,7 @@ private struct FitnessRing: View {
             Circle()
                 .trim(from: 0, to: CGFloat(animatedScore) / 100)
                 .stroke(Theme.Brand.holo, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+                .rotationEffect(.degrees(rotationDegrees))
             Text("\(animatedScore)")
                 .font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
                 // Without this, the ring sweeps smoothly but the number
@@ -192,8 +199,12 @@ private struct FitnessRing: View {
             // to the next run-loop tick via `asyncAfter` starts a fresh
             // transaction the tab switch's override can't reach.
             animatedScore = 0
+            rotationDegrees = reduceMotion ? -90 : -90 - 360
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(Self.fillAnimation) { animatedScore = score }
+                withAnimation(reduceMotion ? Self.fillAnimation.speed(3) : Self.fillAnimation) {
+                    animatedScore = score
+                    rotationDegrees = -90
+                }
             }
         }
         .onChange(of: score) { _, newValue in

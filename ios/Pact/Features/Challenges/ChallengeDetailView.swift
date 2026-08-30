@@ -465,6 +465,7 @@ private struct DetailsTab: View {
 // MARK: - Map — real MapKit tiles, a live route, and every participant pinned
 
 private struct MapTab: View {
+    @Environment(AppModel.self) private var app
     let challenge: Challenge
 
     var body: some View {
@@ -492,6 +493,9 @@ private struct MapTab: View {
             }
         }
         .padding(Theme.Space.lg)
+        .task(id: challenge.id) {
+            await app.ensureRealRoute(for: challenge.id)
+        }
     }
 
     private func region(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {

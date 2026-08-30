@@ -235,10 +235,22 @@ final class AppModel {
                                    customMetric: customMetric, payoff: payoff,
                                    standings: standings, myMemberID: me.id,
                                    blindReveal: blindReveal, fairPlay: fairPlay, status: .active,
-                                   routeCoordinates: kind == .distance ? Fixtures.sampleRoute : nil,
-                                   winnerName: nil)
+                                   routeCoordinates: nil, winnerName: nil)
         challenges.insert(challenge, at: 0)
         justCreated = true
+    }
+
+    /// Fetches (or reuses the cached) real walking route for a distance
+    /// challenge's actual venue — see `RouteService`. A no-op for
+    /// steps/custom challenges, which never render a route line, and for
+    /// anything that already has one, so this is safe to call from a
+    /// view's `.task` every time it appears.
+    func ensureRealRoute(for challengeID: UUID) async {
+        guard let idx = challenges.firstIndex(where: { $0.id == challengeID }),
+              challenges[idx].kind == .distance, challenges[idx].routeCoordinates == nil else { return }
+        let coords = await RouteService.shared.route(for: challenges[idx].venue)
+        guard let idx2 = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
+        challenges[idx2].routeCoordinates = coords
     }
 
     /// Reveals the winner — the payoff of the play → reveal loop.

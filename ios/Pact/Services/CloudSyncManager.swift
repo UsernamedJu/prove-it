@@ -17,14 +17,23 @@ import CloudKit
 /// "network unavailable," or "nothing uploaded yet" as normal, expected
 /// states — never a crash, never a surfaced error the user has to deal with.
 actor CloudSyncManager {
+    /// The default instance — AppModel's own profile/settings/mood blob.
     static let shared = CloudSyncManager()
 
     private let container = CKContainer(identifier: "iCloud.com.jean.pact")
-    /// One fixed record per iCloud account — there's exactly one "me" to
-    /// sync, so there's no query, just a fetch/save against a well-known ID.
-    private let recordID = CKRecord.ID(recordName: "PrimarySession")
-    private let recordType = "UserSession"
+    /// One fixed record per iCloud account per purpose — there's exactly
+    /// one of whatever this instance syncs, so there's no query, just a
+    /// fetch/save against a well-known ID. A second instance with a
+    /// different `recordName` (see `SharedChallengeStore`'s index sync)
+    /// gets its own separate record rather than colliding with this one.
+    private let recordID: CKRecord.ID
+    private let recordType: String
     private let payloadKey = "payload"
+
+    init(recordName: String = "PrimarySession", recordType: String = "UserSession") {
+        self.recordID = CKRecord.ID(recordName: recordName)
+        self.recordType = recordType
+    }
 
     var isAvailable: Bool {
         get async {

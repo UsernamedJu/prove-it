@@ -64,7 +64,7 @@ enum Fixtures {
     )
 
     static let laJollaCoastal = Challenge(
-        id: UUID(), title: "La Jolla Coastal 5K Series", icon: "route", kind: .distance,
+        id: UUID(), title: "La Jolla Coastal 5K Series", icon: "figure.run", kind: .distance,
         venue: "La Jolla Shores", rules: "Cumulative distance over the series. Scores stay hidden until the final 72 hours.",
         photoName: "photo-distance",
         durationDays: 30, daysLeft: 18, dailyTarget: 2,
@@ -82,7 +82,7 @@ enum Fixtures {
     )
 
     static let petcoParkFanWalk = Challenge(
-        id: UUID(), title: "Petco Park Fan Walk", icon: "target", kind: .custom,
+        id: UUID(), title: "Petco Park Fan Walk", icon: "baseball.fill", kind: .custom,
         venue: "Petco Park · Gaslamp Quarter", rules: "Highest single-day effort score wins. Reveal opens once the week closes.",
         photoName: "photo-custom",
         durationDays: 7, daysLeft: 0, dailyTarget: 1,
@@ -137,29 +137,30 @@ enum Fixtures {
     // Grounded in San Diego's actual race calendar — the Balboa Park 5K Running
     // Tour genuinely runs on Sundays, which is why it leads as "today."
 
-    // Each suggestion's payoff is bespoke and distinct from every active
-    // challenge's payoff above (and from the others here) — two of the four
-    // used to just repeat "Loser buys coffee for everyone" / "Bragging
-    // rights for a week" verbatim from active challenges, which is exactly
-    // why cycling through suggestions read as generic/interchangeable
-    // rather than each having its own stakes.
+    // Each suggestion's payoff is bespoke, distinct from every other payoff
+    // in the app, and tied to *that specific venue's* actual character —
+    // Balboa Park's museums, the Gaslamp's nightlife, Mission Bay's chill
+    // mornings — rather than a generic stake that could belong to any
+    // challenge. Locked in once a challenge starts from one of these (see
+    // CreateChallengeView.isPayoffLocked) — the stake is part of the pitch,
+    // not a starting suggestion you're free to swap out.
     static let suggestions: [ChallengeSuggestion] = [
-        ChallengeSuggestion(title: "Balboa Park 5K — Race Day", icon: "route", kind: .distance,
+        ChallengeSuggestion(title: "Balboa Park 5K — Race Day", icon: "figure.run", kind: .distance,
                              venue: "Balboa Park", photoName: "photo-balboa5k",
                              line: "The Balboa Park 5K Running Tour starts today. Set a pace goal and race it together.",
-                             suggestedDuration: 1, payoff: Payoff(icon: "crown.fill", text: "Winner picks the next challenge — no vetoes")),
-        ChallengeSuggestion(title: "Gaslamp Quarter Step Circuit", icon: "footprints", kind: .steps,
+                             suggestedDuration: 1, payoff: Payoff(icon: "building.columns.fill", text: "Loser gives the museum tour, tour-voice and all")),
+        ChallengeSuggestion(title: "Gaslamp Quarter Step Circuit", icon: "figure.walk", kind: .steps,
                              venue: "Gaslamp Quarter", photoName: "photo-gaslamp",
                              line: "The Gaslamp averages 11,000 steps on a Friday night. See who actually walks it.",
-                             suggestedDuration: 7, payoff: Payoff(icon: "wineglass.fill", text: "Loser covers the first round downtown")),
-        ChallengeSuggestion(title: "Coronado Bridge Walk Series", icon: "route", kind: .distance,
+                             suggestedDuration: 7, payoff: Payoff(icon: "car.fill", text: "Loser Ubers everyone home and foots the bill")),
+        ChallengeSuggestion(title: "Coronado Bridge Walk Series", icon: "road.lanes", kind: .distance,
                              venue: "Coronado", photoName: "photo-coronado",
                              line: "Two weeks along one of San Diego's most recognizable routes. Everyone starts even.",
                              suggestedDuration: 14, payoff: Payoff(icon: "photo.fill", text: "Winner's photo becomes the group profile pic")),
-        ChallengeSuggestion(title: "Mission Bay Morning Circuit", icon: "footprints", kind: .steps,
+        ChallengeSuggestion(title: "Mission Bay Morning Circuit", icon: "figure.walk.circle.fill", kind: .steps,
                              venue: "Mission Bay", photoName: "photo-missionbay",
                              line: "Early miles around the bay. Built for consistency, not intensity.",
-                             suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser makes smoothies for the whole crew")),
+                             suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser delivers smoothies to everyone's door")),
     ]
 
     // MARK: Mood history

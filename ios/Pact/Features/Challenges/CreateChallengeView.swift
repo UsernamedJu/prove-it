@@ -21,7 +21,13 @@ struct CreateChallengeView: View {
     private let photoName: String
 
     private let totalSteps = 3
-    private let durationOptions = [7, 14, 30]
+    private let durationOptions = [3, 7, 14, 30]
+    /// A suggestion's payoff is its whole hook — picking "Coronado Bridge
+    /// Walk Series" because the winner's photo becomes the group's profile
+    /// pic shouldn't let you then quietly swap that for "bragging rights."
+    /// Locked whenever this challenge started from a suggestion; free to
+    /// pick or write your own otherwise.
+    private let isPayoffLocked: Bool
 
     init(seed: ChallengeSuggestion?) {
         _title = State(initialValue: seed?.title ?? "")
@@ -29,6 +35,7 @@ struct CreateChallengeView: View {
         _venue = State(initialValue: seed?.venue ?? "Citywide · San Diego")
         _duration = State(initialValue: seed?.suggestedDuration ?? 14)
         photoName = seed?.photoName ?? "photo-steps"
+        isPayoffLocked = seed != nil
         if let seedPayoff = seed?.payoff, let idx = Payoff.presets.firstIndex(of: seedPayoff) {
             _payoffIdx = State(initialValue: idx)
             _useCustomPayoff = State(initialValue: false)
@@ -106,45 +113,56 @@ struct CreateChallengeView: View {
                 Text("DURATION").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
                 PillRow(options: durationOptions.map { ($0, "\($0)d") }, selection: $duration)
 
-                Text("THE DEAL — winner vs. loser, no cash involved").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
-                VStack(spacing: Theme.Space.xs) {
-                    ForEach(Array(Payoff.presets.enumerated()), id: \.offset) { i, p in
-                        let on = !useCustomPayoff && payoffIdx == i
+                if isPayoffLocked {
+                    Text("THE DEAL — locked in with this challenge").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                    HStack(spacing: Theme.Space.sm) {
+                        Image(systemName: "lock.fill").font(.system(size: 15)).foregroundStyle(Theme.Brand.gold)
+                        Text(customPayoff).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                        Spacer()
+                    }
+                    .padding(Theme.Space.sm)
+                    .glassSurface(cornerRadius: Theme.Radius.sm, tint: Theme.Brand.gold)
+                } else {
+                    Text("THE DEAL — winner vs. loser, no cash involved").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                    VStack(spacing: Theme.Space.xs) {
+                        ForEach(Array(Payoff.presets.enumerated()), id: \.offset) { i, p in
+                            let on = !useCustomPayoff && payoffIdx == i
+                            Button {
+                                withAnimation(Theme.Motion.pop) { useCustomPayoff = false; payoffIdx = i }
+                            } label: {
+                                HStack(spacing: Theme.Space.sm) {
+                                    Image(systemName: p.icon).font(.system(size: 15)).foregroundStyle(Theme.Brand.purple)
+                                    Text(p.text).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                                    Spacer()
+                                    if on { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.Brand.purple) }
+                                }
+                                .padding(Theme.Space.sm)
+                                .glassSurface(cornerRadius: Theme.Radius.sm, tint: on ? Theme.Brand.purple : nil)
+                            }
+                            .buttonStyle(.plain)
+                        }
                         Button {
-                            withAnimation(Theme.Motion.pop) { useCustomPayoff = false; payoffIdx = i }
+                            withAnimation(Theme.Motion.pop) { useCustomPayoff = true }
                         } label: {
                             HStack(spacing: Theme.Space.sm) {
-                                Image(systemName: p.icon).font(.system(size: 15)).foregroundStyle(Theme.Brand.purple)
-                                Text(p.text).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                                Image(systemName: "sparkles").font(.system(size: 15)).foregroundStyle(Theme.Brand.purple)
+                                Text("Write your own").font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
                                 Spacer()
-                                if on { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.Brand.purple) }
+                                if useCustomPayoff { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.Brand.purple) }
                             }
                             .padding(Theme.Space.sm)
-                            .glassSurface(cornerRadius: Theme.Radius.sm, tint: on ? Theme.Brand.purple : nil)
+                            .glassSurface(cornerRadius: Theme.Radius.sm, tint: useCustomPayoff ? Theme.Brand.purple : nil)
                         }
                         .buttonStyle(.plain)
                     }
-                    Button {
-                        withAnimation(Theme.Motion.pop) { useCustomPayoff = true }
-                    } label: {
-                        HStack(spacing: Theme.Space.sm) {
-                            Image(systemName: "sparkles").font(.system(size: 15)).foregroundStyle(Theme.Brand.purple)
-                            Text("Write your own").font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
-                            Spacer()
-                            if useCustomPayoff { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.Brand.purple) }
-                        }
-                        .padding(Theme.Space.sm)
-                        .glassSurface(cornerRadius: Theme.Radius.sm, tint: useCustomPayoff ? Theme.Brand.purple : nil)
+                    if useCustomPayoff {
+                        TextField("e.g. Loser walks the dog for a month", text: $customPayoff)
+                            .font(Theme.Font.body())
+                            .foregroundStyle(Theme.Ink.primary)
+                            .padding(.horizontal, Theme.Space.md)
+                            .frame(height: 48)
+                            .glassSurface(cornerRadius: Theme.Radius.md)
                     }
-                    .buttonStyle(.plain)
-                }
-                if useCustomPayoff {
-                    TextField("e.g. Loser walks the dog for a month", text: $customPayoff)
-                        .font(Theme.Font.body())
-                        .foregroundStyle(Theme.Ink.primary)
-                        .padding(.horizontal, Theme.Space.md)
-                        .frame(height: 48)
-                        .glassSurface(cornerRadius: Theme.Radius.md)
                 }
 
                 continueButton(disabled: title.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -157,6 +175,7 @@ struct CreateChallengeView: View {
     // MARK: Step 1 — people + rules
 
     private var peopleStep: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
             stepHeader("Who's in?", "Pick a group or tap people one at a time.")
 
@@ -223,10 +242,11 @@ struct CreateChallengeView: View {
                 toggleRow("Fair Play", "Score by % of each person's own daily target.", "scalemass.fill", $fairPlay)
             }
 
-            Spacer()
             continueButton(disabled: false)
         }
         .padding(.horizontal, Theme.Space.lg)
+        .padding(.bottom, Theme.Space.xl)
+        }
     }
 
     private func toggleRow(_ label: String, _ caption: String, _ icon: String, _ isOn: Binding<Bool>) -> some View {
@@ -251,7 +271,12 @@ struct CreateChallengeView: View {
             : Payoff.presets[payoffIdx]
     }
 
+    private var participantMembers: [Member] {
+        [app.me] + app.crew.filter { selectedInvitees.contains($0.id) }
+    }
+
     private var reviewStep: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
             stepHeader("Review & send", "Double-check it, then send the pact.")
             PactCard(tint: Theme.Brand.purple) {
@@ -263,21 +288,43 @@ struct CreateChallengeView: View {
                     Text(venue).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     Divider().overlay(Theme.Surface.border)
                     row("Duration", "\(duration) days")
-                    row("People", "\(1 + selectedInvitees.count)")
                     if blindReveal { row("Blind Reveal", "On") }
                     if fairPlay { row("Fair Play", "On") }
                 }
             }
             PactCard(tint: Theme.Brand.gold) {
-                HStack(spacing: Theme.Space.sm) {
-                    Image(systemName: selectedPayoff.icon).font(.system(size: 20)).foregroundStyle(Theme.Brand.gold)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("THE DEAL").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
-                        Text(selectedPayoff.text).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                    HStack(spacing: Theme.Space.sm) {
+                        Image(systemName: selectedPayoff.icon).font(.system(size: 22)).foregroundStyle(Theme.Brand.gold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("THE DEAL").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                            Text(selectedPayoff.text).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                        }
+                        Spacer()
+                    }
+                    if isPayoffLocked {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill").font(.system(size: 10))
+                            Text("Locked in with this challenge").font(Theme.Font.eyebrow())
+                        }
+                        .foregroundStyle(Theme.Ink.tertiary)
+                    }
+                    Divider().overlay(Theme.Surface.border)
+                    Text("WHO'S IN").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                    HStack(spacing: Theme.Space.sm) {
+                        HStack(spacing: -12) {
+                            ForEach(participantMembers) { member in
+                                InitialBadge(name: member.name, size: 36)
+                                    .overlay(Circle().stroke(Theme.Surface.card, lineWidth: 2))
+                            }
+                        }
+                        Text(participantMembers.map(\.name).joined(separator: ", "))
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.secondary)
+                            .lineLimit(2)
+                        Spacer()
                     }
                 }
             }
-            Spacer()
             Button {
                 send()
             } label: {
@@ -286,6 +333,8 @@ struct CreateChallengeView: View {
             .buttonStyle(PactButtonStyle(kind: .primary))
         }
         .padding(.horizontal, Theme.Space.lg)
+        .padding(.bottom, Theme.Space.xl)
+        }
     }
 
     private func row(_ label: String, _ value: String) -> some View {
@@ -318,7 +367,7 @@ struct CreateChallengeView: View {
         let rules = fairPlay
             ? "Ranked by % of each person's personalized daily step target (Fair Play scoring)."
             : "Ranked by cumulative progress toward the challenge target."
-        app.createChallenge(title: title, icon: kind.icon, kind: kind, venue: venue, rules: rules,
+        app.createChallenge(title: title, icon: ChallengeKind.suggestedIcon(title: title, venue: venue, kind: kind), kind: kind, venue: venue, rules: rules,
                              photoName: photoName, duration: duration,
                              customMetric: kind == .custom ? customMetric : nil, payoff: selectedPayoff,
                              blindReveal: blindReveal, fairPlay: fairPlay, invitees: invitees)

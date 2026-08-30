@@ -21,6 +21,39 @@ enum ChallengeKind: String, CaseIterable, Identifiable, Hashable {
         case .custom: return "pts"
         }
     }
+
+    /// A more specific SF Symbol than the generic per-kind default above,
+    /// inferred from what the challenge actually is (its own title/venue)
+    /// rather than just its kind — so "Petco Park Fan Walk" doesn't share
+    /// the same plain icon as every other `.custom` challenge that exists.
+    /// Falls back to `icon` when nothing in the name matches anything
+    /// specific.
+    static func suggestedIcon(title: String, venue: String, kind: ChallengeKind) -> String {
+        let text = "\(title) \(venue)".lowercased()
+        let keywords: [(terms: [String], icon: String)] = [
+            (["marathon", "5k", "10k", "race"], "figure.run"),
+            (["bike", "cycle", "cycling"], "figure.outdoor.cycle"),
+            (["swim", "pool"], "figure.pool.swim"),
+            (["yoga"], "figure.yoga"),
+            (["hike", "trail", "canyon"], "figure.hiking"),
+            (["gym", "lift", "weight", "strength"], "dumbbell.fill"),
+            (["basketball"], "basketball.fill"),
+            (["baseball", "petco", "padres"], "baseball.fill"),
+            (["soccer", "football"], "soccerball"),
+            (["tennis"], "tennis.racket"),
+            (["golf"], "figure.golf"),
+            (["dance"], "figure.dance"),
+            (["stair", "stairs"], "figure.stairs"),
+            (["bridge", "road"], "road.lanes"),
+            (["beach", "coastal", "bay", "shore", "surf"], "water.waves"),
+            (["park", "garden", "zoo"], "leaf.fill"),
+            (["target", "store", "shop", "mall"], "cart.fill"),
+        ]
+        for entry in keywords where entry.terms.contains(where: { text.contains($0) }) {
+            return entry.icon
+        }
+        return kind.icon
+    }
 }
 
 enum ChallengeStatus {

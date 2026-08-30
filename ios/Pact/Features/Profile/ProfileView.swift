@@ -166,14 +166,13 @@ private struct FitnessRing: View {
     @State private var rotationDegrees: Double = -90 - 360
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// A full second, not `Theme.Motion.settle`'s ~0.45s — the ring was
-    /// technically animating before (confirmed frame-by-frame: 0 right after
-    /// appear, full value moments later) but a half-second spring is easy to
-    /// miss entirely if you're not staring at the exact moment you switch
-    /// tabs. This is slow enough to be unmistakable without dragging. A
-    /// spring rather than easeOut so the spin-in has a touch of real
-    /// physical weight instead of mechanically decelerating to a stop.
-    private static let fillAnimation = Animation.spring(response: 0.9, dampingFraction: 0.78)
+    /// A bouncy spring is the wrong tool for a *full rotation* — with
+    /// dampingFraction 0.78 it visibly overshot past -90° and oscillated
+    /// back before settling, which reads as the ring wobbling rather than
+    /// circling smoothly into place. A timing-curve (strictly monotonic —
+    /// no overshoot possible) at a slower 2.2s gives a clean, deliberate
+    /// decelerate-to-a-stop instead.
+    private static let fillAnimation = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 2.2)
 
     var body: some View {
         ZStack {

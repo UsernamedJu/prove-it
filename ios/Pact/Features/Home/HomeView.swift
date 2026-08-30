@@ -16,6 +16,7 @@ struct HomeView: View {
                 suggestedCard
                 if let dc = distanceChallenge { mapPreview(dc) }
                 activeSection
+                SharedChallengesSection()
             }
             .padding(Theme.Space.lg)
             .padding(.bottom, Theme.Space.xxl)

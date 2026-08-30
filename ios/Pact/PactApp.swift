@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CloudKit
 
 /// `NavigationStack`'s underlying `UINavigationController` defaults to a
 /// plain white view behind the two view controllers it's animating between
@@ -18,11 +19,14 @@ extension UINavigationController {
 @main
 struct PactApp: App {
     @State private var app = AppModel()
+    @State private var sharedChallenges = SharedChallengeStore.shared
+    @UIApplicationDelegateAdaptor(CloudShareDelegate.self) private var cloudShareDelegate
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(app)
+                .environment(sharedChallenges)
                 .preferredColorScheme(.light)
         }
     }
@@ -30,6 +34,7 @@ struct PactApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @Environment(SharedChallengeStore.self) private var sharedChallenges
     @Environment(\.scenePhase) private var scenePhase
     /// Shown for a beat on cold launch, then fades into whichever screen
     /// below actually applies — the logo-first-then-app sequence most
@@ -72,6 +77,27 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background && app.appLockEnabled { app.isUnlocked = false }
         }
+        .task {
+            // Cold-launch case: the app wasn't running when a share link
+            // was tapped, so this picks up whatever CloudShareDelegate
+            // already stashed before this view ever appeared.
+            if let metadata = CloudShareDelegate.pendingMetadata {
+                CloudShareDelegate.pendingMetadata = nil
+                await handleIncomingShare(metadata)
+            }
+            if app.hasOnboarded {
+                await sharedChallenges.refresh(myLocalID: app.me.id, myName: app.me.name)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CloudShareDelegate.didReceiveShareMetadata)) { note in
+            guard let metadata = note.object as? CKShare.Metadata else { return }
+            Task { await handleIncomingShare(metadata) }
+        }
+    }
+
+    private func handleIncomingShare(_ metadata: CKShare.Metadata) async {
+        guard app.hasOnboarded else { return } // no "me" identity to accept as yet
+        await sharedChallenges.acceptShare(metadata: metadata, myLocalID: app.me.id, myName: app.me.name)
     }
 }
 

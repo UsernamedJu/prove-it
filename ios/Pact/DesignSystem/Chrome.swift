@@ -787,16 +787,43 @@ struct CelebrationOverlay: View {
     var onFinished: () -> Void
 
     @State private var visible = false
+    @State private var burst = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// 8 sparkles radiating outward at even angles around the main icon.
+    private var sparkles: [(dx: CGFloat, dy: CGFloat, angle: Angle)] {
+        (0..<8).map { i in
+            let a = Double(i) / 8 * 2 * .pi
+            return (cos(a) * 74, sin(a) * 74, .radians(a))
+        }
+    }
 
     var body: some View {
         ZStack {
             Color.black.opacity(visible ? 0.55 : 0)
+
+            if !reduceMotion {
+                ForEach(Array(sparkles.enumerated()), id: \.offset) { _, spark in
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(tint)
+                        .rotationEffect(spark.angle)
+                        .opacity(burst ? 0 : 1)
+                        .offset(x: burst ? spark.dx : 0, y: burst ? spark.dy : 0)
+                }
+            }
+
             VStack(spacing: Theme.Space.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 56, weight: .bold))
                     .foregroundStyle(tint)
                     .scaleEffect(visible ? 1 : 0.3)
                     .rotationEffect(.degrees(visible ? 0 : -15))
+                    // The real SF Symbol "just arrived" gesture on top of the
+                    // scale/rotate-in, not a substitute for it — a genuine
+                    // system animation family (Siri, notifications) rather
+                    // than only a hand-built transform.
+                    .symbolEffect(.bounce, value: visible)
                 Text(title).font(Theme.Font.h1()).foregroundStyle(.white).multilineTextAlignment(.center)
                 if let subtitle {
                     Text(subtitle).font(Theme.Font.body()).foregroundStyle(.white.opacity(0.85))
@@ -808,7 +835,11 @@ struct CelebrationOverlay: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .onAppear {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             withAnimation(Theme.Motion.pop) { visible = true }
+            if !reduceMotion {
+                withAnimation(.easeOut(duration: 0.8).delay(0.05)) { burst = true }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation(Theme.Motion.fade) { visible = false }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onFinished() }
@@ -962,6 +993,14 @@ struct JourneyPathView: View {
     var tint: Color = Theme.Brand.purple
     var height: CGFloat = 230
 
+    /// Draws the line in left-to-right on appear instead of materializing
+    /// already-complete, and each stat bubble pops in a beat after the
+    /// line reaches it instead of every bubble just being there from frame
+    /// one — the same "show the data arriving" treatment as the fitness
+    /// ring and suggestion carousel elsewhere in the app.
+    @State private var drawn: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         GeometryReader { geo in
             let inset: CGFloat = 22
@@ -975,21 +1014,55 @@ struct JourneyPathView: View {
                 let y = topMargin + (usableH - CGFloat(max(0, min(1, w.progress))) * usableH)
                 return CGPoint(x: x, y: y)
             }
+            let fullCurve = curve(points)
+            let baseline = geo.size.height
 
             ZStack(alignment: .topLeading) {
-                curve(points)
-                    .stroke(tint, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                // A soft fill under the line grounds it against the
+                // baseline instead of the curve floating on blank space —
+                // fades out with distance from the line the way a real
+                // area chart's gradient does.
+                areaFill(points, baseline: baseline)
+                    .fill(LinearGradient(colors: [tint.opacity(0.22), tint.opacity(0)], startPoint: .top, endPoint: .bottom))
+                    .opacity(drawn)
+
+                fullCurve
+                    .trim(from: 0, to: drawn)
+                    .stroke(LinearGradient(colors: [tint.opacity(0.7), tint], startPoint: .leading, endPoint: .trailing),
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                    .shadow(color: tint.opacity(0.45), radius: 5)
 
                 ForEach(Array(points.enumerated()), id: \.offset) { i, pt in
+                    let pointT = n > 1 ? CGFloat(i) / CGFloat(n - 1) : 0
+                    let arrived = drawn >= pointT - 0.02
                     Circle().fill(tint).frame(width: 11, height: 11)
                         .overlay(Circle().stroke(Theme.Surface.card, lineWidth: 2.5))
                         .position(pt)
+                        .scaleEffect(arrived ? 1 : 0.01)
 
-                    bubble(waypoints[i]).position(x: pt.x.clamped(to: 44...(geo.size.width - 44)), y: max(38, pt.y - 50))
+                    bubble(waypoints[i])
+                        .position(x: pt.x.clamped(to: 44...(geo.size.width - 44)), y: max(38, pt.y - 50))
+                        .scaleEffect(arrived ? 1 : 0.4)
+                        .opacity(arrived ? 1 : 0)
                 }
             }
         }
         .frame(height: height)
+        .onAppear {
+            drawn = 0
+            if reduceMotion {
+                drawn = 1
+            } else {
+                // Deferred a tick, same reason as the fitness ring: this
+                // view can appear as part of a push/zoom navigation
+                // transition, and an ambient transaction from that can
+                // silently swallow a `withAnimation` called directly from
+                // `onAppear`. A fresh run-loop tick escapes it.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeOut(duration: 1.4)) { drawn = 1 }
+                }
+            }
+        }
     }
 
     private func bubble(_ w: Waypoint) -> some View {
@@ -1001,8 +1074,8 @@ struct JourneyPathView: View {
         .padding(.vertical, 6)
         .background(Theme.Surface.card)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous).stroke(Theme.Surface.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous).stroke(tint.opacity(0.35), lineWidth: 1.2))
+        .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
         .fixedSize()
     }
 
@@ -1017,6 +1090,15 @@ struct JourneyPathView: View {
             let c2 = CGPoint(x: (p0.x + p1.x) / 2, y: p1.y)
             path.addCurve(to: p1, control1: c1, control2: c2)
         }
+        return path
+    }
+
+    private func areaFill(_ points: [CGPoint], baseline: CGFloat) -> Path {
+        var path = curve(points)
+        guard let first = points.first, let last = points.last else { return path }
+        path.addLine(to: CGPoint(x: last.x, y: baseline))
+        path.addLine(to: CGPoint(x: first.x, y: baseline))
+        path.closeSubpath()
         return path
     }
 }

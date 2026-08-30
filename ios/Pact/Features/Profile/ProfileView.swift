@@ -173,7 +173,16 @@ private struct FitnessRing: View {
         }
         .frame(width: 64, height: 64)
         .onAppear {
-            withAnimation(Theme.Motion.settle.delay(0.1)) { animatedScore = score }
+            // `MainTabView` wraps every tab switch in `.transaction { $0.animation
+            // = nil }` so the page itself cuts instantly — but that transaction
+            // also swallows a plain `withAnimation` called from `onAppear`, since
+            // the ring appears as part of that same no-animation commit. Deferring
+            // to the next run-loop tick via `asyncAfter` starts a fresh
+            // transaction the tab switch's override can't reach.
+            animatedScore = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(Theme.Motion.settle) { animatedScore = score }
+            }
         }
         .onChange(of: score) { _, newValue in
             withAnimation(Theme.Motion.settle) { animatedScore = newValue }

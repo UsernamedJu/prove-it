@@ -45,11 +45,15 @@ struct RootView: View {
             } else if app.appLockEnabled && !app.isUnlocked {
                 LockScreenView()
                     .transition(.opacity)
+            } else if app.hasOnboarded {
+                // A completed profile always wins, regardless of how this
+                // session got signed in — someone who already has an
+                // account shouldn't be routed back through sign-in (or
+                // onboarding) just because a guest session didn't persist.
+                MainTabView()
+                    .transition(.opacity)
             } else if !app.isSignedIn && !app.isGuestSession {
                 SignInView()
-                    .transition(.opacity)
-            } else if app.hasOnboarded {
-                MainTabView()
                     .transition(.opacity)
             } else {
                 OnboardingFlow()

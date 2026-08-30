@@ -484,10 +484,7 @@ struct BodyProfileEditor: View {
                         ), range: 13...100, step: 1)
                     }
                 } else {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Advances automatically each year").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                    }
+                    Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 }
             }
 

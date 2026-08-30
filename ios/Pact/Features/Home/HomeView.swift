@@ -288,11 +288,24 @@ struct ChallengeRow: View {
                             TagBadge(text: "Blind Reveal", icon: "eye.slash.fill", tint: Theme.Brand.pink)
                         }
                         if challenge.fairPlay { TagBadge(text: "Fair Play", icon: "scalemass.fill", tint: Theme.Brand.blue) }
+                        if mine?.lastLogVerified == true {
+                            TagBadge(text: "Verified", icon: "checkmark.seal.fill", tint: Theme.Brand.lime, filled: true)
+                        }
                         Spacer()
                         switch challenge.status {
                         case .active:
-                            Button { app.logActivity(for: challenge.id, hitTarget: true) } label: {
-                                HStack(spacing: 4) { Image(systemName: "plus.circle.fill"); Text("Log Today") }
+                            let syncsFromHealth = app.healthKitConnected && challenge.kind != .custom
+                            Button {
+                                if syncsFromHealth {
+                                    Task { await app.syncTodayFromHealth(for: challenge.id) }
+                                } else {
+                                    app.logActivity(for: challenge.id, hitTarget: true)
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: syncsFromHealth ? "heart.fill" : "plus.circle.fill")
+                                    Text(syncsFromHealth ? "Sync from Health" : "Log Today")
+                                }
                             }
                             .font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
                         case .revealReady:

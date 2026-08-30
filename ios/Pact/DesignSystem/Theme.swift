@@ -83,7 +83,7 @@ enum Theme {
         static func caption() -> SwiftUI.Font { .system(size: 14, weight: .medium, design: .rounded) }
         static func eyebrow() -> SwiftUI.Font { .system(size: 12, weight: .bold, design: .rounded) }
         static func button() -> SwiftUI.Font { .system(size: 17, weight: .bold, design: .rounded) }
-        /// The "Prove it" wordmark — a plain (not rounded) bold sans, paired
+        /// The "Provyr" wordmark — a plain (not rounded) bold sans, paired
         /// with tight tracking. The rounded/black `display()` face reads as
         /// playful and works for stat numbers, but felt too bubbly/childish
         /// as the actual logotype; this is the more grown-up alternative.

@@ -15,7 +15,7 @@ struct LockScreenView: View {
                 Spacer()
                 PactMark(size: 40)
                 Image(systemName: "faceid").font(.system(size: 44)).foregroundStyle(Theme.Brand.purple)
-                Text("Prove it is locked").font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
+                Text("Provyr is locked").font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
                 if failed {
                     Text("Couldn't verify — try again.").font(Theme.Font.caption()).foregroundStyle(Theme.Brand.coral)
                 }

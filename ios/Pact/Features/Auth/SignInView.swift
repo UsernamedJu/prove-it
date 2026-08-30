@@ -84,7 +84,7 @@ struct SignInView: View {
     private var logoBlock: some View {
         VStack(spacing: Theme.Space.xs) {
             PactMark(size: 34)
-            Text("Prove it")
+            Text("Provyr")
                 .font(Theme.Font.wordmark(24))
                 .tracking(-0.2)
                 .foregroundStyle(.white)

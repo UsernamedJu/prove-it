@@ -56,6 +56,10 @@ struct Standing: Identifiable {
     var progress: Double // 0...1 toward the challenge's target — always == progressHistory.last
     var trendDelta: String // e.g. "+3" / "-1" / "—"
     var progressHistory: [Double]
+    /// True when the most recent log came from a real HealthKit reading
+    /// rather than the manual "Log Today" tap — lets the UI show a
+    /// "Verified" badge instead of taking every entry on the honor system.
+    var lastLogVerified: Bool = false
 }
 
 struct Challenge: Identifiable {

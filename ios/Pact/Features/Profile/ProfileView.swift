@@ -24,7 +24,7 @@ struct ProfileView: View {
                 quoteCard
                 if let shareURL {
                     ShareLink(item: shareURL) {
-                        HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("Share Prove it with Friends & Family") }
+                        HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("Share Provyr with Friends & Family") }
                     }
                     .buttonStyle(PactButtonStyle(kind: .outline))
                 }

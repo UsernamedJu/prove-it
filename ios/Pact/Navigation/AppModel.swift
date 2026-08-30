@@ -168,24 +168,41 @@ final class AppModel {
         healthKitConnected = await HealthKitManager.shared.requestAuthorization()
     }
 
-    /// Pulls today's step count from Health and logs it against a steps
-    /// challenge, in place of the manual "Log Today" tap.
-    func syncTodayStepsFromHealth(for challengeID: UUID) async {
-        guard healthKitConnected, let steps = await HealthKitManager.shared.fetchTodaySteps() else { return }
-        guard let challenge = challenges.first(where: { $0.id == challengeID }), challenge.kind == .steps else { return }
+    /// Pulls today's real activity from Health — steps or distance,
+    /// whichever the challenge tracks — and logs it in place of the manual
+    /// "Log Today" tap. Falls back to doing nothing if Health isn't
+    /// connected or has no data yet; the caller decides whether to fall
+    /// back to a manual log in that case.
+    func syncTodayFromHealth(for challengeID: UUID) async {
+        guard healthKitConnected, let challenge = challenges.first(where: { $0.id == challengeID }) else { return }
         let target = Double(challenge.dailyTarget)
-        logActivity(for: challengeID, hitTarget: target > 0 && Double(steps) >= target)
+        guard target > 0 else { return }
+        let measured: Double?
+        switch challenge.kind {
+        case .steps: measured = await HealthKitManager.shared.fetchTodaySteps().map(Double.init)
+        case .distance: measured = await HealthKitManager.shared.fetchTodayDistanceMiles()
+        case .custom: measured = nil
+        }
+        guard let measured else { return }
+        logActivity(for: challengeID, hitTarget: measured >= target, measuredRatio: measured / target)
     }
 
     // MARK: Activity — appends real history, so charts read actual data
 
-    func logActivity(for challengeID: UUID, hitTarget: Bool) {
+    /// `measuredRatio` is how much of the daily target a real HealthKit
+    /// reading actually covered (1.0 == exactly hit it) — when present, the
+    /// day's progress scales with it instead of always crediting the same
+    /// fixed amount, and the entry is marked verified. Manual "Log Today"
+    /// taps pass `nil` and keep the flat honor-system increment.
+    func logActivity(for challengeID: UUID, hitTarget: Bool, measuredRatio: Double? = nil) {
         guard let idx = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
         if let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) {
-            let next = min(1, challenges[idx].standings[sIdx].progress + 0.08)
+            let scale = measuredRatio.map { min(2.0, max(0.5, $0)) } ?? 1.0
+            let next = min(1, challenges[idx].standings[sIdx].progress + 0.08 * scale)
             challenges[idx].standings[sIdx].progress = next
             challenges[idx].standings[sIdx].progressHistory.append(next)
             challenges[idx].standings[sIdx].trendDelta = hitTarget ? "+1" : "—"
+            challenges[idx].standings[sIdx].lastLogVerified = measuredRatio != nil
         }
     }
 

@@ -88,7 +88,7 @@ struct SplashView: View {
             Theme.Surface.bg.ignoresSafeArea()
             VStack(spacing: Theme.Space.sm) {
                 PactMark(size: 52)
-                Text("Prove it")
+                Text("Provyr")
                     .font(Theme.Font.wordmark(28))
                     .tracking(-0.3)
                     .foregroundStyle(Theme.Ink.primary)

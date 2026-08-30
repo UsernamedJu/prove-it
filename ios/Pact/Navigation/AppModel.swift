@@ -68,6 +68,10 @@ final class AppModel {
     var myBodyProfile = BodyProfile() { didSet { persistSession() } }
     var myProfilePhotoData: Data? { didSet { persistSession() } }
     var unitSystem: UnitSystem = .imperial { didSet { persistSession() } }
+    /// Set once, the moment onboarding captures an age — there's no real
+    /// birthdate on file, so this stands in as the yearly clock age
+    /// advances on. See `advanceAgeIfAnniversaryPassed()`.
+    var profileAnniversary: Date? { didSet { persistSession() } }
 
     // MARK: Apple Health / Watch — see HealthKitManager for why this stays
     // fully functional to toggle even before the capability is provisioned.
@@ -301,6 +305,7 @@ final class AppModel {
         var myProfilePhotoData: Data?
         var myBodyProfile: BodyProfile
         var unitSystem: UnitSystem
+        var profileAnniversary: Date?
     }
 
     init() {
@@ -318,6 +323,23 @@ final class AppModel {
         myProfilePhotoData = saved.myProfilePhotoData
         myBodyProfile = saved.myBodyProfile
         unitSystem = saved.unitSystem
+        profileAnniversary = saved.profileAnniversary
+        advanceAgeIfAnniversaryPassed()
+    }
+
+    /// There's no real birthdate to check against, so a full year elapsed
+    /// since `profileAnniversary` (set once, when onboarding first captured
+    /// an age) is the stand-in "birthday." Bumps `myBodyProfile.age` by
+    /// however many whole years have actually passed — not just +1 — so
+    /// someone who skips a year of launches still lands on the right age,
+    /// then re-anchors the anniversary so the same years aren't counted twice.
+    func advanceAgeIfAnniversaryPassed() {
+        guard let anniversary = profileAnniversary else { return }
+        let years = Calendar.current.dateComponents([.year], from: anniversary, to: Date()).year ?? 0
+        guard years > 0 else { return }
+        myBodyProfile.age += years
+        me.ageBand = AgeBand.forAge(myBodyProfile.age)
+        profileAnniversary = Calendar.current.date(byAdding: .year, value: years, to: anniversary)
     }
 
     private func persistSession() {
@@ -325,7 +347,8 @@ final class AppModel {
             isSignedIn: isSignedIn, hasOnboarded: hasOnboarded, signedInName: signedInName,
             signInMethod: signInMethod, appLockEnabled: appLockEnabled, showAgeRangeOnProfile: showAgeRangeOnProfile,
             meName: me.name, meAgeBand: me.ageBand, meColorIndex: meColorIndex,
-            myProfilePhotoData: myProfilePhotoData, myBodyProfile: myBodyProfile, unitSystem: unitSystem
+            myProfilePhotoData: myProfilePhotoData, myBodyProfile: myBodyProfile, unitSystem: unitSystem,
+            profileAnniversary: profileAnniversary
         )
         if let data = try? JSONEncoder().encode(saved) {
             UserDefaults.standard.set(data, forKey: Self.sessionDefaultsKey)

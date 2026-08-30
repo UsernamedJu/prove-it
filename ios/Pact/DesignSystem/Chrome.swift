@@ -416,6 +416,13 @@ struct PactDropdown<T: Hashable>: View {
 struct BodyProfileEditor: View {
     @Binding var profile: BodyProfile
     @Binding var units: UnitSystem
+    /// Onboarding needs every field open for first-time entry. Settings
+    /// passes `false`: height and sex don't change day to day, so they're
+    /// locked to what onboarding captured, and age advances on its own
+    /// (see `AppModel.advanceAgeIfAnniversaryPassed`) rather than being
+    /// hand-cranked. Weight is the one thing that actually fluctuates, so
+    /// it stays editable either way.
+    var allowsIdentityEditing: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
@@ -426,20 +433,27 @@ struct BodyProfileEditor: View {
             .tint(Theme.Brand.purple)
 
             field(label: "Height") {
-                if units == .imperial {
+                if allowsIdentityEditing {
+                    if units == .imperial {
+                        let hw = profile.heightFeetInches
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(hw.feet) ft \(hw.inches) in").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                            GradientRangeSlider(value: Binding(
+                                get: { profile.heightCm / 2.54 },
+                                set: { profile.heightCm = $0 * 2.54 }
+                            ), range: 40...84, step: 1)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(Int(profile.heightCm)) cm").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                            GradientRangeSlider(value: $profile.heightCm, range: 100...230, step: 1)
+                        }
+                    }
+                } else if units == .imperial {
                     let hw = profile.heightFeetInches
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("\(hw.feet) ft \(hw.inches) in").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        GradientRangeSlider(value: Binding(
-                            get: { profile.heightCm / 2.54 },
-                            set: { profile.heightCm = $0 * 2.54 }
-                        ), range: 40...84, step: 1)
-                    }
+                    Text("\(hw.feet) ft \(hw.inches) in").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("\(Int(profile.heightCm)) cm").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        GradientRangeSlider(value: $profile.heightCm, range: 100...230, step: 1)
-                    }
+                    Text("\(Int(profile.heightCm)) cm").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 }
             }
 
@@ -461,32 +475,43 @@ struct BodyProfileEditor: View {
             }
 
             field(label: "Age") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                    GradientRangeSlider(value: Binding(
-                        get: { Double(profile.age) },
-                        set: { profile.age = Int($0) }
-                    ), range: 13...100, step: 1)
+                if allowsIdentityEditing {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        GradientRangeSlider(value: Binding(
+                            get: { Double(profile.age) },
+                            set: { profile.age = Int($0) }
+                        ), range: 13...100, step: 1)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text("Advances automatically each year").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
                 }
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("SEX").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
-                Text("Used only for the calorie-burn estimate below.").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                HStack(spacing: Theme.Space.sm) {
-                    ForEach(Sex.allCases) { s in
-                        let on = profile.sex == s
-                        Button { profile.sex = s } label: {
-                            Text(s.rawValue).font(Theme.Font.caption()).fontWeight(.semibold)
-                                .foregroundStyle(on ? .white : Theme.Ink.primary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(on ? Theme.Brand.purple : Theme.Surface.card)
-                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous).stroke(Theme.Surface.border, lineWidth: on ? 0 : 1))
+                if allowsIdentityEditing {
+                    Text("Used only for the calorie-burn estimate below.").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    HStack(spacing: Theme.Space.sm) {
+                        ForEach(Sex.allCases) { s in
+                            let on = profile.sex == s
+                            Button { profile.sex = s } label: {
+                                Text(s.rawValue).font(Theme.Font.caption()).fontWeight(.semibold)
+                                    .foregroundStyle(on ? .white : Theme.Ink.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(on ? Theme.Brand.purple : Theme.Surface.card)
+                                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous).stroke(Theme.Surface.border, lineWidth: on ? 0 : 1))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                } else {
+                    Text(profile.sex.rawValue).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 }
             }
         }

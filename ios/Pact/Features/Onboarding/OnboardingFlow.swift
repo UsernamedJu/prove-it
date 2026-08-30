@@ -397,6 +397,7 @@ struct OnboardingFlow: View {
         app.myProfilePhotoData = photoData
         app.myBodyProfile = bodyProfile
         app.unitSystem = units
+        app.profileAnniversary = Date()
         for crewMemberName in invitedCrew { app.addContact(name: crewMemberName) }
         withAnimation(Theme.Motion.fade) { app.hasOnboarded = true }
     }

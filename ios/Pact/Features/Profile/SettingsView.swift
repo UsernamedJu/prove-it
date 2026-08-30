@@ -116,7 +116,7 @@ struct SettingsView: View {
     private var bodyProfileSection: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             SectionHeader(title: "Body & Activity")
-            BodyProfileEditor(profile: $bodyProfile, units: $units)
+            BodyProfileEditor(profile: $bodyProfile, units: $units, allowsIdentityEditing: false)
             ActivityLevelPicker(level: $bodyProfile.activityLevel)
             PactCard(tint: Theme.Brand.cyan) {
                 HStack {

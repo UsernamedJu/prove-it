@@ -121,9 +121,10 @@ struct HomeView: View {
             }
             Spacer()
             VStack(alignment: .leading, spacing: 4) {
-                Text(s.title).font(Theme.Font.h1()).foregroundStyle(.white)
+                Text(s.title).font(Theme.Font.h1()).foregroundStyle(.white).lineLimit(2)
                 Text(s.venue).font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.8))
                 Text(s.line).font(Theme.Font.body()).foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(2)
                     .padding(.top, 2)
             }
 
@@ -131,13 +132,18 @@ struct HomeView: View {
                 heroStat(value: "\(s.suggestedDuration)d", label: "Duration")
                 heroStat(value: s.kind.rawValue, label: "Kind")
             }
+            // No `.fixedSize` here on purpose — every suggestion's payoff
+            // text is a different length, and forcing this to its
+            // unwrapped ideal width let a longer one (Coronado's) blow
+            // past the card's edge instead of just being however wide it
+            // needs to be up to the card's own width. `lineLimit` +
+            // truncation is the safety net for anything longer still.
             HStack(spacing: 6) {
                 Image(systemName: s.payoff.icon).font(.system(size: 13)).foregroundStyle(Theme.Brand.gold)
-                Text(s.payoff.text).font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.85))
+                Text(s.payoff.text).font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
             }
             .padding(.horizontal, Theme.Space.sm).padding(.vertical, 6)
             .photoOverlaySurface(cornerRadius: Theme.Radius.pill)
-            .fixedSize(horizontal: true, vertical: false)
 
             HStack(spacing: Theme.Space.sm) {
                 NavigationLink(value: Route.createChallenge(s)) {

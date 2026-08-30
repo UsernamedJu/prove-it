@@ -162,11 +162,11 @@ enum Fixtures {
         ChallengeSuggestion(title: "Coronado Bridge Walk Series", icon: "route", kind: .distance,
                              venue: "Coronado", photoName: "photo-coronado",
                              line: "Two weeks along one of San Diego's most recognizable routes. Everyone starts even.",
-                             suggestedDuration: 14, payoff: Payoff(icon: "photo.fill", text: "Winner's photo becomes the crew's profile pic for a week")),
+                             suggestedDuration: 14, payoff: Payoff(icon: "photo.fill", text: "Winner's photo becomes the group profile pic")),
         ChallengeSuggestion(title: "Mission Bay Morning Circuit", icon: "footprints", kind: .steps,
                              venue: "Mission Bay", photoName: "photo-missionbay",
                              line: "Early miles around the bay. Built for consistency, not intensity.",
-                             suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser makes smoothies for the crew after the last morning walk")),
+                             suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser makes smoothies for the whole crew")),
     ]
 
     // MARK: Mood history

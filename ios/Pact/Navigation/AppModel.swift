@@ -192,9 +192,8 @@ final class AppModel {
     /// callers) — off leaves challenge state exactly as informative, just
     /// silent.
     var pushNotificationsEnabled = false {
-        didSet { UserDefaults.standard.set(pushNotificationsEnabled, forKey: Self.pushNotificationsDefaultsKey) }
+        didSet { UserDefaults.standard.set(pushNotificationsEnabled, forKey: ChallengeNotifier.notificationsEnabledDefaultsKey) }
     }
-    private static let pushNotificationsDefaultsKey = "com.jean.pact.pushNotificationsEnabled"
 
     var healthKitConnected = false {
         didSet { UserDefaults.standard.set(healthKitConnected, forKey: Self.healthKitConnectedDefaultsKey) }
@@ -586,7 +585,7 @@ final class AppModel {
     /// doesn't re-fire, since `previous` was already past the line too.
     private func checkAboutToWin(at idx: Int, sIdx: Int, previous: Double, next: Double) {
         guard previous < 0.9, next >= 0.9, challenges[idx].standings[sIdx].rank == 1 else { return }
-        ChallengeNotifier.notifyAboutToWin(challengeTitle: challenges[idx].title, enabled: pushNotificationsEnabled)
+        ChallengeNotifier.notifyAboutToWin(challengeTitle: challenges[idx].title)
     }
 
     /// The absolute-measurement path — HealthKit sync and Track Live both
@@ -605,7 +604,7 @@ final class AppModel {
         if let healthTotal { challenges[idx].standings[sIdx].healthTotal = healthTotal }
         if addTrackedAmount > 0 { challenges[idx].standings[sIdx].trackedTotal += addTrackedAmount }
         let combined = challenges[idx].standings[sIdx].healthTotal + challenges[idx].standings[sIdx].trackedTotal
-        let ratio = min(1, combined / challenges[idx].effectiveGoalTarget)
+        let ratio = min(1, combined / challenges[idx].goalTarget(for: me))
         let previous = challenges[idx].standings[sIdx].progress
         let next = max(previous, ratio)
         guard next != previous || addTrackedAmount > 0 else { return }
@@ -674,9 +673,9 @@ final class AppModel {
               let myOldRank, let myNewRank = challenges[idx].standings.first(where: { $0.member.id == me.id })?.rank,
               myOldRank != myNewRank else { return }
         ChallengeNotifier.notifyRankChange(challengeTitle: challenges[idx].title, blindReveal: challenges[idx].blindReveal,
-                                            oldRank: myOldRank, newRank: myNewRank, enabled: pushNotificationsEnabled)
+                                            oldRank: myOldRank, newRank: myNewRank)
         if myNewRank == challenges[idx].standings.count {
-            ChallengeNotifier.notifyLastPlace(challengeTitle: challenges[idx].title, enabled: pushNotificationsEnabled)
+            ChallengeNotifier.notifyLastPlace(challengeTitle: challenges[idx].title)
         }
     }
 
@@ -915,7 +914,7 @@ final class AppModel {
         if let raw = UserDefaults.standard.string(forKey: Self.appearanceDefaultsKey), let pref = AppearancePreference(rawValue: raw) {
             appearance = pref
         }
-        pushNotificationsEnabled = UserDefaults.standard.bool(forKey: Self.pushNotificationsDefaultsKey)
+        pushNotificationsEnabled = UserDefaults.standard.bool(forKey: ChallengeNotifier.notificationsEnabledDefaultsKey)
         Task { await reconcileWithCloud() }
         if UserDefaults.standard.bool(forKey: Self.healthKitConnectedDefaultsKey) {
             // Re-verifies (near-instant, no re-prompt, since it's already

@@ -11,12 +11,20 @@ import UserNotifications
 /// so much as a hint when you're ahead, since telling you that would give
 /// away the exact thing blind mode exists to hide.
 enum ChallengeNotifier {
+    /// The single source of truth for the Settings toggle — `AppModel`'s
+    /// own `pushNotificationsEnabled` reads/writes this same key. Defined
+    /// here (not duplicated as a second string literal in AppModel) so
+    /// `SharedChallengeStore` — a separate singleton with no reference to
+    /// AppModel at all — can honor the same opt-out without either service
+    /// needing to know about the other.
+    static let notificationsEnabledDefaultsKey = "com.jean.pact.pushNotificationsEnabled"
+
     static func requestPermissionIfNeeded() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
-    private static func send(title: String, body: String, enabled: Bool) {
-        guard enabled else { return }
+    private static func send(title: String, body: String) {
+        guard UserDefaults.standard.bool(forKey: notificationsEnabledDefaultsKey) else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -31,7 +39,7 @@ enum ChallengeNotifier {
     /// `oldRank`/`newRank` are 1-based standing positions. Only called when
     /// they actually differ — the caller (`AppModel.recomputeRanks`)
     /// already edge-triggers this, so there's no per-sync spam.
-    static func notifyRankChange(challengeTitle: String, blindReveal: Bool, oldRank: Int, newRank: Int, enabled: Bool) {
+    static func notifyRankChange(challengeTitle: String, blindReveal: Bool, oldRank: Int, newRank: Int) {
         let improved = newRank < oldRank
         if blindReveal {
             // The whole point of blind mode is that nobody sees the board —
@@ -44,7 +52,7 @@ enum ChallengeNotifier {
                 "Something's shifting in \(challengeTitle) and it's not obviously in your favor.",
                 "A little bird says \(challengeTitle) isn't going great for you right now.",
             ]
-            send(title: "Psst — \(challengeTitle)", body: lines.randomElement()!, enabled: enabled)
+            send(title: "Psst — \(challengeTitle)", body: lines.randomElement()!)
             return
         }
         if improved {
@@ -53,14 +61,14 @@ enum ChallengeNotifier {
                 "#\(newRank) in \(challengeTitle) now. Momentum's a beautiful thing — don't waste it on a rest day.",
                 "You passed someone in \(challengeTitle). They'll pretend they didn't notice. They noticed.",
             ]
-            send(title: "Moving up 📈", body: lines.randomElement()!, enabled: enabled)
+            send(title: "Moving up 📈", body: lines.randomElement()!)
         } else {
             let lines = [
                 "You dropped to #\(newRank) in \(challengeTitle). The couch isn't going to walk itself.",
                 "Someone just passed you in \(challengeTitle). Rude of them. Correct, but rude.",
                 "#\(newRank) now in \(challengeTitle). This is usually the part where people start caring.",
             ]
-            send(title: "Slipping a bit 📉", body: lines.randomElement()!, enabled: enabled)
+            send(title: "Slipping a bit 📉", body: lines.randomElement()!)
         }
     }
 
@@ -68,24 +76,38 @@ enum ChallengeNotifier {
     /// is realistic" — never blind-gated, since being close to winning is
     /// exactly the kind of thing a blind challenge is fine revealing to the
     /// leader, it just can't reveal it to everyone else.
-    static func notifyAboutToWin(challengeTitle: String, enabled: Bool) {
+    static func notifyAboutToWin(challengeTitle: String) {
         let lines = [
             "You're one solid push away from winning \(challengeTitle). Don't choke now.",
             "\(challengeTitle) is basically yours. \"Basically.\" Finish it.",
             "So close on \(challengeTitle) you can probably taste it. Go taste it for real.",
         ]
-        send(title: "Almost there 🏁", body: lines.randomElement()!, enabled: enabled)
+        send(title: "Almost there 🏁", body: lines.randomElement()!)
     }
 
     /// Fired once, the moment you newly become last place — not blind-
     /// gated either, on the theory that "you're last" is information about
     /// your own effort, not a leak of the leaderboard's shape.
-    static func notifyLastPlace(challengeTitle: String, enabled: Bool) {
+    static func notifyLastPlace(challengeTitle: String) {
         let lines = [
             "You're in last place in \(challengeTitle). Someone has to be — didn't think it'd be you though.",
             "Dead last in \(challengeTitle) right now. Character building, allegedly.",
             "Last place in \(challengeTitle). The good news: nowhere to go but up. The bad news: everywhere else.",
         ]
-        send(title: "Rough spot 🐌", body: lines.randomElement()!, enabled: enabled)
+        send(title: "Rough spot 🐌", body: lines.randomElement()!)
+    }
+
+    /// Fired when a shared-challenge participant's *own* progress record
+    /// changes (see `SharedChallengeStore.notifyOfNewProgress`) — the same
+    /// tone as everything else here, no separate plain-text path for the
+    /// CKShare-backed challenges just because they came from a different
+    /// notification call site.
+    static func notifyOtherParticipantProgress(name: String, challengeTitle: String) {
+        let lines = [
+            "\(name) just logged progress on \(challengeTitle). Not that you're worried. You should maybe be a little worried.",
+            "\(name) moved in \(challengeTitle). The couch has never felt more tempting for them, and they still did it anyway.",
+            "\(name) is putting in work on \(challengeTitle). Rude of them not to warn you first.",
+        ]
+        send(title: "\(name) made progress", body: lines.randomElement()!)
     }
 }

@@ -317,21 +317,17 @@ final class SharedChallengeStore {
     /// Compares progress before/after a refresh and schedules a local
     /// notification for any *other* participant's real increase — the part
     /// that makes the silent push actually visible to the user, not just a
-    /// background data update they'd never notice.
+    /// background data update they'd never notice. Routed through
+    /// `ChallengeNotifier` so the tone (and the Settings opt-out) matches
+    /// every other challenge notification in the app, not a separate plain-
+    /// text path just because this one comes from a CKShare-backed
+    /// challenge instead of a local one.
     private func notifyOfNewProgress(previous: [String: Double], in updated: [SharedChallenge]) {
         for challenge in updated {
             for entry in challenge.otherEntries {
                 let key = "\(challenge.localID)-\(entry.localID)"
                 guard let old = previous[key], entry.progress > old + 0.001 else { continue }
-                let content = UNMutableNotificationContent()
-                content.title = "\(entry.participantName) made progress"
-                content.body = "\(entry.participantName) just logged progress on \(challenge.title)."
-                content.sound = .default
-                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-                UNUserNotificationCenter.current().getNotificationSettings { settings in
-                    guard settings.authorizationStatus == .authorized else { return }
-                    UNUserNotificationCenter.current().add(request)
-                }
+                ChallengeNotifier.notifyOtherParticipantProgress(name: entry.participantName, challengeTitle: challenge.title)
             }
         }
     }

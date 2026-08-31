@@ -154,6 +154,20 @@ struct Challenge: Identifiable {
     var myStanding: Standing? { standings.first { $0.member.id == myMemberID } }
     var isDistanceBased: Bool { kind == .distance }
     var effectiveGoalTarget: Double { goalTarget ?? Double(dailyTarget) * Double(durationDays) }
+
+    /// The real target a specific member's progress is measured against.
+    /// With Fair Play on for a steps challenge, that's *their own* age-band
+    /// daily baseline (the same number already shown in "Fair Play
+    /// Targets") × duration × the same stretch factor `effectiveGoalTarget`
+    /// uses — so racing your own target actually changes what counts as
+    /// 100%, not just what a label next to your name says. Falls back to
+    /// the one shared goal otherwise: Fair Play off, or a kind
+    /// (`.distance`/`.custom`) with no real per-person baseline to scale
+    /// from — `AgeBand.fairPlayStepTarget` is specifically a *step* count.
+    func goalTarget(for member: Member) -> Double {
+        guard fairPlay, kind == .steps else { return effectiveGoalTarget }
+        return Double(member.ageBand.fairPlayStepTarget) * Double(durationDays) * 1.15
+    }
 }
 
 /// A not-yet-created challenge the Home screen proposes — exactly one shown

@@ -151,51 +151,55 @@ enum Fixtures {
     // dedicated photo, the same way the fixture challenges already do for
     // citywide-style challenges — no new image assets exist to add here.
     //
-    // Each payoff is bespoke and tied to that specific venue's actual
-    // character, and locked in once a challenge starts from one of these
-    // (see CreateChallengeView.isPayoffLocked) — the stake is part of the
-    // pitch, not a starting suggestion you're free to swap out.
+    // Each payoff is bespoke, tied to that specific venue's actual
+    // character, and two-sided on purpose: a genuinely enticing win (not
+    // just "no punishment") on one side, a physical, on-the-spot action
+    // for the loser on the other — not a transactional "buys/pays for"
+    // consequence, which doesn't cost anything but money and fits a
+    // fitness app poorly. Locked in once a challenge starts from one of
+    // these (see CreateChallengeView.isPayoffLocked) — the stake is part
+    // of the pitch, not a starting suggestion you're free to swap out.
     static let suggestionPool: [ChallengeSuggestion] = [
         ChallengeSuggestion(title: "Balboa Park 5K — Race Day", icon: "figure.run", kind: .distance,
                              venue: "Balboa Park", photoName: "photo-balboa5k",
                              line: "The Balboa Park 5K Running Tour runs Sundays. Set a pace goal and race it together.",
-                             suggestedDuration: 1, payoff: Payoff(icon: "building.columns.fill", text: "Loser gives the museum tour, tour-voice and all")),
+                             suggestedDuration: 1, payoff: Payoff(icon: "figure.core.training", text: "Winner picks next week's challenge — loser drops for 10 burpees at the finish line")),
         ChallengeSuggestion(title: "Gaslamp Quarter Step Circuit", icon: "figure.walk", kind: .steps,
                              venue: "Gaslamp Quarter", photoName: "photo-gaslamp",
                              line: "The Gaslamp averages 11,000 steps on a Friday night. See who actually walks it.",
-                             suggestedDuration: 7, payoff: Payoff(icon: "car.fill", text: "Loser Ubers everyone home and foots the bill")),
+                             suggestedDuration: 7, payoff: Payoff(icon: "wineglass.fill", text: "Winner drinks free all night — loser dances a full song outside the busiest bar")),
         ChallengeSuggestion(title: "Coronado Bridge Walk Series", icon: "road.lanes", kind: .distance,
                              venue: "Coronado", photoName: "photo-coronado",
                              line: "Two weeks along one of San Diego's most recognizable routes. Everyone starts even.",
-                             suggestedDuration: 14, payoff: Payoff(icon: "photo.fill", text: "Winner's photo becomes the group profile pic")),
+                             suggestedDuration: 14, payoff: Payoff(icon: "photo.fill", text: "Winner's photo is the group's profile pic for a week — loser redoes the walk carrying everyone's bags")),
         ChallengeSuggestion(title: "Mission Bay Morning Circuit", icon: "figure.walk.circle.fill", kind: .steps,
                              venue: "Mission Bay", photoName: "photo-missionbay",
                              line: "Early miles around the bay. Built for consistency, not intensity.",
-                             suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser delivers smoothies to everyone's door")),
+                             suggestedDuration: 10, payoff: Payoff(icon: "figure.strengthtraining.functional", text: "Winner sleeps in guilt-free tomorrow — loser does a lap of jumping jacks for the group")),
         ChallengeSuggestion(title: "Little Italy Mercato Sunday Walk", icon: "cart.fill", kind: .steps,
                              venue: "Little Italy", photoName: "photo-steps",
                              line: "The Mercato farmers market takes over Little Italy every Sunday morning. Walk the whole stretch.",
-                             suggestedDuration: 1, payoff: Payoff(icon: "bag.fill", text: "Loser carries everyone's Mercato bags home")),
+                             suggestedDuration: 1, payoff: Payoff(icon: "figure.flexibility", text: "Winner's gelato is on the group — loser holds a 60-second plank outside the shop")),
         ChallengeSuggestion(title: "Ocean Beach Pier Walk", icon: "fish.fill", kind: .distance,
                              venue: "Ocean Beach", photoName: "photo-distance",
                              line: "Out to the end of OB Pier and back, most evenings the sunset's worth the walk alone.",
-                             suggestedDuration: 3, payoff: Payoff(icon: "fork.knife", text: "Loser buys everyone fish tacos at the pier café")),
+                             suggestedDuration: 3, payoff: Payoff(icon: "figure.pool.swim", text: "Winner picks the next hangout spot — loser jumps in the ocean, fully clothed")),
         ChallengeSuggestion(title: "North Park Brewery Steps", icon: "mug.fill", kind: .steps,
                              venue: "North Park", photoName: "photo-steps",
                              line: "North Park packs more breweries per block than anywhere else in the city. Walk between a few.",
-                             suggestedDuration: 7, payoff: Payoff(icon: "car.fill", text: "Loser's the designated driver for the whole crawl")),
+                             suggestedDuration: 7, payoff: Payoff(icon: "dumbbell.fill", text: "Winner drinks free the rest of the crawl — loser drops for push-ups at every stop")),
         ChallengeSuggestion(title: "Pacific Beach Boardwalk Circuit", icon: "beach.umbrella.fill", kind: .distance,
                              venue: "Pacific Beach", photoName: "photo-distance",
                              line: "The PB boardwalk runs the whole coastline — bikes, skaters, and a lot of people to race past.",
-                             suggestedDuration: 5, payoff: Payoff(icon: "sun.max.fill", text: "Loser's on sunscreen-reapplication duty all day")),
+                             suggestedDuration: 5, payoff: Payoff(icon: "figure.run", text: "Winner gets first pick of beach spot all summer — loser sprints the boardwalk solo")),
         ChallengeSuggestion(title: "Liberty Station Promenade Walk", icon: "building.2.fill", kind: .steps,
                              venue: "Liberty Station", photoName: "photo-steps",
                              line: "The old naval base's promenade and public market make for an easy, flat weekday loop.",
-                             suggestedDuration: 1, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser picks up everyone's Liberty Public Market lunch")),
+                             suggestedDuration: 1, payoff: Payoff(icon: "figure.strengthtraining.traditional", text: "Winner's market lunch is on the group — loser holds a 2-minute wall-sit")),
         ChallengeSuggestion(title: "Sunset Cliffs Coastal Trail", icon: "sun.horizon.fill", kind: .distance,
                              venue: "Sunset Cliffs", photoName: "photo-distance",
                              line: "One of the city's most dramatic coastlines, best walked right before golden hour.",
-                             suggestedDuration: 3, payoff: Payoff(icon: "camera.fill", text: "Loser's on sunset-photo duty for the group chat")),
+                             suggestedDuration: 3, payoff: Payoff(icon: "figure.hiking", text: "Winner picks the next sunset spot — loser redoes the whole trail backwards")),
     ]
 
     /// Which four of the pool show up this week — keyed to the actual

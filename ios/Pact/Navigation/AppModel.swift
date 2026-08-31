@@ -317,8 +317,21 @@ final class AppModel {
         }
     }
 
+    /// The profile-based formula (age/weight/activity level) is a
+    /// reasonable starting point for someone with no history yet, but it's
+    /// still a guess — once there's a real trailing-30-day Health average,
+    /// that's better evidence of what this specific person's daily pace
+    /// actually is. Only ever adjusts the target *up* to a bit past that
+    /// real average, never down to it: someone who's been inactive doesn't
+    /// get an easier goal just because of that, but someone who's already
+    /// beating the generic formula gets a target that keeps up with them.
     var personalizedStepTarget: Int {
-        myBodyProfile.personalizedStepTarget(ageBand: me.ageBand)
+        let formulaTarget = myBodyProfile.personalizedStepTarget(ageBand: me.ageBand)
+        guard healthKitConnected, let monthlySteps else { return formulaTarget }
+        let realAverage = Double(monthlySteps) / 30.0
+        guard realAverage > 0 else { return formulaTarget }
+        let stretched = Int((realAverage * 1.05 / 250).rounded()) * 250
+        return max(formulaTarget, stretched)
     }
 
     /// A short, deterministic "this suits you" tag for a crew member — the
@@ -498,15 +511,27 @@ final class AppModel {
     func logActivity(for challengeID: UUID, hitTarget: Bool, measuredRatio: Double? = nil) {
         guard let idx = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
         if let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) {
+            let previous = challenges[idx].standings[sIdx].progress
             let scale = measuredRatio.map { min(2.0, max(0.5, $0)) } ?? 1.0
-            let next = min(1, challenges[idx].standings[sIdx].progress + 0.08 * scale)
+            let next = min(1, previous + 0.08 * scale)
             challenges[idx].standings[sIdx].progress = next
             challenges[idx].standings[sIdx].progressHistory.append(next)
             challenges[idx].standings[sIdx].trendDelta = hitTarget ? "+1" : "—"
             challenges[idx].standings[sIdx].lastLogVerified = measuredRatio != nil
+            recomputeRanks(at: idx)
+            checkAboutToWin(at: idx, sIdx: sIdx, previous: previous, next: next)
+        } else {
+            recomputeRanks(at: idx)
         }
-        recomputeRanks(at: idx)
         checkChallengeCompletion(at: idx)
+    }
+
+    /// Fires once, right on the crossing into "close enough that finishing
+    /// today is realistic" — a repeat sync that keeps progress above 90%
+    /// doesn't re-fire, since `previous` was already past the line too.
+    private func checkAboutToWin(at idx: Int, sIdx: Int, previous: Double, next: Double) {
+        guard previous < 0.9, next >= 0.9, challenges[idx].standings[sIdx].rank == 1 else { return }
+        ChallengeNotifier.notifyAboutToWin(challengeTitle: challenges[idx].title, enabled: pushNotificationsEnabled)
     }
 
     /// The absolute-measurement path — HealthKit sync and Track Live both
@@ -543,6 +568,7 @@ final class AppModel {
             challenges[idx].standings[sIdx].lastLoggedDay = today
         }
         recomputeRanks(at: idx)
+        checkAboutToWin(at: idx, sIdx: sIdx, previous: previous, next: next)
         checkChallengeCompletion(at: idx)
     }
 
@@ -582,11 +608,20 @@ final class AppModel {
     /// progress the moment anyone logged anything. Re-sorts by actual
     /// progress and reassigns 1...N after every progress-changing call.
     private func recomputeRanks(at idx: Int) {
+        let myOldRank = challenges[idx].standings.first { $0.member.id == me.id }?.rank
         let order = challenges[idx].standings.indices.sorted {
             challenges[idx].standings[$0].progress > challenges[idx].standings[$1].progress
         }
         for (newRank, standingIdx) in order.enumerated() {
             challenges[idx].standings[standingIdx].rank = newRank + 1
+        }
+        guard challenges[idx].standings.count > 1,
+              let myOldRank, let myNewRank = challenges[idx].standings.first(where: { $0.member.id == me.id })?.rank,
+              myOldRank != myNewRank else { return }
+        ChallengeNotifier.notifyRankChange(challengeTitle: challenges[idx].title, blindReveal: challenges[idx].blindReveal,
+                                            oldRank: myOldRank, newRank: myNewRank, enabled: pushNotificationsEnabled)
+        if myNewRank == challenges[idx].standings.count {
+            ChallengeNotifier.notifyLastPlace(challengeTitle: challenges[idx].title, enabled: pushNotificationsEnabled)
         }
     }
 

@@ -232,7 +232,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             SectionHeader(title: "Notifications")
             PactCard(tint: Theme.Brand.pink, showsAccent: false) {
-                Toggle(isOn: Binding(get: { app.pushNotificationsEnabled }, set: { app.pushNotificationsEnabled = $0 })) {
+                Toggle(isOn: Binding(get: { app.pushNotificationsEnabled }, set: { newValue in
+                    app.pushNotificationsEnabled = newValue
+                    if newValue { ChallengeNotifier.requestPermissionIfNeeded() }
+                })) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Challenge Notifications").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                         Text("Rank changes, close calls, and last place — on-device alerts, sent with a bit of attitude. Blind-reveal challenges only ever hint that you might be behind, never that you're ahead.")

@@ -1196,39 +1196,9 @@ struct PillTabBar: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Tab.allCases) { tab in
-                let isOn = tab == selection
-                Button {
+                PillTabItem(tab: tab, isOn: tab == selection, namespace: indicator) {
                     onSelect(tab)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 18, weight: .semibold))
-                            // `value` only ever flips when motion is allowed —
-                            // holding it at `false` under Reduce Motion means
-                            // the bounce simply never has anything to trigger on.
-                            .symbolEffect(.bounce, value: reduceMotion ? false : isOn)
-                        if isOn {
-                            Text(tab.rawValue).font(Theme.Font.h3()).lineLimit(1)
-                                .transition(.opacity)
-                        }
-                    }
-                    .foregroundStyle(isOn ? Color.white : Theme.Ink.tertiary)
-                    .padding(.horizontal, isOn ? 16 : 14)
-                    .frame(height: 48)
-                    .background {
-                        if isOn {
-                            // Real Liquid Glass, not a hand-rolled material
-                            // stack — `.tint` carries the same cyan the old
-                            // fill used, `.interactive()` gives it the same
-                            // press-response every system glass control has.
-                            Capsule()
-                                .glassEffect(.regular.tint(Theme.Brand.cyan.opacity(0.92)).interactive(), in: Capsule())
-                                .matchedGeometryEffect(id: "activeTabPill", in: indicator)
-                        }
-                    }
-                    .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(6)
@@ -1237,5 +1207,56 @@ struct PillTabBar: View {
         .shadow(color: Theme.Brand.purple.opacity(0.22), radius: 14, y: 4)
         .shadow(color: Theme.Brand.pink.opacity(0.16), radius: 12, x: -5, y: 2)
         .shadow(color: Theme.Brand.blue.opacity(0.16), radius: 12, x: 5, y: 2)
+    }
+}
+
+/// One tab's icon/label + its share of the sliding highlight pill, split
+/// out so it can hold its own per-tab slide-in state — a shared bounce
+/// effect on the icon read as the whole bar twitching in place, not a
+/// specific tab arriving. Instead, whichever tab just became selected has
+/// its own icon+label content ease up from a few points below into its
+/// resting position, independent of the pill's own horizontal
+/// matchedGeometryEffect move between tabs.
+private struct PillTabItem: View {
+    let tab: Tab
+    let isOn: Bool
+    let namespace: Namespace.ID
+    let onSelect: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var contentOffset: CGFloat = 0
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 6) {
+                Image(systemName: tab.icon).font(.system(size: 18, weight: .semibold))
+                if isOn {
+                    Text(tab.rawValue).font(Theme.Font.h3()).lineLimit(1)
+                        .transition(.opacity)
+                }
+            }
+            .offset(y: contentOffset)
+            .foregroundStyle(isOn ? Color.white : Theme.Ink.tertiary)
+            .padding(.horizontal, isOn ? 16 : 14)
+            .frame(height: 48)
+            .background {
+                if isOn {
+                    // Real Liquid Glass, not a hand-rolled material stack —
+                    // `.tint` carries the same cyan the old fill used,
+                    // `.interactive()` gives it the same press-response
+                    // every system glass control has.
+                    Capsule()
+                        .glassEffect(.regular.tint(Theme.Brand.cyan.opacity(0.92)).interactive(), in: Capsule())
+                        .matchedGeometryEffect(id: "activeTabPill", in: namespace)
+                }
+            }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onChange(of: isOn) { _, newValue in
+            guard newValue, !reduceMotion else { return }
+            contentOffset = 9
+            withAnimation(.easeOut(duration: 0.3)) { contentOffset = 0 }
+        }
     }
 }

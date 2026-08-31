@@ -206,8 +206,22 @@ enum Fixtures {
     static var suggestions: [ChallengeSuggestion] {
         let week = Calendar.current.component(.weekOfYear, from: Date())
         let start = week % suggestionPool.count
-        let rotated = Array(suggestionPool[start...] + suggestionPool[..<start])
-        return Array(rotated.prefix(4))
+        let rotated = suggestionPool[start...] + suggestionPool[..<start]
+        // Several pool entries share the same reused generic photo (see
+        // the comment above) — a plain consecutive window from the
+        // rotation could land on two of them at once and show the same
+        // background image twice in one 4-card carousel. Walk the rotated
+        // order and skip anything whose photo is already picked, so
+        // within any given week's four, every photo is distinct.
+        var seenPhotos = Set<String>()
+        var picked: [ChallengeSuggestion] = []
+        for candidate in rotated {
+            guard !seenPhotos.contains(candidate.photoName) else { continue }
+            seenPhotos.insert(candidate.photoName)
+            picked.append(candidate)
+            if picked.count == 4 { break }
+        }
+        return picked
     }
 
     // MARK: Mood history

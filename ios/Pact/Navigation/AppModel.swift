@@ -81,7 +81,19 @@ final class AppModel {
 
     // MARK: Apple Health / Watch — see HealthKitManager for why this stays
     // fully functional to toggle even before the capability is provisioned.
-    var healthKitConnected = false
+    // Persisted locally, deliberately outside persistSession's synced blob —
+    // HealthKit authorization is inherently per-device, so syncing "true"
+    // to a second device that was never actually authorized there would
+    // just show "Connected" with no real access behind it. Local storage
+    // still matters: re-calling requestAuthorization() to actually restore
+    // the connection (and re-arm the change observer below) has to happen
+    // once per fresh launch either way, since HKObserverQuery registrations
+    // don't survive a relaunch on their own — this is just what tells
+    // init() that it should bother trying.
+    var healthKitConnected = false {
+        didSet { UserDefaults.standard.set(healthKitConnected, forKey: Self.healthKitConnectedDefaultsKey) }
+    }
+    private static let healthKitConnectedDefaultsKey = "com.jean.pact.healthKitConnected"
 
     // MARK: iCloud sync — see CloudSyncManager. Transient, never persisted
     // itself (it describes the *state* of persistence, not data to restore).
@@ -227,10 +239,36 @@ final class AppModel {
     var todaySteps: Int?
     var todayDistanceMiles: Double?
     var recentRuns: [RunSummary] = []
+    var monthlySteps: Int?
+    var monthlyDistanceMiles: Double?
 
     func connectHealthKit() async {
         healthKitConnected = await HealthKitManager.shared.requestAuthorization()
-        if healthKitConnected { await refreshHealthActivity() }
+        guard healthKitConnected else { return }
+        await refreshHealthActivity()
+        // From here on, "Log Today" stops being something anyone has to
+        // remember to tap for a steps/distance challenge — Health calling
+        // back the moment it has something new *is* the log.
+        HealthKitManager.shared.startObservingChanges { [weak self] in
+            Task { @MainActor in await self?.autoSyncFromHealth() }
+        }
+    }
+
+    /// Runs automatically whenever HealthKit reports new steps, distance,
+    /// or a finished workout (see HealthKitManager.startObservingChanges) —
+    /// updates the general activity picture and logs real progress against
+    /// every challenge Health can actually verify, both the local fixture
+    /// ones and any real CKShare-backed ones from SharedChallengeStore.
+    /// Custom-metric challenges are untouched; Health has nothing to verify
+    /// them against.
+    func autoSyncFromHealth() async {
+        await refreshHealthActivity()
+        for challenge in activeChallenges where challenge.kind != .custom {
+            await syncTodayFromHealth(for: challenge.id)
+        }
+        for shared in SharedChallengeStore.shared.challenges where shared.kind != .custom {
+            await SharedChallengeStore.shared.syncTodayFromHealth(challengeLocalID: shared.localID, myLocalID: me.id)
+        }
     }
 
     /// Pulls today's totals and recent runs — called whenever a screen
@@ -241,14 +279,50 @@ final class AppModel {
             todaySteps = nil
             todayDistanceMiles = nil
             recentRuns = []
+            monthlySteps = nil
+            monthlyDistanceMiles = nil
             return
         }
         async let steps = HealthKitManager.shared.fetchTodaySteps()
         async let distance = HealthKitManager.shared.fetchTodayDistanceMiles()
         async let runs = HealthKitManager.shared.fetchRecentRuns()
+        async let monthSteps = HealthKitManager.shared.fetchTotalSteps(days: 30)
+        async let monthDistance = HealthKitManager.shared.fetchTotalDistanceMiles(days: 30)
         todaySteps = await steps
         todayDistanceMiles = await distance
         recentRuns = await runs
+        monthlySteps = await monthSteps
+        monthlyDistanceMiles = await monthDistance
+    }
+
+    // MARK: Milestones
+
+    /// Lifetime achievements built entirely from data already on the
+    /// device — challenge outcomes, the running mood streak, and (where
+    /// connected) real Health totals. Nothing here is a synthetic counter;
+    /// an unlocked milestone always traces back to something that actually
+    /// happened.
+    var milestones: [Milestone] {
+        let completed = challenges.filter { $0.status == .complete }
+        let wins = completed.filter { $0.winnerName == me.name }.count
+        let bestRunMiles = recentRuns.map(\.distanceMiles).max() ?? 0
+        let todayStepCount = todaySteps ?? 0
+        let monthMiles = monthlyDistanceMiles ?? 0
+
+        func milestone(_ id: String, _ title: String, _ detail: String, _ icon: String, count: Double, goal: Double) -> Milestone {
+            Milestone(id: id, title: title, detail: detail, icon: icon, isUnlocked: count >= goal, progress: min(1, count / goal))
+        }
+
+        return [
+            milestone("first-win", "First Win", "Win your first challenge", "trophy.fill", count: Double(wins), goal: 1),
+            milestone("hat-trick", "Hat Trick", "Win 3 challenges", "trophy.fill", count: Double(wins), goal: 3),
+            milestone("five-completed", "Five Down", "Complete 5 challenges", "checkmark.seal.fill", count: Double(completed.count), goal: 5),
+            milestone("week-streak", "Week One", "Log your mood 7 days running", "flame.fill", count: Double(moodStreak), goal: 7),
+            milestone("month-streak", "Consistency Is Key", "Log your mood 30 days running", "flame.fill", count: Double(moodStreak), goal: 30),
+            milestone("5k", "5K Finisher", "Log a real 5K (3.1 mi) run", "figure.run", count: bestRunMiles, goal: 3.1),
+            milestone("10k-steps", "10K Day", "Hit 10,000 real steps in a day", "shoeprints.fill", count: Double(todayStepCount), goal: 10_000),
+            milestone("marathon-month", "Marathon Month", "26.2 real miles in 30 days", "map.fill", count: monthMiles, goal: 26.2),
+        ]
     }
 
     /// Pulls today's real activity from Health — steps or distance,
@@ -513,6 +587,12 @@ final class AppModel {
             apply(saved)
         }
         Task { await reconcileWithCloud() }
+        if UserDefaults.standard.bool(forKey: Self.healthKitConnectedDefaultsKey) {
+            // Re-verifies (near-instant, no re-prompt, since it's already
+            // granted) and re-arms the change observer for this launch —
+            // see connectHealthKit().
+            Task { await connectHealthKit() }
+        }
     }
 
     /// Suppresses `persistSession()` while `apply(_:)` is bulk-assigning

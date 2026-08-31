@@ -51,6 +51,31 @@ final class HealthKitManager {
         }
     }
 
+    private var isObserving = false
+
+    /// Registers a live observer + background delivery for steps,
+    /// distance, and workouts — this is what makes logging actually
+    /// automatic: Health calls this app back the moment it has new data
+    /// (whether the app is open or not, given
+    /// com.apple.developer.healthkit.background-delivery in the
+    /// entitlements), instead of only ever updating when someone
+    /// remembers to tap "Sync from Health." Safe to call more than once —
+    /// guards against registering duplicate observers if connect is
+    /// re-triggered (e.g. a fresh app launch re-verifying a previous
+    /// session's connection).
+    func startObservingChanges(onUpdate: @escaping () -> Void) {
+        guard !isObserving, isAvailable, let stepType, let distanceType else { return }
+        isObserving = true
+        for type in [stepType, distanceType, HKObjectType.workoutType()] {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completionHandler, _ in
+                onUpdate()
+                completionHandler()
+            }
+            store.execute(query)
+            store.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
+        }
+    }
+
     /// The most recent real running workouts, newest first — what actually
     /// backs "track runs" beyond just a cumulative daily distance number.
     /// Every field here (date, distance, duration) is exactly what Health
@@ -82,20 +107,35 @@ final class HealthKitManager {
     /// Today's step count so far, or `nil` if unavailable/unauthorized.
     func fetchTodaySteps() async -> Int? {
         guard isAvailable, let stepType else { return nil }
-        return await todaySum(for: stepType).map { Int($0) }
+        return await sum(for: stepType, since: Calendar.current.startOfDay(for: Date())).map { Int($0) }
     }
 
     /// Today's walking + running distance in miles so far, or `nil` if
     /// unavailable/unauthorized.
     func fetchTodayDistanceMiles() async -> Double? {
         guard isAvailable, let distanceType else { return nil }
-        guard let meters = await todaySum(for: distanceType, unit: .meter()) else { return nil }
+        guard let meters = await sum(for: distanceType, unit: .meter(), since: Calendar.current.startOfDay(for: Date())) else { return nil }
         return meters / 1609.344
     }
 
-    private func todaySum(for type: HKQuantityType, unit: HKUnit = .count()) async -> Double? {
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date(), options: .strictStartDate)
+    /// Rolling totals over the last `days` — used for milestones like
+    /// "26.2 miles in a month," which need a real cumulative sum over a
+    /// window, not a single day's snapshot.
+    func fetchTotalSteps(days: Int) async -> Int? {
+        guard isAvailable, let stepType else { return nil }
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return await sum(for: stepType, since: start).map { Int($0) }
+    }
+
+    func fetchTotalDistanceMiles(days: Int) async -> Double? {
+        guard isAvailable, let distanceType else { return nil }
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        guard let meters = await sum(for: distanceType, unit: .meter(), since: start) else { return nil }
+        return meters / 1609.344
+    }
+
+    private func sum(for type: HKQuantityType, unit: HKUnit = .count(), since start: Date) async -> Double? {
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
         return await withCheckedContinuation { continuation in
             let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, _ in
                 continuation.resume(returning: result?.sumQuantity()?.doubleValue(for: unit))

@@ -22,6 +22,7 @@ struct ProfileView: View {
                     StatChip(label: "Losses", value: "\(losses)", tint: Theme.Brand.coral)
                     StatChip(label: "Mood Streak", value: "\(app.moodStreak)d", tint: Theme.Brand.gold)
                 }
+                milestonesSection
                 quoteCard
                 if let shareURL {
                     ShareLink(item: shareURL) {
@@ -162,6 +163,25 @@ struct ProfileView: View {
         return "\(minutes) min"
     }
 
+    /// Real achievements only — every entry in `app.milestones` traces back
+    /// to actual challenge results, mood-logging history, or (once
+    /// connected) real Health totals. Unlocked ones lead the scroll so the
+    /// wins are what's immediately visible, not buried after locked ones.
+    private var milestonesSection: some View {
+        let sorted = app.milestones.sorted { $0.isUnlocked && !$1.isUnlocked }
+        return VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            SectionHeader(title: "Milestones")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Space.sm) {
+                    ForEach(sorted) { milestone in
+                        MilestoneBadge(milestone: milestone)
+                    }
+                }
+                .padding(.horizontal, 1)
+            }
+        }
+    }
+
     private var quoteCard: some View {
         PactCard(tint: Theme.Brand.gold) {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
@@ -224,6 +244,37 @@ private struct FitnessRing: View {
             Text("\(score)").font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
         }
         .frame(width: 64, height: 64)
+    }
+}
+
+/// A compact badge for one milestone — filled and full-color when unlocked,
+/// outlined and dimmed with a partial progress ring when it's still ahead.
+private struct MilestoneBadge: View {
+    let milestone: Milestone
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle().stroke(Theme.Ink.tertiary.opacity(0.15), lineWidth: 4)
+                if milestone.isUnlocked {
+                    Circle().fill(Theme.Brand.holo)
+                } else {
+                    Circle()
+                        .trim(from: 0, to: milestone.progress)
+                        .stroke(Theme.Brand.cyan, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                Image(systemName: milestone.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(milestone.isUnlocked ? Color.white : Theme.Ink.tertiary)
+            }
+            .frame(width: 52, height: 52)
+            Text(milestone.title)
+                .font(Theme.Font.caption())
+                .foregroundStyle(milestone.isUnlocked ? Theme.Ink.primary : Theme.Ink.tertiary)
+                .lineLimit(1)
+        }
+        .frame(width: 84)
     }
 }
 

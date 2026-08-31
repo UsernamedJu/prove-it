@@ -146,3 +146,16 @@ struct ChallengeSuggestion: Identifiable, Hashable {
     static func == (lhs: ChallengeSuggestion, rhs: ChallengeSuggestion) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
+
+/// A lifetime achievement derived from real data — challenge results, mood
+/// streaks, and Health readings — never a made-up counter. `progress` is
+/// always `0...1`, including for unlocked ones (where it's `1`), so a single
+/// progress bar can represent both states without a branch at every call site.
+struct Milestone: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let icon: String
+    let isUnlocked: Bool
+    let progress: Double
+}

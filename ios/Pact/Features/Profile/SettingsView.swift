@@ -143,7 +143,7 @@ struct SettingsView: View {
                     Image(systemName: "heart.fill").foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(app.healthKitConnected ? "Connected" : "Not connected").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Reads your steps, distance, and runs — including everything your Apple Watch logs automatically.")
+                        Text("Reads your steps, distance, and runs — including everything your Apple Watch logs — and updates challenge progress on its own the moment Health has something new.")
                             .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     }
                     Spacer()

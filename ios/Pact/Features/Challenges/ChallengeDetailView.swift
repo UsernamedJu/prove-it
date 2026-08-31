@@ -410,6 +410,17 @@ private struct StatsTab: View {
 
     private var leader: Standing? { challenge.standings.min(by: { $0.rank < $1.rank }) }
 
+    /// The real total that actually decides who wins — replaces the old
+    /// flat `dailyTarget` chip, which stayed frozen at the generic per-kind
+    /// constant (8,000 steps / 2 mi) even after progress moved to being
+    /// measured against `effectiveGoalTarget`/`goalTarget(for:)`, and
+    /// wouldn't reflect Fair Play's per-person target at all.
+    private var goalText: String {
+        guard let mine else { return "—" }
+        let target = challenge.goalTarget(for: mine.member)
+        return challenge.kind == .distance ? "\(Int(target)) mi" : "\(Int(target).formatted()) \(challenge.displayUnit)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
             if let mine, let leader, leader.member.id != mine.member.id {
@@ -438,7 +449,7 @@ private struct StatsTab: View {
             HStack(spacing: Theme.Space.sm) {
                 StatChip(label: "My Progress", value: "\(Int((mine?.progress ?? 0) * 100))%", tint: challenge.tint)
                 StatChip(label: "Days Left", value: "\(challenge.daysLeft)", tint: Theme.Brand.blue)
-                StatChip(label: "Daily Target", value: "\(challenge.dailyTarget) \(challenge.displayUnit)", tint: Theme.Brand.lime)
+                StatChip(label: "Goal to Win", value: goalText, tint: Theme.Brand.lime)
             }
 
             PactCard(tint: challenge.tint) {

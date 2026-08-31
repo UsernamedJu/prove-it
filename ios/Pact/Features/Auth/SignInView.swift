@@ -102,6 +102,28 @@ struct SignInView: View {
     /// exact, already-inset row width every child below renders at.
     private func controls(width: CGFloat) -> some View {
         VStack(spacing: Theme.Space.sm) {
+            if let name = app.signedInName, app.signedInIdentifier != nil {
+                Button { continueAsReturningUser() } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Continue as \(name)")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.black)
+                .frame(width: width, height: 42)
+                .background(Theme.Brand.lime)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+
+                HStack(spacing: Theme.Space.sm) {
+                    Rectangle().fill(.white.opacity(0.3)).frame(height: 1)
+                    Text("or sign in as someone else").font(Theme.Font.caption()).foregroundStyle(.white.opacity(0.75))
+                    Rectangle().fill(.white.opacity(0.3)).frame(height: 1)
+                }
+                .frame(width: width)
+            }
+
             appleButton(width: width)
 
             HStack(spacing: Theme.Space.sm) {
@@ -167,14 +189,16 @@ struct SignInView: View {
         switch result {
         case .success(let authorization):
             if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+                // `credential.user` is Apple's stable per-app identifier for
+                // this Apple ID — present on every response, including a
+                // silent re-auth where `fullName`/`email` come back nil
+                // because Apple only ever sends those once, the very first
+                // time someone authorizes this app. That's exactly why
+                // *this* is what identity binding keys off, not the name.
                 let name = [credential.fullName?.givenName, credential.fullName?.familyName]
                     .compactMap { $0 }.joined(separator: " ")
-                app.signedInName = name.isEmpty ? nil : name
-                if let signedInName = app.signedInName { app.me.name = signedInName }
+                app.bindSignedInIdentity(credential.user, name: name.isEmpty ? nil : name, method: "Apple")
             }
-            app.signInMethod = "Apple"
-            app.isSignedIn = true
-            app.explicitlySignedOut = false
         case .failure:
             continueAnyway()
         }
@@ -184,10 +208,19 @@ struct SignInView: View {
     private func continueWithIdentifier() {
         let trimmed = identifier.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        app.signedInName = trimmed
-        app.signInMethod = trimmed.contains("@") ? "Email" : "Phone"
-        app.isSignedIn = true
-        app.explicitlySignedOut = false
+        app.bindSignedInIdentity(trimmed, name: trimmed, method: trimmed.contains("@") ? "Email" : "Phone")
+    }
+
+    /// Shown only when someone has actually signed in on this device
+    /// before and is currently signed out — the "sign back in" shortcut,
+    /// distinct from the sign-in controls below it, which are what a
+    /// genuinely new person (or the same person choosing a different
+    /// identity) uses instead. Reuses the stored identifier itself, no
+    /// re-authentication needed — `bindSignedInIdentity` already saw this
+    /// exact identity once and won't touch any data since it matches.
+    private func continueAsReturningUser() {
+        guard let identifier = app.signedInIdentifier, let method = app.signInMethod else { return }
+        app.bindSignedInIdentity(identifier, name: app.signedInName, method: method)
     }
 
     private func continueAnyway() {

@@ -232,8 +232,63 @@ final class AppModel {
     /// no backend to verify against, so it's an identity label, not a
     /// verified credential; framed that way rather than faking security.
     var signInMethod: String? { didSet { persistSession() } }
+    /// The actual identity behind a sign-in: Apple's stable per-app `user`
+    /// string for Sign in with Apple, or the typed email/phone itself for
+    /// that path — unlike `signedInName` (just a display label, and the
+    /// same "Jean" could belong to two different Apple IDs), this is what
+    /// `bindSignedInIdentity` compares against to tell "the same person
+    /// signing back in" apart from "someone else signing in on this
+    /// device, who should never silently inherit whatever profile happens
+    /// to already be in memory."
+    var signedInIdentifier: String? { didSet { persistSession() } }
     var appLockEnabled = false { didSet { persistSession() } }
     var isUnlocked = true
+
+    /// Runs on every successful sign-in with the identifier that just
+    /// authenticated. If it's different from whoever last signed in on
+    /// this device, this is a different person — resets to a real clean
+    /// slate instead of handing them the previous person's crew,
+    /// challenges, and history just because it was sitting in memory.
+    func bindSignedInIdentity(_ identifier: String, name: String?, method: String) {
+        if let existing = signedInIdentifier, existing != identifier {
+            resetToCleanSlate()
+        }
+        signedInIdentifier = identifier
+        signInMethod = method
+        if let name, !name.isEmpty {
+            signedInName = name
+            me.name = name
+        }
+        isSignedIn = true
+        explicitlySignedOut = false
+    }
+
+    /// Wipes everything a *different* identity shouldn't inherit — crew,
+    /// groups, challenges, mood history, chat, and reverts "me" to a fresh
+    /// profile — while leaving device-local settings (appearance,
+    /// notifications, HealthKit connection) alone, since those describe
+    /// this phone, not this account.
+    private func resetToCleanSlate() {
+        isApplyingRestoredSession = true
+        me = Member(name: "You", ageBand: .adult)
+        meColorIndex = 0
+        myProfilePhotoData = nil
+        myBodyProfile = BodyProfile()
+        showAgeRangeOnProfile = false
+        profileAnniversary = nil
+        crew = []
+        groups = []
+        challenges = []
+        moodHistory = []
+        moodStreak = 0
+        moodLoggedToday = false
+        directMessages = [:]
+        groupMessages = [:]
+        unreadDirectIDs = []
+        unreadGroupIDs = []
+        hasOnboarded = false
+        isApplyingRestoredSession = false
+    }
 
     // MARK: Chat — keyed by Member.id / ContactGroup.id. No real backend:
     // sending appends immediately, then a canned reply lands a beat later.
@@ -828,6 +883,7 @@ final class AppModel {
         var hasOnboarded: Bool
         var signedInName: String?
         var signInMethod: String?
+        var signedInIdentifier: String?
         var appLockEnabled: Bool
         var showAgeRangeOnProfile: Bool
         var meName: String
@@ -878,6 +934,7 @@ final class AppModel {
         hasOnboarded = saved.hasOnboarded
         signedInName = saved.signedInName
         signInMethod = saved.signInMethod
+        signedInIdentifier = saved.signedInIdentifier
         appLockEnabled = saved.appLockEnabled
         showAgeRangeOnProfile = saved.showAgeRangeOnProfile
         me.name = saved.meName
@@ -974,7 +1031,8 @@ final class AppModel {
         guard !isApplyingRestoredSession else { return }
         let saved = PersistedSession(
             isSignedIn: isSignedIn, hasOnboarded: hasOnboarded, signedInName: signedInName,
-            signInMethod: signInMethod, appLockEnabled: appLockEnabled, showAgeRangeOnProfile: showAgeRangeOnProfile,
+            signInMethod: signInMethod, signedInIdentifier: signedInIdentifier,
+            appLockEnabled: appLockEnabled, showAgeRangeOnProfile: showAgeRangeOnProfile,
             meName: me.name, meAgeBand: me.ageBand, meColorIndex: meColorIndex,
             myProfilePhotoData: myProfilePhotoData, myBodyProfile: myBodyProfile, unitSystem: unitSystem,
             profileAnniversary: profileAnniversary, moodHistory: moodHistory, savedAt: Date()

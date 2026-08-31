@@ -16,6 +16,7 @@ struct ProfileView: View {
             VStack(spacing: Theme.Space.lg) {
                 header
                 fitnessCard
+                healthActivityCard
                 HStack(spacing: Theme.Space.sm) {
                     StatChip(label: "Wins", value: "\(wins)", tint: Theme.Brand.lime)
                     StatChip(label: "Losses", value: "\(losses)", tint: Theme.Brand.coral)
@@ -34,6 +35,7 @@ struct ProfileView: View {
             .padding(.bottom, Theme.Space.xxl)
         }
         .background(PactBackground())
+        .task { await app.refreshHealthActivity() }
         .sheet(isPresented: $showSettings) { SettingsView(app: app) }
         .navigationDestination(for: Route.self) { route in
             switch route {
@@ -103,6 +105,61 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    /// Today's real activity + recent runs — independent of any specific
+    /// challenge, the general "what did I actually do" picture Health
+    /// itself provides. Distinct from the Fitness Score card above, which
+    /// is a computed recommendation number, not a measured one.
+    private var healthActivityCard: some View {
+        PactCard(tint: Theme.Brand.cyan) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                HStack(spacing: 6) {
+                    Image(systemName: "figure.run").foregroundStyle(Theme.Brand.cyan)
+                    Text("Today's Activity").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                    Spacer()
+                }
+                if app.healthKitConnected {
+                    HStack(spacing: Theme.Space.xl) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(app.todaySteps.map { $0.formatted() } ?? "—")
+                                .font(Theme.Font.number(22)).foregroundStyle(Theme.Ink.primary)
+                                .contentTransition(.numericText())
+                            Text("STEPS").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(app.todayDistanceMiles.map { String(format: "%.1f mi", $0) } ?? "—")
+                                .font(Theme.Font.number(22)).foregroundStyle(Theme.Ink.primary)
+                            Text("DISTANCE").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                        }
+                    }
+                    .animation(Theme.Motion.pop, value: app.todaySteps)
+
+                    if !app.recentRuns.isEmpty {
+                        Divider().overlay(Theme.Surface.border)
+                        Text("RECENT RUNS").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                        ForEach(app.recentRuns) { run in
+                            HStack(spacing: Theme.Space.sm) {
+                                Image(systemName: "figure.run.circle.fill").font(.system(size: 15)).foregroundStyle(Theme.Brand.cyan)
+                                Text(run.date.formatted(.dateTime.month(.abbreviated).day()))
+                                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.secondary)
+                                Spacer()
+                                Text(String(format: "%.1f mi", run.distanceMiles)).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.primary)
+                                Text(runDuration(run.duration)).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                            }
+                        }
+                    }
+                } else {
+                    Text("Connect Apple Health (Settings → Apple Health) to see your real steps, distance, and runs here — and to let challenges verify your progress instead of taking it on the honor system.")
+                        .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                }
+            }
+        }
+    }
+
+    private func runDuration(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds.rounded()) / 60
+        return "\(minutes) min"
     }
 
     private var quoteCard: some View {

@@ -14,11 +14,12 @@ struct OnboardingFlow: View {
     @State private var motivation: Motivation?
     @State private var crewName = ""
     @State private var invitedCrew: [String] = []
+    @State private var connectingHealth = false
     /// Drives which edge each step slides in/out from, so Back visibly
     /// reverses Continue instead of every step sliding the same direction.
     @State private var navigatingBack = false
 
-    private let totalSteps = 7
+    private let totalSteps = 8
 
     enum Motivation: String, CaseIterable, Identifiable {
         case family = "Stay accountable with family"
@@ -51,9 +52,10 @@ struct OnboardingFlow: View {
                     case 0: setupStep
                     case 1: aboutYouStep
                     case 2: activityStep
-                    case 3: motivationStep
-                    case 4: addCrewStep
-                    case 5: reviewStep
+                    case 3: healthSetupStep
+                    case 4: motivationStep
+                    case 5: addCrewStep
+                    case 6: reviewStep
                     default: doneStep
                     }
                 }
@@ -171,7 +173,67 @@ struct OnboardingFlow: View {
         .padding(.horizontal, Theme.Space.lg)
     }
 
-    // MARK: Step 3 — why they're here, which quietly steers the recommendation later
+    // MARK: Step 3 — the actual data source challenges verify progress
+    // against. Framed as expected setup, not a buried Settings toggle, but
+    // still skippable — a hard block here would strand anyone who declines
+    // the system permission dialog or is on a device where HealthKit
+    // genuinely isn't available.
+
+    private var healthSetupStep: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.lg) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                Text("Connect Apple Health").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
+                Text("Provyr reads your steps and runs straight from Health — including anything your Apple Watch already logs — so challenge progress is real, not just self-reported.")
+                    .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+            }
+            .padding(.top, Theme.Space.xl)
+
+            PactCard(tint: app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan) {
+                HStack(spacing: Theme.Space.sm) {
+                    Image(systemName: app.healthKitConnected ? "checkmark.circle.fill" : "heart.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(app.healthKitConnected ? "Connected" : "Steps, distance, and runs")
+                            .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text(app.healthKitConnected ? "Provyr can now verify your progress." : "That's all Provyr ever reads — nothing else.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
+                    Spacer()
+                }
+            }
+
+            Spacer()
+
+            if app.healthKitConnected {
+                Button("Continue →") { goTo(4) }
+                    .buttonStyle(PactButtonStyle(kind: .primary))
+            } else {
+                Button {
+                    connectingHealth = true
+                    Task {
+                        await app.connectHealthKit()
+                        connectingHealth = false
+                    }
+                } label: {
+                    if connectingHealth {
+                        ProgressView().tint(.white)
+                    } else {
+                        HStack(spacing: 6) { Image(systemName: "heart.fill"); Text("Connect Health") }
+                    }
+                }
+                .buttonStyle(PactButtonStyle(kind: .primary))
+                .disabled(connectingHealth)
+
+                Button("Skip for now →") { goTo(4) }
+                    .font(Theme.Font.body()).foregroundStyle(Theme.Ink.tertiary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, Theme.Space.lg)
+    }
+
+    // MARK: Step 4 — why they're here, which quietly steers the recommendation later
 
     private var motivationStep: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
@@ -201,7 +263,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button("Continue →") { goTo(4) }
+            Button("Continue →") { goTo(5) }
                 .buttonStyle(PactButtonStyle(kind: .primary))
                 .disabled(motivation == nil)
                 .opacity(motivation == nil ? 0.5 : 1)
@@ -209,7 +271,7 @@ struct OnboardingFlow: View {
         .padding(.horizontal, Theme.Space.lg)
     }
 
-    // MARK: Step 4 — add your crew for real, not just a note on the last screen
+    // MARK: Step 5 — add your crew for real, not just a note on the last screen
 
     private var addCrewStep: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
@@ -262,7 +324,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button(invitedCrew.isEmpty ? "Skip for now →" : "Continue →") { goTo(5) }
+            Button(invitedCrew.isEmpty ? "Skip for now →" : "Continue →") { goTo(6) }
                 .buttonStyle(PactButtonStyle(kind: invitedCrew.isEmpty ? .outline : .primary))
         }
         .padding(.horizontal, Theme.Space.lg)
@@ -275,7 +337,7 @@ struct OnboardingFlow: View {
         crewName = ""
     }
 
-    // MARK: Step 5 — a computed overview before finishing
+    // MARK: Step 6 — a computed overview before finishing
 
     private var ageBand: AgeBand { AgeBand.forAge(bodyProfile.age) }
 
@@ -343,14 +405,14 @@ struct OnboardingFlow: View {
                     .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 
                 Spacer(minLength: Theme.Space.xl)
-                Button("Continue →") { goTo(6) }
+                Button("Continue →") { goTo(7) }
                     .buttonStyle(PactButtonStyle(kind: .primary))
             }
             .padding(.horizontal, Theme.Space.lg)
         }
     }
 
-    // MARK: Step 6 — celebration
+    // MARK: Step 7 — celebration
 
     private var doneStep: some View {
         VStack(spacing: Theme.Space.lg) {

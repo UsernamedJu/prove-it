@@ -27,7 +27,7 @@ struct CreateSharedChallengeSheet: View {
                 PactBackground()
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Space.lg) {
-                        Text("A real, CloudKit-synced challenge for one real person — not the demo crew.")
+                        Text("A real, CloudKit-synced challenge for one buddy — not the demo crew.")
                             .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 
                         TextField("Challenge title", text: $title)

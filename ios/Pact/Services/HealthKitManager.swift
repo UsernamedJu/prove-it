@@ -1,6 +1,20 @@
 import Foundation
 import HealthKit
 
+/// One real running workout read from Health — not a challenge-progress
+/// number, an actual logged run with its own date/distance/duration.
+struct RunSummary: Identifiable {
+    let id = UUID()
+    let date: Date
+    let distanceMiles: Double
+    let duration: TimeInterval
+
+    var pacePerMile: TimeInterval? {
+        guard distanceMiles > 0.05 else { return nil }
+        return duration / distanceMiles
+    }
+}
+
 /// Reads step count and walking/running distance from Apple Health — which
 /// is how Apple Watch data reaches this app. There's no separate watchOS
 /// companion here: the Watch already writes steps/workouts into Health on
@@ -30,10 +44,38 @@ final class HealthKitManager {
     func requestAuthorization() async -> Bool {
         guard isAvailable, let stepType, let distanceType else { return false }
         do {
-            try await store.requestAuthorization(toShare: [], read: [stepType, distanceType])
+            try await store.requestAuthorization(toShare: [], read: [stepType, distanceType, HKObjectType.workoutType()])
             return true
         } catch {
             return false
+        }
+    }
+
+    /// The most recent real running workouts, newest first — what actually
+    /// backs "track runs" beyond just a cumulative daily distance number.
+    /// Every field here (date, distance, duration) is exactly what Health
+    /// recorded for that workout, not derived or estimated.
+    func fetchRecentRuns(limit: Int = 5) async -> [RunSummary] {
+        guard isAvailable else { return [] }
+        let predicate = HKQuery.predicateForWorkouts(with: .running)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: .workoutType(), predicate: predicate, limit: limit, sortDescriptors: [sort]) { _, samples, _ in
+                let runs = (samples as? [HKWorkout] ?? []).map { workout in
+                    // `.totalDistance` is deprecated in favor of
+                    // `statistics(for:)`, but that newer API only returns
+                    // anything for workouts saved via HKWorkoutBuilder with
+                    // per-type statistics attached — not guaranteed for
+                    // every real workout regardless of source. totalDistance
+                    // reliably works for any of them, which matters more
+                    // here than clearing one deprecation warning.
+                    RunSummary(date: workout.endDate,
+                               distanceMiles: workout.totalDistance?.doubleValue(for: .mile()) ?? 0,
+                               duration: workout.duration)
+                }
+                continuation.resume(returning: runs)
+            }
+            store.execute(query)
         }
     }
 

@@ -178,8 +178,34 @@ final class AppModel {
 
     // MARK: Apple Health
 
+    /// Today's step count and distance, and recent real runs — a general
+    /// activity picture independent of any specific challenge. `nil`/empty
+    /// until `refreshHealthActivity()` runs; never a placeholder value.
+    var todaySteps: Int?
+    var todayDistanceMiles: Double?
+    var recentRuns: [RunSummary] = []
+
     func connectHealthKit() async {
         healthKitConnected = await HealthKitManager.shared.requestAuthorization()
+        if healthKitConnected { await refreshHealthActivity() }
+    }
+
+    /// Pulls today's totals and recent runs — called whenever a screen
+    /// showing them appears, not on a timer, since there's no push
+    /// mechanism for HealthKit data the way CloudKit has subscriptions.
+    func refreshHealthActivity() async {
+        guard healthKitConnected else {
+            todaySteps = nil
+            todayDistanceMiles = nil
+            recentRuns = []
+            return
+        }
+        async let steps = HealthKitManager.shared.fetchTodaySteps()
+        async let distance = HealthKitManager.shared.fetchTodayDistanceMiles()
+        async let runs = HealthKitManager.shared.fetchRecentRuns()
+        todaySteps = await steps
+        todayDistanceMiles = await distance
+        recentRuns = await runs
     }
 
     /// Pulls today's real activity from Health — steps or distance,

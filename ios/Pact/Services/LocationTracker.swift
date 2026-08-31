@@ -80,11 +80,23 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
         // pacing in place need every small real displacement plotted, not
         // just the big ones a wider filter would keep.
         manager.distanceFilter = 3
+        // A session needs to keep recording if the phone locks or someone
+        // switches apps mid-walk — that's the entire reason Onboarding asks
+        // for Always rather than just While Using.
+        manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = false
     }
 
+    /// Requests Always authorization — When In Use alone would stop
+    /// recording the moment the phone locks or the app backgrounds, which
+    /// defeats the point of tracking a walk or run someone isn't staring
+    /// at their screen for the whole time. iOS may present this as two
+    /// separate prompts (an initial one, then a later "Change to Always
+    /// Allow?" once it's seen enough real usage) — that's standard
+    /// platform behavior, not something this call controls.
     func requestPermission() {
         guard authorizationStatus == .notDetermined else { return }
-        manager.requestWhenInUseAuthorization()
+        manager.requestAlwaysAuthorization()
     }
 
     var canTrack: Bool {

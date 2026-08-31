@@ -21,7 +21,8 @@ struct OnboardingFlow: View {
     /// reverses Continue instead of every step sliding the same direction.
     @State private var navigatingBack = false
 
-    private let totalSteps = 8
+    private let totalSteps = 9
+    @State private var locationTracker = LocationTracker.shared
 
     enum Motivation: String, CaseIterable, Identifiable {
         case family = "Stay accountable with family"
@@ -55,9 +56,10 @@ struct OnboardingFlow: View {
                     case 1: aboutYouStep
                     case 2: activityStep
                     case 3: healthSetupStep
-                    case 4: motivationStep
-                    case 5: addCrewStep
-                    case 6: reviewStep
+                    case 4: locationSetupStep
+                    case 5: motivationStep
+                    case 6: addCrewStep
+                    case 7: reviewStep
                     default: doneStep
                     }
                 }
@@ -260,7 +262,53 @@ struct OnboardingFlow: View {
         .glassSurface(cornerRadius: Theme.Radius.sm, tint: app.healthKitConnected ? Theme.Brand.lime : nil)
     }
 
-    // MARK: Step 4 — why they're here, which quietly steers the recommendation later
+    // MARK: Step 4 — background location, so Track Live can keep recording a
+    // walk or run without the app staying open and on-screen the whole time.
+
+    private var locationSetupStep: some View {
+        let granted = locationTracker.authorizationStatus == .authorizedAlways || locationTracker.authorizationStatus == .authorizedWhenInUse
+        return VStack(spacing: Theme.Space.lg) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                Text("Track in the Background").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
+                Text("So a challenge keeps recording your walk or run even with your phone locked or the app closed — Health connected plus this is what Track Live needs to work.")
+                    .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, Theme.Space.xl)
+
+            Spacer(minLength: Theme.Space.md)
+
+            ZStack {
+                Circle().fill((granted ? Theme.Brand.lime : Theme.Brand.cyan).opacity(0.12)).frame(width: 176, height: 176)
+                Circle().fill((granted ? Theme.Brand.lime : Theme.Brand.cyan).opacity(0.22)).frame(width: 124, height: 124)
+                Image(systemName: granted ? "checkmark.circle.fill" : "location.fill")
+                    .font(.system(size: 52, weight: .bold))
+                    .foregroundStyle(granted ? Theme.Brand.lime : Theme.Brand.cyan)
+                    .symbolEffect(.pulse, options: .repeating, isActive: !granted)
+            }
+
+            Spacer(minLength: Theme.Space.md)
+
+            if granted {
+                Button("Continue →") { goTo(5) }
+                    .buttonStyle(PactButtonStyle(kind: .primary))
+            } else {
+                Button {
+                    locationTracker.requestPermission()
+                } label: {
+                    HStack(spacing: 6) { Image(systemName: "location.fill"); Text("Allow Location Access") }
+                }
+                .buttonStyle(PactButtonStyle(kind: .primary))
+
+                Button("Skip for now →") { goTo(5) }
+                    .font(Theme.Font.body()).foregroundStyle(Theme.Ink.tertiary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, Theme.Space.lg)
+    }
+
+    // MARK: Step 5 — why they're here, which quietly steers the recommendation later
 
     private var motivationStep: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
@@ -290,7 +338,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button("Continue →") { goTo(5) }
+            Button("Continue →") { goTo(6) }
                 .buttonStyle(PactButtonStyle(kind: .primary))
                 .disabled(motivation == nil)
                 .opacity(motivation == nil ? 0.5 : 1)
@@ -351,7 +399,7 @@ struct OnboardingFlow: View {
             }
 
             Spacer()
-            Button(invitedCrew.isEmpty ? "Skip for now →" : "Continue →") { goTo(6) }
+            Button(invitedCrew.isEmpty ? "Skip for now →" : "Continue →") { goTo(7) }
                 .buttonStyle(PactButtonStyle(kind: invitedCrew.isEmpty ? .outline : .primary))
         }
         .padding(.horizontal, Theme.Space.lg)
@@ -432,7 +480,7 @@ struct OnboardingFlow: View {
                     .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 
                 Spacer(minLength: Theme.Space.xl)
-                Button("Continue →") { goTo(7) }
+                Button("Continue →") { goTo(8) }
                     .buttonStyle(PactButtonStyle(kind: .primary))
             }
             .padding(.horizontal, Theme.Space.lg)

@@ -138,6 +138,7 @@
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Provyr securely with Face ID.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Provyr reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Provyr uses your location to trace your real walk or run on the map and tell the two apart while you're tracking a challenge.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Provyr tracks your walk or run in the background so a challenge keeps recording steps and miles even while your phone is locked or you're in another app.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Provyr reads your step count during live tracking so short walks and steps in place still count, not just GPS distance.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -168,6 +169,7 @@
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Provyr securely with Face ID.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Provyr reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Provyr uses your location to trace your real walk or run on the map and tell the two apart while you're tracking a challenge.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Provyr tracks your walk or run in the background so a challenge keeps recording steps and miles even while your phone is locked or you're in another app.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Provyr reads your step count during live tracking so short walks and steps in place still count, not just GPS distance.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

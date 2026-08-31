@@ -51,29 +51,82 @@ struct CreateChallengeView: View {
         }
     }
 
-    var body: some View {
-        VStack(spacing: Theme.Space.lg) {
-            FlowHeader(step: step, total: totalSteps,
-                       onBack: { step == 0 ? dismiss() : goTo(step - 1) })
-                .padding(.horizontal, Theme.Space.lg)
-                .padding(.top, Theme.Space.md)
+    private var locationTracker: LocationTracker { LocationTracker.shared }
+    /// A challenge's whole value here is that progress is measured, not
+    /// self-reported — that needs both Health (steps/distance/runs) and
+    /// location (the GPS trail + step count Track Live records) actually
+    /// turned on before a challenge exists to log progress against.
+    private var prerequisitesMet: Bool { app.healthKitConnected && locationTracker.canTrack }
 
-            Group {
-                switch step {
-                case 0: basicsStep
-                case 1: peopleStep
-                default: reviewStep
+    var body: some View {
+        ZStack {
+            PactBackground()
+            if prerequisitesMet {
+                VStack(spacing: Theme.Space.lg) {
+                    FlowHeader(step: step, total: totalSteps,
+                               onBack: { step == 0 ? dismiss() : goTo(step - 1) })
+                        .padding(.horizontal, Theme.Space.lg)
+                        .padding(.top, Theme.Space.md)
+
+                    Group {
+                        switch step {
+                        case 0: basicsStep
+                        case 1: peopleStep
+                        default: reviewStep
+                        }
+                    }
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .id(step)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: navigatingBack ? .leading : .trailing),
+                        removal: .move(edge: navigatingBack ? .trailing : .leading)
+                    ))
+                }
+            } else {
+                requirementsGate
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var requirementsGate: some View {
+        VStack(spacing: Theme.Space.lg) {
+            Spacer()
+            Image(systemName: "checklist").font(.system(size: 44, weight: .bold)).foregroundStyle(Theme.Brand.cyan)
+            Text("A Couple Things First").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
+            Text("Challenges here run on real measured progress, not the honor system — connect Health and allow location so a challenge can actually log itself.")
+                .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Theme.Space.xl)
+            VStack(spacing: Theme.Space.sm) {
+                requirementRow(met: app.healthKitConnected, label: "Apple Health") {
+                    Task { await app.connectHealthKit() }
+                }
+                requirementRow(met: locationTracker.canTrack, label: "Location Access") {
+                    locationTracker.requestPermission()
                 }
             }
-            .frame(maxHeight: .infinity, alignment: .top)
-            .id(step)
-            .transition(.asymmetric(
-                insertion: .move(edge: navigatingBack ? .leading : .trailing),
-                removal: .move(edge: navigatingBack ? .trailing : .leading)
-            ))
+            .padding(.horizontal, Theme.Space.lg)
+            Spacer()
+            Button("Cancel") { dismiss() }
+                .font(Theme.Font.body()).foregroundStyle(Theme.Ink.tertiary)
+                .padding(.bottom, Theme.Space.lg)
         }
-        .background(PactBackground())
-        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func requirementRow(met: Bool, label: String, action: @escaping () -> Void) -> some View {
+        HStack {
+            Image(systemName: met ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(met ? Theme.Brand.lime : Theme.Ink.tertiary)
+            Text(label).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+            Spacer()
+            if !met {
+                Button("Allow") { action() }.font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
+            }
+        }
+        .padding(Theme.Space.md)
+        .frame(height: 52)
+        .glassSurface(cornerRadius: Theme.Radius.md, tint: met ? Theme.Brand.lime : nil)
     }
 
     /// Direction-aware slide instead of a bouncy fade — matches the Onboarding flow.

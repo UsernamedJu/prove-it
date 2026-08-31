@@ -9,7 +9,7 @@ struct ProfileView: View {
     private var losses: Int { completed.count - wins }
     private var quote: AthleteQuote { Quotes.ofTheDay() }
 
-    private var shareURL: URL? { Bundle.main.url(forResource: "PactShare", withExtension: "html") }
+    @State private var showInvite = false
 
     var body: some View {
         ScrollView {
@@ -24,12 +24,12 @@ struct ProfileView: View {
                 }
                 milestonesSection
                 quoteCard
-                if let shareURL {
-                    ShareLink(item: shareURL) {
-                        HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("Share Provyr with Friends & Family") }
-                    }
-                    .buttonStyle(PactButtonStyle(kind: .outline))
+                Button {
+                    showInvite = true
+                } label: {
+                    HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("Share Provyr with Friends & Family") }
                 }
+                .buttonStyle(PactButtonStyle(kind: .outline))
                 recentSection
             }
             .padding(Theme.Space.lg)
@@ -38,6 +38,7 @@ struct ProfileView: View {
         .background(PactBackground())
         .task { await app.refreshHealthActivity() }
         .sheet(isPresented: $showSettings) { SettingsView(app: app) }
+        .sheet(isPresented: $showInvite) { InviteLinkSheet() }
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .challenge(let id): ChallengeDetailView(challengeID: id)

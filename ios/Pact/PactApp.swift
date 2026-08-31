@@ -101,6 +101,16 @@ struct RootView: View {
 
     private func handleIncomingShare(_ metadata: CKShare.Metadata) async {
         guard app.hasOnboarded else { return } // no "me" identity to accept as yet
+        // The root record's type is populated as part of the metadata
+        // fetched when the link was opened, before either accept path runs
+        // — that's what lets one shared-link handler serve two different
+        // kinds of invite (a crew invite vs. a challenge invite) correctly.
+        if metadata.rootRecord?.recordType == CrewInviteService.recordType {
+            if let inviter = await CrewInviteService.shared.acceptInvite(metadata: metadata) {
+                app.addMember(id: inviter.id, name: inviter.name)
+            }
+            return
+        }
         await sharedChallenges.acceptShare(metadata: metadata, myLocalID: app.me.id, myName: app.me.name)
     }
 }

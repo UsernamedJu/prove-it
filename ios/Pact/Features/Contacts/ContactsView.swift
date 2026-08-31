@@ -6,10 +6,7 @@ struct ContactsView: View {
     @State private var newName = ""
     @State private var showNewGroup = false
     @State private var showLookup = false
-    private var shareURL: URL? { Bundle.main.url(forResource: "PactShare", withExtension: "html") }
-    private var inviteMessage: Text {
-        Text("Join me on Provyr — track real challenges together. Add me with my Provyr ID: \(app.me.id.uuidString)")
-    }
+    @State private var showInvite = false
 
     var body: some View {
         ScrollView {
@@ -43,10 +40,10 @@ struct ContactsView: View {
                         }
                         .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                        if let shareURL {
-                            ShareLink(item: shareURL, message: inviteMessage) {
-                                Label("Send Invite Link", systemImage: "link.badge.plus")
-                            }
+                        Button {
+                            showInvite = true
+                        } label: {
+                            Label("Send Invite Link", systemImage: "link.badge.plus")
                         }
 
                         Button {
@@ -89,6 +86,7 @@ struct ContactsView: View {
         .background(PactBackground())
         .sheet(isPresented: $showNewGroup) { NewGroupSheet() }
         .sheet(isPresented: $showLookup) { LookupByIDSheet() }
+        .sheet(isPresented: $showInvite) { InviteLinkSheet() }
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .challenge(let id): ChallengeDetailView(challengeID: id)
@@ -226,6 +224,71 @@ private struct NewGroupSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+/// Generates a real CKShare invite (see `CrewInviteService`) and offers it
+/// through the system share sheet once it's ready — created lazily here,
+/// on actually opening this sheet, rather than eagerly whenever Crew
+/// appears, so tapping "Send Invite Link" a dozen times over a session
+/// doesn't leave a dozen abandoned CloudKit zones behind.
+struct InviteLinkSheet: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var url: URL?
+    @State private var failed = false
+    private var fallbackURL: URL? { Bundle.main.url(forResource: "PactShare", withExtension: "html") }
+    private var message: Text { Text("Join me on Provyr — track real challenges together.") }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                PactBackground()
+                VStack(spacing: Theme.Space.lg) {
+                    Image(systemName: "link.badge.plus")
+                        .font(.system(size: 40, weight: .semibold)).foregroundStyle(Theme.Brand.purple)
+                        .padding(.top, Theme.Space.xl)
+                    if let url {
+                        Text("Your Invite Is Ready").font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
+                        Text("A real link, hosted by iCloud — opens straight into Provyr and adds you to their crew, for anyone who already has the app with iCloud on.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                            .multilineTextAlignment(.center).padding(.horizontal, Theme.Space.lg)
+                        ShareLink(item: url, message: message) {
+                            HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("Share Invite") }
+                        }
+                        .buttonStyle(PactButtonStyle(kind: .primary))
+                    } else if failed {
+                        Text("Couldn't Create a Live Invite").font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
+                        Text("Sign in to iCloud (Settings app → your name) for a link that adds you automatically. For now, here's a general invite to share instead.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                            .multilineTextAlignment(.center).padding(.horizontal, Theme.Space.lg)
+                        if let fallbackURL {
+                            ShareLink(item: fallbackURL, message: message) {
+                                HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("Share Anyway") }
+                            }
+                            .buttonStyle(PactButtonStyle(kind: .outline))
+                        }
+                    } else {
+                        ProgressView().padding(.vertical, Theme.Space.md)
+                        Text("Creating your invite…").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
+                    Spacer()
+                }
+                .padding(Theme.Space.lg)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }.foregroundStyle(Theme.Ink.secondary)
+                }
+            }
+        }
+        .task {
+            do {
+                url = try await CrewInviteService.shared.createInvite(myID: app.me.id, myName: app.me.name)
+            } catch {
+                failed = true
+            }
+        }
     }
 }
 

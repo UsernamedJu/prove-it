@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import CoreLocation
 
 enum AppearancePreference: String, CaseIterable, Identifiable, Codable {
     case system, light, dark
@@ -539,6 +540,7 @@ final class AppModel {
         guard let idx = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
         if !session.coordinates.isEmpty {
             challenges[idx].routeCoordinates = session.coordinates
+            recordTrailLeg(session.coordinates)
         }
         let measured: Double?
         switch challenges[idx].kind {
@@ -553,6 +555,33 @@ final class AppModel {
         }
         guard let measured, measured > 0 else { return }
         applyMeasuredTotal(for: challengeID, addTrackedAmount: measured)
+    }
+
+    // MARK: Today's trail — every real GPS leg Track Live recorded today,
+    // for the general Map tab (distinct from a specific challenge's own
+    // route line on its own detail screen).
+
+    private var storedTrailLegs: [[CLLocationCoordinate2D]] = []
+    private var storedTrailDate: Date?
+
+    /// Each finished Track Live session is its own separate leg, not
+    /// stitched to the last one — two unrelated walks across town
+    /// shouldn't be joined by a straight line cutting across the map.
+    /// Resets to empty on read once the calendar day rolls over, so
+    /// yesterday's trail never lingers as if it were today's, even if the
+    /// app's been open since before midnight.
+    var todayTrailLegs: [[CLLocationCoordinate2D]] {
+        storedTrailDate == Calendar.current.startOfDay(for: Date()) ? storedTrailLegs : []
+    }
+
+    private func recordTrailLeg(_ coordinates: [CLLocationCoordinate2D]) {
+        guard !coordinates.isEmpty else { return }
+        let today = Calendar.current.startOfDay(for: Date())
+        if storedTrailDate != today {
+            storedTrailLegs = []
+            storedTrailDate = today
+        }
+        storedTrailLegs.append(coordinates)
     }
 
     // MARK: Activity — appends real history, so charts read actual data
@@ -787,12 +816,24 @@ final class AppModel {
               let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) else { return }
         challenges[idx].standings[sIdx].progress = 0
         recomputeRanks(at: idx)
-        // resolveChallenge's own tie-break (prefer not-me on an exact
-        // progress tie) is what actually guarantees this loses even if
-        // nobody else has logged anything yet either — not a special
-        // negative value here, which would've shown up as a literal
-        // "-1%" in the handful of progress displays that don't clamp.
-        resolveChallenge(id)
+        if challenges[idx].standings.count == 1 {
+            // Nobody to lose *to* — a solo challenge (no one else was ever
+            // invited) has no opponent for resolveChallenge's "highest
+            // progress wins" to crown, which meant its only real option
+            // was the person who just forfeited. That looked like tapping
+            // Forfeit did nothing, or worse, declared a win. Ends the
+            // challenge with no winner instead.
+            challenges[idx].status = .complete
+            challenges[idx].winnerName = nil
+            justRevealedID = id
+        } else {
+            // resolveChallenge's own tie-break (prefer not-me on an exact
+            // progress tie) is what actually guarantees this loses even if
+            // nobody else has logged anything yet either — not a special
+            // negative value here, which would've shown up as a literal
+            // "-1%" in the handful of progress displays that don't clamp.
+            resolveChallenge(id)
+        }
     }
 
     /// Declines to send a proof photo right now — doesn't retract the loss

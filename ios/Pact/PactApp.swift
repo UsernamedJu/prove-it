@@ -59,20 +59,25 @@ struct RootView: View {
                 // actual "Sign Out" tap needs to still show Sign In, not
                 // be silently absorbed by this same priority.
                 MainTabView()
-                    .transition(.opacity)
+                    .transition(majorScreenTransition)
             } else if !app.isSignedIn && !app.isGuestSession {
                 SignInView()
                     .transition(.opacity)
             } else {
                 OnboardingFlow()
-                    .transition(.opacity)
+                    .transition(majorScreenTransition)
             }
         }
         .animation(Theme.Motion.fade, value: showSplash)
-        .animation(Theme.Motion.fade, value: app.hasOnboarded)
-        .animation(Theme.Motion.fade, value: app.isSignedIn)
-        .animation(Theme.Motion.fade, value: app.isGuestSession)
-        .animation(Theme.Motion.fade, value: app.explicitlySignedOut)
+        // A plain opacity cross-fade reads as a jump cut for a full-screen
+        // context change this big (sign-in's full-bleed photo behind
+        // onboarding's plain background, onboarding behind the whole app)
+        // — the slower spring plus a subtle scale below is what makes it
+        // read as "arriving somewhere new" instead of an abrupt swap.
+        .animation(Theme.Motion.settle, value: app.hasOnboarded)
+        .animation(Theme.Motion.settle, value: app.isSignedIn)
+        .animation(Theme.Motion.settle, value: app.isGuestSession)
+        .animation(Theme.Motion.settle, value: app.explicitlySignedOut)
         .animation(Theme.Motion.fade, value: app.isUnlocked)
         .task {
             try? await Task.sleep(for: .seconds(1.1))
@@ -97,6 +102,15 @@ struct RootView: View {
             guard let metadata = note.object as? CKShare.Metadata else { return }
             Task { await handleIncomingShare(metadata) }
         }
+    }
+
+    /// A gentle fade-and-settle instead of a plain cross-fade — the
+    /// incoming screen eases up from 97% scale as it fades in, which reads
+    /// as a deliberate arrival rather than a swap, for the two transitions
+    /// that matter most: sign-in finishing into onboarding, and onboarding
+    /// finishing into the real app.
+    private var majorScreenTransition: AnyTransition {
+        .opacity.combined(with: .scale(scale: 0.97))
     }
 
     private func handleIncomingShare(_ metadata: CKShare.Metadata) async {

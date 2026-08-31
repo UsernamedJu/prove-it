@@ -532,7 +532,14 @@ struct BodyProfileEditor: View {
                         ForEach(Sex.allCases) { s in
                             let on = profile.sex == s
                             Button { profile.sex = s } label: {
+                                // "Prefer not to say" is nearly 3x
+                                // "Male"'s length sharing the same 1/3-width
+                                // slot as the other two — without a line
+                                // limit it wraps to two lines and makes
+                                // just that one button visibly taller than
+                                // its neighbors instead of a clean row.
                                 Text(s.rawValue).font(Theme.Font.caption()).fontWeight(.semibold)
+                                    .lineLimit(1).minimumScaleFactor(0.7)
                                     .foregroundStyle(on ? .white : Theme.Ink.primary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)

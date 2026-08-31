@@ -30,6 +30,8 @@ struct ChallengeDetailView: View {
                     revealBanner(challenge)
                 } else if challenge.status == .complete, let winner = challenge.winnerName {
                     settledBanner(challenge, winner: winner)
+                } else if challenge.status == .complete {
+                    forfeitedBanner(challenge)
                 }
 
                 tabs(challenge)
@@ -205,6 +207,22 @@ struct ChallengeDetailView: View {
         }
         .padding(Theme.Space.md)
         .background(Theme.Brand.lime.opacity(0.16))
+    }
+
+    /// A solo challenge (nobody else was ever invited) has no one to
+    /// declare a winner over, so `forfeitChallenge` ends it with
+    /// `winnerName == nil` instead of crowning the person who just gave
+    /// up — this is the visible confirmation that forfeiting actually did
+    /// something, rather than the screen looking untouched.
+    private func forfeitedBanner(_ challenge: Challenge) -> some View {
+        HStack(spacing: Theme.Space.sm) {
+            Image(systemName: "flag.slash.fill").font(.system(size: 20)).foregroundStyle(Theme.Brand.coral)
+            Text("You forfeited this challenge.")
+                .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+            Spacer()
+        }
+        .padding(Theme.Space.md)
+        .background(Theme.Brand.coral.opacity(0.16))
     }
 
     private func tabs(_ challenge: Challenge) -> some View {

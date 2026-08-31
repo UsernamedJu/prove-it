@@ -49,6 +49,17 @@ struct MapExploreView: View {
                         }
                     }
                 }
+
+                // Today's real trail — every Track Live leg recorded since
+                // midnight, styled distinctly (white glow) from a specific
+                // challenge's own route so it reads as "everywhere you
+                // actually went today," not one more challenge line.
+                ForEach(Array(app.todayTrailLegs.enumerated()), id: \.offset) { _, leg in
+                    MapPolyline(coordinates: leg)
+                        .stroke(.black.opacity(0.5), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                    MapPolyline(coordinates: leg)
+                        .stroke(.white, style: StrokeStyle(lineWidth: 2.6, lineCap: .round, lineJoin: .round, dash: [1, 6]))
+                }
             }
             .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll, showsTraffic: false))
             .mapControlVisibility(.hidden)
@@ -102,6 +113,9 @@ struct MapExploreView: View {
             HStack(spacing: Theme.Space.md) {
                 legendItem(color: Theme.Brand.lime, label: "Live", dashed: false)
                 legendItem(color: Theme.Brand.purple, label: "Pending", dashed: true)
+                if !app.todayTrailLegs.isEmpty {
+                    legendItem(color: .white, label: "Today's Trail", dashed: true)
+                }
             }
         }
         .padding(Theme.Space.md)
@@ -127,6 +141,7 @@ struct MapExploreView: View {
             else { coords.append(Fixtures.venueCoordinate(c.venue)) }
         }
         for s in pending { coords.append(Fixtures.venueCoordinate(s.venue)) }
+        for leg in app.todayTrailLegs { coords.append(contentsOf: leg) }
         guard !coords.isEmpty else { return }
         let lats = coords.map(\.latitude), lons = coords.map(\.longitude)
         let center = CLLocationCoordinate2D(latitude: (lats.min()! + lats.max()!) / 2,

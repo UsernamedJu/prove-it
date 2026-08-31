@@ -154,11 +154,14 @@ private struct TrackingSummaryView: View {
         NavigationStack {
             ZStack {
                 PactBackground()
-                VStack(spacing: Theme.Space.lg) {
-                    Image(systemName: session.classification.icon)
-                        .font(.system(size: 40, weight: .semibold))
-                        .foregroundStyle(challenge?.tint ?? Theme.Brand.cyan)
-                        .padding(.top, Theme.Space.xl)
+                VStack(spacing: Theme.Space.md) {
+                    ZStack {
+                        Circle().fill((challenge?.tint ?? Theme.Brand.cyan).opacity(0.15)).frame(width: 76, height: 76)
+                        Image(systemName: session.classification.icon)
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundStyle(challenge?.tint ?? Theme.Brand.cyan)
+                    }
+                    .padding(.top, Theme.Space.lg)
                     Text(session.classification.rawValue).font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                     PactCard(tint: challenge?.tint ?? Theme.Brand.cyan) {
                         HStack {
@@ -184,16 +187,17 @@ private struct TrackingSummaryView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, Theme.Space.lg)
                     }
-                    Spacer()
                     Button("Save & Log Progress") { onSave() }
                         .buttonStyle(PactButtonStyle(kind: .primary))
+                        .padding(.top, Theme.Space.xs)
                     Button("Discard") { dismiss() }
                         .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                        .padding(.bottom, Theme.Space.lg)
                 }
                 .padding(Theme.Space.lg)
+                .padding(.bottom, Theme.Space.lg)
             }
         }
+        .presentationDetents([.medium])
     }
 
     private var durationText: String {

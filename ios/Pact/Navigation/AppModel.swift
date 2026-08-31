@@ -56,11 +56,17 @@ final class AppModel {
             persistSession()
         }
     }
-    var crew: [Member] = Fixtures.crew
-    var groups: [ContactGroup] = Fixtures.groups
-    var challenges: [Challenge] = Fixtures.challenges
-    var moodHistory: [MoodCheckIn] = Fixtures.moodHistory { didSet { persistSession() } }
-    var moodStreak = 3
+    // A real clean slate, not the demo cast — a brand-new account starts
+    // with none of Sam/Mom/Dad/Grandma Rose's fixture challenges or crew.
+    // Those were never actually a "preview" a new user could tell was fake;
+    // they showed up looking exactly like the new user's own data, which
+    // is exactly the confusion "why do I already have 5 crew members and
+    // 5 active challenges I never created" comes from.
+    var crew: [Member] = []
+    var groups: [ContactGroup] = []
+    var challenges: [Challenge] = []
+    var moodHistory: [MoodCheckIn] = [] { didSet { persistSession() } }
+    var moodStreak = 0
     var moodLoggedToday = false
 
     // MARK: Personalization — height/weight/sex/age/activity, feeding the
@@ -95,6 +101,14 @@ final class AppModel {
     /// to get through the current session without repeating the prompt on
     /// every screen, not to skip the sign-in screen forever.
     var isGuestSession = false
+    /// Set only by an explicit "Sign Out" tap, never persisted, and reset
+    /// back to false the instant a sign-in (real or guest) succeeds again.
+    /// Exists purely so RootView can tell "user chose to sign out, actually
+    /// show them Sign In" apart from "cold launch, isGuestSession simply
+    /// didn't persist, but they're still the same onboarded user" — without
+    /// it, hasOnboarded's normal priority (see RootView) would make Sign
+    /// Out a no-op, since it stays true across sign-out.
+    var explicitlySignedOut = false
     var signedInName: String? { didSet { persistSession() } }
     /// How they got signed in — shown in Settings. Email/phone sign-in has
     /// no backend to verify against, so it's an identity label, not a

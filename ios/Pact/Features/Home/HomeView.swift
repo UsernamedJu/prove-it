@@ -276,8 +276,13 @@ struct HomeView: View {
     private var activeSection: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             SectionHeader(title: "Your Challenges")
-            ForEach(app.activeChallenges) { challenge in
-                ChallengeRow(challenge: challenge, transitionNamespace: challengeTransition)
+            if app.activeChallenges.isEmpty {
+                Text("Nothing started yet — swipe through a suggestion above, or tap New Challenge on the Challenges tab.")
+                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+            } else {
+                ForEach(app.activeChallenges) { challenge in
+                    ChallengeRow(challenge: challenge, transitionNamespace: challengeTransition)
+                }
             }
         }
     }

@@ -50,11 +50,14 @@ struct RootView: View {
             } else if app.appLockEnabled && !app.isUnlocked {
                 LockScreenView()
                     .transition(.opacity)
-            } else if app.hasOnboarded {
+            } else if app.hasOnboarded && !app.explicitlySignedOut {
                 // A completed profile always wins, regardless of how this
                 // session got signed in — someone who already has an
                 // account shouldn't be routed back through sign-in (or
                 // onboarding) just because a guest session didn't persist.
+                // The explicitlySignedOut check is the one exception: an
+                // actual "Sign Out" tap needs to still show Sign In, not
+                // be silently absorbed by this same priority.
                 MainTabView()
                     .transition(.opacity)
             } else if !app.isSignedIn && !app.isGuestSession {
@@ -69,6 +72,7 @@ struct RootView: View {
         .animation(Theme.Motion.fade, value: app.hasOnboarded)
         .animation(Theme.Motion.fade, value: app.isSignedIn)
         .animation(Theme.Motion.fade, value: app.isGuestSession)
+        .animation(Theme.Motion.fade, value: app.explicitlySignedOut)
         .animation(Theme.Motion.fade, value: app.isUnlocked)
         .task {
             try? await Task.sleep(for: .seconds(1.1))

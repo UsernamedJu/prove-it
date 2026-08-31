@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 struct OnboardingFlow: View {
     @Environment(AppModel.self) private var app
@@ -15,6 +16,7 @@ struct OnboardingFlow: View {
     @State private var crewName = ""
     @State private var invitedCrew: [String] = []
     @State private var connectingHealth = false
+    @State private var celebrated = false
     /// Drives which edge each step slides in/out from, so Back visibly
     /// reverses Continue instead of every step sliding the same direction.
     @State private var navigatingBack = false
@@ -189,17 +191,25 @@ struct OnboardingFlow: View {
             .padding(.top, Theme.Space.xl)
 
             PactCard(tint: app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan) {
-                HStack(spacing: Theme.Space.sm) {
-                    Image(systemName: app.healthKitConnected ? "checkmark.circle.fill" : "heart.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(app.healthKitConnected ? "Connected" : "Steps, distance, and runs")
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                    HStack(spacing: Theme.Space.sm) {
+                        Image(systemName: app.healthKitConnected ? "checkmark.circle.fill" : "heart.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
+                        Text(app.healthKitConnected ? "Connected" : "Not connected yet")
                             .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text(app.healthKitConnected ? "Provyr can now verify your progress." : "That's all Provyr ever reads — nothing else.")
-                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        Spacer()
                     }
-                    Spacer()
+                    Divider().overlay(Theme.Surface.border)
+                    HStack(spacing: 0) {
+                        healthReadItem(icon: "shoeprints.fill", label: "Steps")
+                        healthReadItem(icon: "location.fill", label: "Distance")
+                        healthReadItem(icon: "figure.run", label: "Runs")
+                    }
+                    Text(app.healthKitConnected
+                         ? "Provyr can now verify your progress instead of taking it on the honor system."
+                         : "That's everything Provyr ever reads from Health — nothing else.")
+                        .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                 }
             }
 
@@ -231,6 +241,15 @@ struct OnboardingFlow: View {
             }
         }
         .padding(.horizontal, Theme.Space.lg)
+    }
+
+    private func healthReadItem(icon: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 18))
+                .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
+            Text(label).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: Step 4 — why they're here, which quietly steers the recommendation later
@@ -416,28 +435,36 @@ struct OnboardingFlow: View {
 
     private var doneStep: some View {
         VStack(spacing: Theme.Space.lg) {
-            Image("photo-onboarding")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 190)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                .clipped()
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.Surface.border, lineWidth: 1))
-                .padding(.top, Theme.Space.md)
+            ZStack(alignment: .bottom) {
+                Image("photo-onboarding")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 200)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .center, endPoint: .bottom)
+                    .frame(height: 200)
+            }
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.Surface.border, lineWidth: 1))
+            .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
+            .padding(.top, Theme.Space.md)
 
             Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(Theme.Brand.gold)
+                .symbolEffect(.bounce, value: celebrated)
             HoloNumber(text: "You're in, \(name.isEmpty ? "champ" : name)!", size: 27)
                 .multilineTextAlignment(.center)
             Text(invitedCrew.isEmpty
-                 ? "Add your crew from the Crew tab whenever you're ready."
+                 ? "Add your crew from the Crew tab whenever you're ready — or invite a real buddy from a challenge's share link."
                  : "\(invitedCrew.count) crew member\(invitedCrew.count == 1 ? "" : "s") added — find them in the Crew tab.")
                 .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
                 .multilineTextAlignment(.center)
 
             HStack(spacing: Theme.Space.sm) {
-                StatChip(label: "Goal set", value: "\(bodyProfile.personalizedStepTarget(ageBand: ageBand).formatted())", tint: Theme.Brand.blue)
-                StatChip(label: "Status", value: "Ready", tint: Theme.Brand.lime)
+                StatChip(label: "Step Goal", value: "\(bodyProfile.personalizedStepTarget(ageBand: ageBand).formatted())", tint: Theme.Brand.blue)
+                StatChip(label: "Crew", value: "\(invitedCrew.count)", tint: Theme.Brand.purple)
+                StatChip(label: "Health", value: app.healthKitConnected ? "On" : "Off", tint: app.healthKitConnected ? Theme.Brand.lime : Theme.Ink.tertiary)
             }
             Spacer()
             Button {
@@ -448,6 +475,10 @@ struct OnboardingFlow: View {
             .buttonStyle(PactButtonStyle(kind: .primary))
         }
         .padding(.horizontal, Theme.Space.lg)
+        .onAppear {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            celebrated = true
+        }
     }
 
     // MARK: Helpers

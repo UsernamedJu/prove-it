@@ -174,6 +174,7 @@ struct SignInView: View {
             }
             app.signInMethod = "Apple"
             app.isSignedIn = true
+            app.explicitlySignedOut = false
         case .failure:
             continueAnyway()
         }
@@ -186,10 +187,12 @@ struct SignInView: View {
         app.signedInName = trimmed
         app.signInMethod = trimmed.contains("@") ? "Email" : "Phone"
         app.isSignedIn = true
+        app.explicitlySignedOut = false
     }
 
     private func continueAnyway() {
         app.isGuestSession = true
+        app.explicitlySignedOut = false
     }
 }
 

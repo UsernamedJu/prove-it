@@ -18,8 +18,13 @@ struct ChallengesListView: View {
                 }
                 .buttonStyle(PactButtonStyle(kind: .primary))
 
-                ForEach(app.challenges) { challenge in
-                    ChallengeRow(challenge: challenge)
+                if app.challenges.isEmpty {
+                    Text("No challenges yet. Start one above, or swipe through the suggestions on Home.")
+                        .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                } else {
+                    ForEach(app.challenges) { challenge in
+                        ChallengeRow(challenge: challenge)
+                    }
                 }
             }
             .padding(Theme.Space.lg)

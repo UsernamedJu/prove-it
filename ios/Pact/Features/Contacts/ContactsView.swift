@@ -39,8 +39,13 @@ struct ContactsView: View {
 
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     SectionHeader(title: "Everyone")
-                    ForEach(app.crew) { member in
-                        ContactRow(member: member, sharedChallenges: sharedChallengeCount(with: member))
+                    if app.crew.isEmpty {
+                        Text("No one yet — add a name above, or invite a real buddy from a challenge's share link.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    } else {
+                        ForEach(app.crew) { member in
+                            ContactRow(member: member, sharedChallenges: sharedChallengeCount(with: member))
+                        }
                     }
                 }
             }

@@ -237,10 +237,18 @@ struct SettingsView: View {
                     }
                     Spacer()
                     Button("Sign Out") {
+                        // Deliberately does NOT touch hasOnboarded — signing
+                        // out ends the session, not the account. A returning
+                        // user who signs back in (or continues as a guest)
+                        // should land straight back in their existing
+                        // profile, not redo the entire setup flow.
+                        // explicitlySignedOut is what actually makes Sign
+                        // Out show the sign-in screen at all — see its
+                        // declaration in AppModel for why that's needed.
                         app.isSignedIn = false
                         app.isGuestSession = false
                         app.signInMethod = nil
-                        app.hasOnboarded = false
+                        app.explicitlySignedOut = true
                         dismiss()
                     }
                     .font(Theme.Font.caption()).foregroundStyle(Theme.Brand.coral)

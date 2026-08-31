@@ -915,26 +915,44 @@ struct PactBackground: View {
 
 struct PactMark: View {
     var size: CGFloat = 32
-    @State private var hue: Double = 0
+    /// Off for the splash screen specifically — that's a brief, one-beat
+    /// moment before the real screen takes over, not a place a continuous
+    /// color flow has time to read as anything but a flash. On everywhere
+    /// else (Home, Sign In, onboarding, lock screen) by default.
+    var animated: Bool = true
+    @State private var angle: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// An angular sweep through the *same three brand colors* `holo`
+    /// already uses, rotated continuously — a plain `.hueRotation()` was
+    /// sweeping through the entire spectrum, which meant the logo spent
+    /// most of its cycle showing colors nowhere in the app's actual
+    /// palette. Rotating an AngularGradient never changes what the colors
+    /// *are*, only where they sit, which is what gives the "lava lamp"
+    /// blobs-of-the-same-colors-drifting feel instead.
+    private var flowingHolo: AngularGradient {
+        AngularGradient(
+            colors: [Theme.Brand.purple, Theme.Brand.gold, Theme.Brand.pink, Theme.Brand.purple],
+            center: .center, angle: .degrees(angle)
+        )
+    }
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Theme.Brand.holo, lineWidth: size * 0.11)
+                .stroke(flowingHolo, lineWidth: size * 0.11)
                 .frame(width: size, height: size)
                 .offset(x: -size * 0.22)
             Circle()
-                .stroke(Theme.Brand.holo, lineWidth: size * 0.11)
+                .stroke(flowingHolo, lineWidth: size * 0.11)
                 .frame(width: size, height: size)
                 .offset(x: size * 0.22)
         }
         .frame(width: size * 1.5, height: size)
-        .hueRotation(.degrees(hue))
         .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.linear(duration: 6).repeatForever(autoreverses: false)) {
-                hue = 360
+            guard animated, !reduceMotion else { return }
+            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+                angle = 360
             }
         }
     }

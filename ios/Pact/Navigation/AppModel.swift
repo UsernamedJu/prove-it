@@ -165,6 +165,35 @@ final class AppModel {
         return max(0, min(100, Int(score.rounded())))
     }
 
+    /// A short, specific coaching note — not a generic "great job"/"needs
+    /// work" tier, but which of the two things the score is actually built
+    /// from (recent mood, or how often progress is actually getting
+    /// logged) is driving it right now, so it reads as feedback on real
+    /// behavior rather than a comment on a number.
+    var fitnessCoachNote: String {
+        let recentMood = moodHistory.suffix(5)
+        let moodAvg = recentMood.isEmpty ? 6.0
+            : recentMood.reduce(0.0) { $0 + ($1.energy + $1.motivation) / 2 } / Double(recentMood.count)
+        let active = activeChallenges
+        let freqAvg = active.isEmpty ? 0.5
+            : active.compactMap { $0.myStanding?.progress }.reduce(0, +) / Double(max(1, active.count))
+        let moodLow = moodAvg < 5
+        let freqLow = freqAvg < 0.4
+
+        switch (moodLow, freqLow) {
+        case (true, true):
+            return "Energy's been low and progress has stalled — a short walk today usually moves both."
+        case (true, false):
+            return "You're showing up for challenges even on low-energy days. That consistency matters more than how you feel right now."
+        case (false, true):
+            return "Mood's solid, but you're not logging much yet — the momentum's there, it just needs a nudge to actually start."
+        case (false, false):
+            return fitnessScore >= 80
+                ? "Strong across the board — good mood, real progress. Keep the streak going."
+                : "Steady on both fronts. A bit more consistency and this climbs fast."
+        }
+    }
+
     var personalizedStepTarget: Int {
         myBodyProfile.personalizedStepTarget(ageBand: me.ageBand)
     }
@@ -258,6 +287,22 @@ final class AppModel {
             challenges[idx].standings[sIdx].trendDelta = hitTarget ? "+1" : "—"
             challenges[idx].standings[sIdx].lastLogVerified = measuredRatio != nil
         }
+        recomputeRanks(at: idx)
+    }
+
+    /// `rank` was only ever set once, at challenge creation, and never
+    /// touched again as progress actually changed — meaning every "RANK #"
+    /// badge, the board's sort order, and who resolveChallenge would have
+    /// picked as winner could all silently drift out of sync with real
+    /// progress the moment anyone logged anything. Re-sorts by actual
+    /// progress and reassigns 1...N after every progress-changing call.
+    private func recomputeRanks(at idx: Int) {
+        let order = challenges[idx].standings.indices.sorted {
+            challenges[idx].standings[$0].progress > challenges[idx].standings[$1].progress
+        }
+        for (newRank, standingIdx) in order.enumerated() {
+            challenges[idx].standings[standingIdx].rank = newRank + 1
+        }
     }
 
     // MARK: Challenges
@@ -299,11 +344,21 @@ final class AppModel {
     }
 
     /// Reveals the winner — the payoff of the play → reveal loop.
-    /// Records a result only; nothing is credited to any account.
+    /// Records a result only; nothing is credited to any account. Picks
+    /// the winner by actual progress, not the `rank` field directly —
+    /// belt-and-suspenders alongside `recomputeRanks`, so this is correct
+    /// even if something else ever mutates a standing without going
+    /// through logActivity. On an exact tie for the top progress, prefers
+    /// whoever isn't "me" — relevant specifically when forfeitChallenge
+    /// drops my own progress to 0 and nobody else has logged anything yet
+    /// either, which would otherwise still let a plain `max(by:)` pick me.
     func resolveChallenge(_ id: UUID) {
         guard let idx = challenges.firstIndex(where: { $0.id == id }),
-              challenges[idx].status != .complete,
-              let winner = challenges[idx].standings.min(by: { $0.rank < $1.rank }) else { return }
+              challenges[idx].status != .complete else { return }
+        let standings = challenges[idx].standings
+        let topProgress = standings.map(\.progress).max() ?? 0
+        guard let winner = standings.first(where: { $0.progress == topProgress && $0.member.id != me.id })
+            ?? standings.first(where: { $0.progress == topProgress }) else { return }
         challenges[idx].status = .complete
         challenges[idx].winnerName = winner.member.name
         justRevealedID = id
@@ -323,11 +378,31 @@ final class AppModel {
     /// the existing chat thread with the winner.
     func sendProofPhoto(for challengeID: UUID, imageData: Data) {
         guard let challenge = challenges.first(where: { $0.id == challengeID }),
-              let winner = challenge.standings.min(by: { $0.rank < $1.rank }) else { return }
+              let winner = challenge.standings.max(by: { $0.progress < $1.progress }) else { return }
         sendDirectMessage(to: winner.member.id,
                            text: "Proof, as promised — you got me on \"\(challenge.title).\"",
                            imageData: imageData)
         pendingProofChallengeID = nil
+    }
+
+    /// Bows out of an active challenge early instead of letting it run its
+    /// full course — forfeiting always means losing this one, regardless
+    /// of current progress (dropping to 0 before resolving, rather than
+    /// letting whatever progress was already logged possibly still win).
+    /// Ends the challenge immediately, same reveal/proof-photo flow as a
+    /// natural resolution.
+    func forfeitChallenge(_ id: UUID) {
+        guard let idx = challenges.firstIndex(where: { $0.id == id }),
+              challenges[idx].status == .active || challenges[idx].status == .revealReady,
+              let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) else { return }
+        challenges[idx].standings[sIdx].progress = 0
+        recomputeRanks(at: idx)
+        // resolveChallenge's own tie-break (prefer not-me on an exact
+        // progress tie) is what actually guarantees this loses even if
+        // nobody else has logged anything yet either — not a special
+        // negative value here, which would've shown up as a literal
+        // "-1%" in the handful of progress displays that don't clamp.
+        resolveChallenge(id)
     }
 
     /// Declines to send a proof photo right now — doesn't retract the loss

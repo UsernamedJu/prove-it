@@ -117,6 +117,10 @@ struct CreateSharedChallengeSheet: View {
                     myLocalID: app.me.id, myName: app.me.name
                 )
                 shareURL = url
+            } catch let error as SharedChallengeStore.CloudSharingError {
+                // Already a complete, actionable sentence — no need for a
+                // generic "couldn't create that challenge" prefix on top.
+                errorText = error.localizedDescription
             } catch {
                 errorText = "Couldn't create that challenge: \(error.localizedDescription)"
             }

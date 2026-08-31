@@ -117,7 +117,7 @@ struct SplashView: View {
         ZStack {
             Theme.Surface.bg.ignoresSafeArea()
             VStack(spacing: Theme.Space.sm) {
-                PactMark(size: 52)
+                PactMark(size: 52, animated: false)
                 Text("Provyr")
                     .font(Theme.Font.wordmark(28))
                     .tracking(-0.3)

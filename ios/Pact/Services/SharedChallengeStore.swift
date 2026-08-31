@@ -122,6 +122,15 @@ final class SharedChallengeStore {
                                 dailyTarget: Int, durationDays: Int, payoff: Payoff,
                                 myLocalID: UUID, myName: String) async throws -> URL {
         lastKnownMe = (myLocalID, myName)
+        // CKShare specifically needs a real, fully authenticated iCloud
+        // account — not just "CloudKit is reachable," which is all
+        // `isAvailable` elsewhere in this file checks for the read paths.
+        // Without this check, a signed-out/guest device hits a raw,
+        // cryptic CKError partway through record creation instead of a
+        // message that actually says what to do about it.
+        guard (try? await container.accountStatus()) == .available else {
+            throw CloudSharingError.notSignedIn
+        }
         let zoneID = CKRecordZone.ID(zoneName: "Challenge-\(UUID().uuidString)")
         let zone = CKRecordZone(zoneID: zoneID)
         _ = try await container.privateCloudDatabase.save(zone)
@@ -457,11 +466,12 @@ final class SharedChallengeStore {
     }
 
     enum CloudSharingError: LocalizedError {
-        case noShareURL, malformedRecord
+        case noShareURL, malformedRecord, notSignedIn
         var errorDescription: String? {
             switch self {
             case .noShareURL: "Couldn't generate an invite link."
             case .malformedRecord: "That challenge's data looked incomplete."
+            case .notSignedIn: "Sign in to iCloud in Settings to create a group challenge — sharing needs a real iCloud account, not just being signed into Provyr."
             }
         }
     }

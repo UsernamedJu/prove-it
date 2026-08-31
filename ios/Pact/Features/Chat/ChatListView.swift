@@ -44,11 +44,16 @@ struct ChatListView: View {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 Text("Messages").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                     .padding(.top, Theme.Space.md)
-                ForEach(rows) { row in
-                    NavigationLink(value: row.route) {
-                        rowView(row)
+                if rows.isEmpty {
+                    Text("No conversations yet — add someone to your Crew, or invite a real buddy to a challenge.")
+                        .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                } else {
+                    ForEach(rows) { row in
+                        NavigationLink(value: row.route) {
+                            rowView(row)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(Theme.Space.lg)

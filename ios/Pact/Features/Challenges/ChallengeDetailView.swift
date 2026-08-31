@@ -456,6 +456,7 @@ private struct StatsTab: View {
 private struct DetailsTab: View {
     @Environment(AppModel.self) private var app
     let challenge: Challenge
+    @State private var showingForfeitConfirm = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
@@ -501,8 +502,29 @@ private struct DetailsTab: View {
                 }
                 .buttonStyle(PactButtonStyle(kind: .primary))
             }
+
+            if challenge.status == .active || challenge.status == .revealReady {
+                Button(role: .destructive) {
+                    showingForfeitConfirm = true
+                } label: {
+                    HStack(spacing: 6) { Image(systemName: "flag.slash.fill"); Text("Forfeit Challenge") }
+                }
+                .buttonStyle(PactButtonStyle(kind: .tinted(Theme.Brand.coral)))
+            }
         }
         .padding(Theme.Space.lg)
+        .confirmationDialog(
+            "Forfeit this challenge?",
+            isPresented: $showingForfeitConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Forfeit", role: .destructive) {
+                withAnimation(Theme.Motion.pop) { app.forfeitChallenge(challenge.id) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This ends the challenge right now and counts as a loss — the stakes still apply. This can't be undone.")
+        }
     }
 
     private func row(_ label: String, _ value: String) -> some View {

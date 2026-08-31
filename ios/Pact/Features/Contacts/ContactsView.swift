@@ -4,6 +4,7 @@ struct ContactsView: View {
     @Environment(AppModel.self) private var app
     @State private var newName = ""
     @State private var showNewGroup = false
+    private var shareURL: URL? { Bundle.main.url(forResource: "PactShare", withExtension: "html") }
 
     var body: some View {
         ScrollView {
@@ -22,9 +23,26 @@ struct ContactsView: View {
                         .padding(.horizontal, Theme.Space.md)
                         .frame(height: 50)
                         .glassSurface(cornerRadius: Theme.Radius.md)
-                    Button {
-                        app.addContact(name: newName)
-                        newName = ""
+                    // Two genuinely different things used to be conflated
+                    // under one plain "+" tap: adding a same-device demo
+                    // name, and actually inviting a real person. Now a menu
+                    // offers both explicitly — the name field only feeds
+                    // the local-add option, the link option works with or
+                    // without anything typed.
+                    Menu {
+                        Button {
+                            app.addContact(name: newName)
+                            newName = ""
+                        } label: {
+                            Label("Add to Crew", systemImage: "person.fill.badge.plus")
+                        }
+                        .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                        if let shareURL {
+                            ShareLink(item: shareURL) {
+                                Label("Send Invite Link", systemImage: "link.badge.plus")
+                            }
+                        }
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 18, weight: .heavy))

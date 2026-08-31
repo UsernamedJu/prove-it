@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import CoreMotion
+import UIKit
 
 /// What a finished tracking session actually measured — the real trail
 /// walked or run, not a suggested route to a venue (that's
@@ -97,6 +98,24 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
     func requestPermission() {
         guard authorizationStatus == .notDetermined else { return }
         manager.requestAlwaysAuthorization()
+    }
+
+    /// What every "Allow Location" button actually calls. Once iOS has
+    /// recorded a denial, calling `requestAlwaysAuthorization` again does
+    /// nothing at all — no prompt, no error, the button just silently
+    /// stops working. Opening Settings directly is the only way to give
+    /// someone who said no a second chance without them having to already
+    /// know to go find it themselves.
+    func requestPermissionOrOpenSettings() {
+        switch authorizationStatus {
+        case .notDetermined:
+            requestPermission()
+        case .denied, .restricted:
+            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+            UIApplication.shared.open(url)
+        default:
+            break
+        }
     }
 
     var canTrack: Bool {

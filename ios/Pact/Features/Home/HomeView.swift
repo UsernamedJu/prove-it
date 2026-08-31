@@ -38,6 +38,7 @@ struct HomeView: View {
         .background(PactBackground())
         .navigationTitle("")
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { app.checkExpiredChallenges() }
         .overlay {
             if app.justCreated {
                 CelebrationOverlay(icon: "sparkles", tint: Theme.Brand.purple, title: "Challenge sent!", subtitle: nil) {

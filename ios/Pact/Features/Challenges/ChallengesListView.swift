@@ -32,6 +32,14 @@ struct ChallengesListView: View {
         }
         .background(PactBackground())
         .toolbar(.hidden, for: .navigationBar)
+        // Time-based auto-completion otherwise only gets checked at app
+        // launch and whenever a Health sync happens to fire — someone who
+        // disconnects Health after creating a challenge and just leaves
+        // the app open could otherwise have an expired challenge sit
+        // unresolved indefinitely. This is the cheapest reliable catch-all:
+        // whoever opens the list to actually look at their challenges
+        // triggers the same check.
+        .onAppear { app.checkExpiredChallenges() }
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .challenge(let id): ChallengeDetailView(challengeID: id)

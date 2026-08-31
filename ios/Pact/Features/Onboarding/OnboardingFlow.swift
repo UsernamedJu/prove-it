@@ -293,10 +293,19 @@ struct OnboardingFlow: View {
                 Button("Continue →") { goTo(5) }
                     .buttonStyle(PactButtonStyle(kind: .primary))
             } else {
+                // Once iOS has recorded a denial, calling
+                // requestPermission() again does nothing at all — no
+                // prompt, no error, this button would just silently stop
+                // working. requestPermissionOrOpenSettings sends them to
+                // Settings instead in that case, which is the only way
+                // back at that point.
                 Button {
-                    locationTracker.requestPermission()
+                    locationTracker.requestPermissionOrOpenSettings()
                 } label: {
-                    HStack(spacing: 6) { Image(systemName: "location.fill"); Text("Allow Location Access") }
+                    HStack(spacing: 6) {
+                        Image(systemName: "location.fill")
+                        Text(locationTracker.authorizationStatus == .notDetermined ? "Allow Location Access" : "Open Settings to Allow")
+                    }
                 }
                 .buttonStyle(PactButtonStyle(kind: .primary))
 

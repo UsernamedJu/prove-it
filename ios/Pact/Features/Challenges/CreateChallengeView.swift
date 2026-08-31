@@ -102,8 +102,14 @@ struct CreateChallengeView: View {
                 requirementRow(met: app.healthKitConnected, label: "Apple Health") {
                     Task { await app.connectHealthKit() }
                 }
-                requirementRow(met: locationTracker.canTrack, label: "Location Access") {
-                    locationTracker.requestPermission()
+                // requestPermission() alone silently does nothing once
+                // iOS has already recorded a denial — requestPermissionOr-
+                // OpenSettings sends them to Settings instead in that
+                // case, since re-prompting isn't possible anymore.
+                requirementRow(met: locationTracker.canTrack,
+                                label: "Location Access",
+                                buttonTitle: locationTracker.authorizationStatus == .notDetermined ? "Allow" : "Open Settings") {
+                    locationTracker.requestPermissionOrOpenSettings()
                 }
             }
             .padding(.horizontal, Theme.Space.lg)
@@ -114,14 +120,14 @@ struct CreateChallengeView: View {
         }
     }
 
-    private func requirementRow(met: Bool, label: String, action: @escaping () -> Void) -> some View {
+    private func requirementRow(met: Bool, label: String, buttonTitle: String = "Allow", action: @escaping () -> Void) -> some View {
         HStack {
             Image(systemName: met ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(met ? Theme.Brand.lime : Theme.Ink.tertiary)
             Text(label).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
             Spacer()
             if !met {
-                Button("Allow") { action() }.font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
+                Button(buttonTitle) { action() }.font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
             }
         }
         .padding(Theme.Space.md)

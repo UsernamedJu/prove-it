@@ -175,11 +175,11 @@ struct MainTabView: View {
             case .me: NavigationStack { ProfileView() }
             }
         }
-        // The screen itself cuts instantly, like the system Health app or
-        // Strava — the lateral slide lives entirely in the tab bar's own
-        // highlight pill (see `PillTabBar`), not the page behind it.
-        .transition(.identity)
-        .transaction { $0.animation = nil }
+        // A soft cross-fade between tabs instead of the instant cut this
+        // used to force — the switch's onSelect already wraps the state
+        // change in withAnimation(Theme.Motion.push), which is what
+        // actually drives this now that nothing here cancels it out.
+        .transition(.opacity)
         .safeAreaInset(edge: .bottom) {
             PillTabBar(selection: app.tab, onSelect: { tab in withAnimation(Theme.Motion.push) { app.tab = tab } })
                 .padding(.horizontal, Theme.Space.xs)

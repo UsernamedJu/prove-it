@@ -15,7 +15,7 @@ struct SharedChallengesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             SectionHeader(title: "Group Challenges")
-            Text("Invite one buddy — synced over iCloud, not the demo crew.")
+            Text("Invite a friend or a group — synced over iCloud, not the demo crew.")
                 .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 
             if let error = store.lastError {
@@ -29,7 +29,7 @@ struct SharedChallengesSection: View {
             Button {
                 showingCreate = true
             } label: {
-                HStack(spacing: 6) { Image(systemName: "person.badge.plus"); Text("Invite a Buddy") }
+                HStack(spacing: 6) { Image(systemName: "person.badge.plus"); Text("Invite a Friend or Group") }
             }
             .buttonStyle(PactButtonStyle(kind: .outline))
         }

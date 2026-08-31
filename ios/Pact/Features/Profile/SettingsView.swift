@@ -179,21 +179,29 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             SectionHeader(title: "iCloud Sync")
             PactCard(tint: cloudStatusTint) {
-                HStack(spacing: Theme.Space.sm) {
-                    Image(systemName: "icloud.fill").foregroundStyle(cloudStatusTint)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(cloudStatusTitle).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Your profile and mood history follow you to your other devices and survive a reinstall. Crew, groups, and challenges aren't synced this way yet.")
-                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                    HStack(spacing: Theme.Space.sm) {
+                        Image(systemName: "icloud.fill").foregroundStyle(cloudStatusTint)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(cloudStatusTitle).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                            Text("Your profile and mood history follow you to your other devices and survive a reinstall. Crew, groups, and challenges aren't synced this way yet.")
+                                .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        }
+                        Spacer()
                     }
-                    Spacer()
+                    Divider().overlay(Theme.Surface.border)
+                    Toggle(isOn: Binding(get: { app.iCloudSyncEnabled }, set: { app.iCloudSyncEnabled = $0 })) {
+                        Text("Sync with iCloud").font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                    }
+                    .tint(Theme.Brand.purple)
                 }
             }
         }
     }
 
     private var cloudStatusTint: Color {
-        switch app.cloudSyncStatus {
+        guard app.iCloudSyncEnabled else { return Theme.Ink.tertiary }
+        return switch app.cloudSyncStatus {
         case .synced: Theme.Brand.lime
         case .syncing: Theme.Brand.cyan
         case .unavailable, .unknown: Theme.Ink.tertiary
@@ -202,7 +210,8 @@ struct SettingsView: View {
     }
 
     private var cloudStatusTitle: String {
-        switch app.cloudSyncStatus {
+        guard app.iCloudSyncEnabled else { return "Sync turned off" }
+        return switch app.cloudSyncStatus {
         case .unknown: "Checking…"
         case .unavailable: "Not signed into iCloud"
         case .syncing: "Syncing…"

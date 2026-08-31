@@ -168,6 +168,26 @@ struct Challenge: Identifiable {
         guard fairPlay, kind == .steps else { return effectiveGoalTarget }
         return Double(member.ageBand.fairPlayStepTarget) * Double(durationDays) * 1.15
     }
+
+    /// A distinct color per standing — independent per-name `swatchColor`
+    /// calls could (and with a 7-color palette and any real-sized crew,
+    /// often would) hash two different people to the same hue by pure
+    /// coincidence. "Me" always gets the actual color chosen in Settings,
+    /// not a hash of whatever "me"'s display name happens to be; everyone
+    /// else gets their own unused slot from the remaining palette, in a
+    /// stable order (`standings` is already sorted the same way every
+    /// render) so the same person keeps the same color across repeated
+    /// calls instead of it shuffling.
+    func distinctColor(for memberID: UUID, meColor: Color) -> Color {
+        if memberID == myMemberID { return meColor }
+        let palette = Theme.Brand.swatch
+        let meIndex = palette.firstIndex(of: meColor)
+        let available = palette.indices.filter { $0 != meIndex }
+        let pool = available.isEmpty ? Array(palette.indices) : available
+        let others = standings.map(\.member.id).filter { $0 != myMemberID }
+        guard let position = others.firstIndex(of: memberID) else { return swatchColor(for: memberID.uuidString) }
+        return palette[pool[position % pool.count]]
+    }
 }
 
 /// A not-yet-created challenge the Home screen proposes — exactly one shown

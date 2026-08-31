@@ -16,6 +16,10 @@ struct CreateChallengeView: View {
     @State private var fairPlay = true
     @State private var selectedInvitees: Set<UUID> = []
     @State private var selectedGroup: ContactGroup?
+    /// `nil` until someone actually taps +/- on the goal — at that point
+    /// it takes over from `suggestedGoal` as the number that actually
+    /// gets sent.
+    @State private var customGoal: Double?
     @State private var step = 0
     @State private var navigatingBack = false
     private let photoName: String
@@ -338,24 +342,30 @@ struct CreateChallengeView: View {
         [app.me] + app.crew.filter { selectedInvitees.contains($0.id) }
     }
 
-    /// Mirrors the same formula `AppModel.createChallenge` actually applies
-    /// — shown here so the goal isn't a silent number that only appears
-    /// after the challenge already exists. Based on this specific group's
-    /// own typical pace (via `app.personalizedStepTarget`), not a generic
-    /// constant — see `createChallenge` for why it's not scaled by
-    /// participant count.
-    private var previewGoal: Double? {
+    /// The realistic, Health-informed starting point — mirrors the same
+    /// formula `AppModel.createChallenge` falls back to (this specific
+    /// group's own typical pace via `app.personalizedStepTarget`/
+    /// `personalizedDistanceTarget`, both of which blend in a real
+    /// trailing-30-day Health average once one exists, not just a generic
+    /// age/weight constant) — see `createChallenge` for why it's not
+    /// scaled by participant count. `customGoal`, once someone actually
+    /// adjusts it below, takes over from here.
+    private var suggestedGoal: Double? {
         if let seedGoal { return seedGoal }
         switch kind {
         case .steps: return Double(app.personalizedStepTarget) * Double(duration) * 1.15
-        case .distance: return 3.0 * Double(duration) * 1.15
+        case .distance: return app.personalizedDistanceTarget * Double(duration) * 1.15
         case .custom: return nil
         }
     }
-    private var previewGoalText: String {
-        guard let previewGoal else { return "—" }
-        return kind == .distance ? "\(Int(previewGoal)) mi" : "\(Int(previewGoal).formatted()) \(kind.unit)"
+    private var finalGoal: Double? { customGoal ?? suggestedGoal }
+    private func goalText(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return kind == .distance ? "\(Int(value)) mi" : "\(Int(value).formatted()) \(kind.unit)"
     }
+    /// How much a tap on the +/- control moves the goal — coarse enough
+    /// that it takes a handful of taps to matter, not one for a single step.
+    private var goalStep: Double { kind == .distance ? 1 : 500 }
 
     private var reviewStep: some View {
         ScrollView {
@@ -370,7 +380,7 @@ struct CreateChallengeView: View {
                     Text(venue).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     Divider().overlay(Theme.Surface.border)
                     row("Duration", "\(duration) days")
-                    if previewGoal != nil { row("Goal to Win", previewGoalText) }
+                    if suggestedGoal != nil { goalRow }
                     if blindReveal { row("Blind Reveal", "On") }
                     if fairPlay { row("Fair Play", "On") }
                 }
@@ -430,6 +440,41 @@ struct CreateChallengeView: View {
         }
     }
 
+    /// Editable, not just a readout — the suggested value is a real,
+    /// Health-informed starting point, but "customizable" means someone
+    /// can actually push it further or ease off, not just look at a
+    /// number `AppModel.createChallenge` was always going to pick anyway.
+    private var goalRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Goal to Win").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+                Spacer()
+                Button {
+                    let base = customGoal ?? suggestedGoal ?? 0
+                    customGoal = max(0, base - goalStep)
+                } label: {
+                    Image(systemName: "minus.circle.fill").font(.system(size: 20))
+                }
+                Text(goalText(finalGoal)).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                    .frame(minWidth: 64)
+                Button {
+                    let base = customGoal ?? suggestedGoal ?? 0
+                    customGoal = base + goalStep
+                } label: {
+                    Image(systemName: "plus.circle.fill").font(.system(size: 20))
+                }
+            }
+            .foregroundStyle(Theme.Brand.purple)
+            if customGoal != nil, let suggestedGoal {
+                HStack(spacing: 4) {
+                    Text("Suggested: \(goalText(suggestedGoal)) based on your real average.")
+                    Button("Reset") { customGoal = nil }
+                }
+                .font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+            }
+        }
+    }
+
     // MARK: Helpers
 
     private func stepHeader(_ heading: String, _ sub: String) -> some View {
@@ -455,7 +500,7 @@ struct CreateChallengeView: View {
         app.createChallenge(title: title, icon: ChallengeKind.suggestedIcon(title: title, venue: venue, kind: kind), kind: kind, venue: venue, rules: rules,
                              photoName: photoName, duration: duration,
                              customMetric: kind == .custom ? customMetric : nil, payoff: selectedPayoff,
-                             blindReveal: blindReveal, fairPlay: fairPlay, invitees: invitees, goalTarget: seedGoal)
+                             blindReveal: blindReveal, fairPlay: fairPlay, invitees: invitees, goalTarget: finalGoal)
         if let seedID { app.usedSuggestionIDs.insert(seedID) }
         dismiss()
     }

@@ -196,6 +196,16 @@ final class AppModel {
         didSet { UserDefaults.standard.set(pushNotificationsEnabled, forKey: ChallengeNotifier.notificationsEnabledDefaultsKey) }
     }
 
+    /// Off stops both directions — no upload from `persistSession`, no
+    /// download in `reconcileWithCloud` — rather than just hiding the
+    /// status readout while still syncing underneath it. Local-only, same
+    /// reasoning as the other device-level toggles here: whether *this*
+    /// device should sync isn't itself something worth syncing.
+    var iCloudSyncEnabled = true {
+        didSet { UserDefaults.standard.set(iCloudSyncEnabled, forKey: Self.iCloudSyncEnabledDefaultsKey) }
+    }
+    private static let iCloudSyncEnabledDefaultsKey = "com.jean.pact.iCloudSyncEnabled"
+
     var healthKitConnected = false {
         didSet { UserDefaults.standard.set(healthKitConnected, forKey: Self.healthKitConnectedDefaultsKey) }
     }
@@ -387,6 +397,19 @@ final class AppModel {
         guard realAverage > 0 else { return formulaTarget }
         let stretched = Int((realAverage * 1.05 / 250).rounded()) * 250
         return max(formulaTarget, stretched)
+    }
+
+    /// The distance equivalent of `personalizedStepTarget` — a flat 3
+    /// mi/day baseline for someone with no history yet, nudged up past a
+    /// real trailing-30-day Health average once there is one (that total
+    /// already covers both walking and running distance, so it reflects
+    /// actual runs as much as steps, not a separate blend of the two).
+    var personalizedDistanceTarget: Double {
+        let baseline = 3.0
+        guard healthKitConnected, let monthlyDistanceMiles else { return baseline }
+        let realAverage = monthlyDistanceMiles / 30.0
+        guard realAverage > 0 else { return baseline }
+        return max(baseline, (realAverage * 1.05 * 10).rounded() / 10)
     }
 
     /// A short, deterministic "this suits you" tag for a crew member — the
@@ -734,7 +757,7 @@ final class AppModel {
         let resolvedGoal: Double? = goalTarget ?? {
             switch kind {
             case .steps: return Double(personalizedStepTarget) * Double(duration) * stretchFactor
-            case .distance: return 3.0 * Double(duration) * stretchFactor
+            case .distance: return personalizedDistanceTarget * Double(duration) * stretchFactor
             case .custom: return nil
             }
         }()
@@ -956,7 +979,17 @@ final class AppModel {
             appearance = pref
         }
         pushNotificationsEnabled = UserDefaults.standard.bool(forKey: ChallengeNotifier.notificationsEnabledDefaultsKey)
-        Task { await reconcileWithCloud() }
+        // Only override the `true` default if this key was actually
+        // written before — `bool(forKey:)` alone returns false for a
+        // never-set key, which would flip every fresh install to "off."
+        if UserDefaults.standard.object(forKey: Self.iCloudSyncEnabledDefaultsKey) != nil {
+            iCloudSyncEnabled = UserDefaults.standard.bool(forKey: Self.iCloudSyncEnabledDefaultsKey)
+        }
+        if iCloudSyncEnabled {
+            Task { await reconcileWithCloud() }
+        } else {
+            cloudSyncStatus = .unavailable
+        }
         if UserDefaults.standard.bool(forKey: Self.healthKitConnectedDefaultsKey) {
             // Re-verifies (near-instant, no re-prompt, since it's already
             // granted) and re-arms the change observer for this launch —
@@ -1090,6 +1123,10 @@ final class AppModel {
         if isSignedIn && hasOnboarded {
             let id = me.id, name = me.name, colorIndex = meColorIndex
             Task { await UserDirectory.shared.publish(id: id, name: name, colorIndex: colorIndex) }
+        }
+        guard iCloudSyncEnabled else {
+            cloudSyncStatus = .unavailable
+            return
         }
         Task {
             let succeeded = await CloudSyncManager.shared.upload(data)

@@ -32,16 +32,12 @@ struct MoodSurveyView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.lg) {
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Theme.Ink.secondary)
-                            .frame(width: 40, height: 40)
-                            .glassSurface(cornerRadius: 20)
-                            .clipShape(Circle())
-                    }
-                    Spacer()
-                    StatChip(label: "Streak", value: "\(app.moodStreak)d", tint: Theme.Brand.gold)
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Theme.Ink.secondary)
+                        .frame(width: 40, height: 40)
+                        .glassSurface(cornerRadius: 20)
+                        .clipShape(Circle())
                 }
                 .padding(.top, Theme.Space.md)
 
@@ -183,30 +179,48 @@ struct MoodSurveyView: View {
 }
 
 /// The mood screen's own reactive face — separate from `InitialBadge`'s
-/// static `SimpleFace` since its mouth animates live with the slider values.
+/// static `SimpleFace` since it animates live with the slider values, and
+/// across the whole curve, not just the mouth. The old version only ever
+/// moved the mouth and shrank the eyes slightly at the happy end, which
+/// left a sad mood reading as barely different from neutral, and the eyes
+/// themselves were two flat capsules with no real character. Eyebrows
+/// (tilting down and in as it gets sadder) and a blush that warms in as it
+/// gets happier give both ends of the range something to actually show.
 private struct MoodFaceView: View {
     var curvature: CGFloat // -1 (frown) ... 1 (big smile)
     var dark: Bool
     var size: CGFloat = 88
 
-    /// The mouth was the only thing that used to move — eyes just sat
-    /// there as plain fixed capsules regardless of how the sliders were
-    /// set. A happy squint (shorter, lifted eyes) at the high end reads as
-    /// genuinely reactive instead of only the smile doing all the work.
     private var happiness: CGFloat { max(0, curvature) }
+    private var sadness: CGFloat { max(0, -curvature) }
 
     var body: some View {
         ZStack {
-            HStack(spacing: size * 0.22) {
-                Capsule().frame(width: size * 0.06, height: size * (0.13 - 0.06 * happiness))
-                Capsule().frame(width: size * 0.06, height: size * (0.13 - 0.06 * happiness))
+            HStack(spacing: size * 0.48) {
+                Circle().frame(width: size * 0.15, height: size * 0.095)
+                Circle().frame(width: size * 0.15, height: size * 0.095)
             }
-            .offset(y: -size * (0.14 + 0.02 * happiness))
+            .foregroundStyle(Theme.Brand.pink.opacity(0.4 * happiness))
+            .offset(y: size * 0.05)
+
+            HStack(spacing: size * 0.24) {
+                Capsule().frame(width: size * 0.15, height: size * 0.028)
+                    .rotationEffect(.degrees(Double(sadness) * 16))
+                Capsule().frame(width: size * 0.15, height: size * 0.028)
+                    .rotationEffect(.degrees(Double(sadness) * -16))
+            }
+            .offset(y: -size * (0.29 + 0.03 * sadness))
+
+            HStack(spacing: size * 0.22) {
+                Capsule().frame(width: size * 0.085, height: size * (0.17 - 0.1 * happiness))
+                Capsule().frame(width: size * 0.085, height: size * (0.17 - 0.1 * happiness))
+            }
+            .offset(y: -size * (0.13 + 0.015 * happiness))
 
             MoodMouth(curvature: curvature)
-                .stroke(style: StrokeStyle(lineWidth: max(1.5, size * 0.045), lineCap: .round))
-                .frame(width: size * 0.4, height: size * 0.16)
-                .offset(y: size * 0.18)
+                .stroke(style: StrokeStyle(lineWidth: max(2, size * 0.055), lineCap: .round))
+                .frame(width: size * 0.42, height: size * 0.18)
+                .offset(y: size * 0.2)
         }
         .foregroundStyle(dark ? Theme.Ink.primary : Color.white)
         .animation(Theme.Motion.settle, value: curvature)

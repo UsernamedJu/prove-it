@@ -250,6 +250,7 @@ struct ChallengeDetailView: View {
 
 private struct BoardTab: View {
     let challenge: Challenge
+    @Environment(AppModel.self) private var app
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
@@ -264,7 +265,8 @@ private struct BoardTab: View {
             }
             ForEach(challenge.standings.sorted { $0.rank < $1.rank }) { standing in
                 BoardRow(standing: standing, isMe: standing.member.id == challenge.myMemberID,
-                         blind: challenge.blindReveal && challenge.status == .active)
+                         blind: challenge.blindReveal && challenge.status == .active,
+                         color: challenge.distinctColor(for: standing.member.id, meColor: app.meColor))
             }
         }
         .padding(Theme.Space.lg)
@@ -275,15 +277,16 @@ private struct BoardRow: View {
     let standing: Standing
     let isMe: Bool
     let blind: Bool
+    let color: Color
 
     private var hideScore: Bool { blind && !isMe }
 
     var body: some View {
-        PactCard(tint: isMe ? Theme.Brand.blue : swatchColor(for: standing.member.name)) {
+        PactCard(tint: color) {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack(spacing: Theme.Space.sm) {
                     medal
-                    InitialBadge(name: standing.member.name, size: 38)
+                    InitialBadge(name: standing.member.name, size: 38, overrideColor: color)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
                             Text(standing.member.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
@@ -296,12 +299,12 @@ private struct BoardRow: View {
                     VStack(alignment: .trailing, spacing: 0) {
                         Text("\(Int(standing.progress * 100))%")
                             .font(Theme.Font.number(20))
-                            .foregroundStyle(swatchColor(for: standing.member.name))
+                            .foregroundStyle(color)
                             .blur(radius: hideScore ? 6 : 0)
                         Text("progress").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
                     }
                 }
-                ProgressPill(progress: standing.progress, tint: swatchColor(for: standing.member.name),
+                ProgressPill(progress: standing.progress, tint: color,
                              blurred: hideScore)
             }
         }
@@ -422,8 +425,10 @@ private struct ProgressTab: View {
 
 private struct StatsTab: View {
     let challenge: Challenge
+    @Environment(AppModel.self) private var app
 
     private var mine: Standing? { challenge.myStanding }
+    private func color(for member: Member) -> Color { challenge.distinctColor(for: member.id, meColor: app.meColor) }
     private var hideOthers: Bool { challenge.blindReveal && challenge.status == .active }
 
     private var leader: Standing? { challenge.standings.min(by: { $0.rank < $1.rank }) }
@@ -451,14 +456,14 @@ private struct StatsTab: View {
                                 .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                         }
                         RaceTrackProgress(racers: [
-                            .init(name: leader.member.name, progress: hideOthers ? 0 : leader.progress, color: Theme.Brand.coral),
-                            .init(name: mine.member.name, progress: mine.progress, color: challenge.tint),
+                            .init(name: leader.member.name, progress: hideOthers ? 0 : leader.progress, color: color(for: leader.member)),
+                            .init(name: mine.member.name, progress: mine.progress, color: color(for: mine.member)),
                         ])
                         .frame(height: 90)
                         .blur(radius: hideOthers ? 5 : 0)
                         HStack(spacing: Theme.Space.md) {
-                            legendDot(challenge.tint, "You")
-                            legendDot(Theme.Brand.coral, hideOthers ? "Leader (hidden)" : leader.member.name)
+                            legendDot(color(for: mine.member), "You")
+                            legendDot(color(for: leader.member), hideOthers ? "Leader (hidden)" : leader.member.name)
                         }
                     }
                 }
@@ -477,14 +482,14 @@ private struct StatsTab: View {
                         .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     RivalryChart(lines: challenge.standings.map { s in
                         let hide = hideOthers && s.member.id != challenge.myMemberID
-                        return .init(name: s.member.name, color: hide ? Theme.Ink.tertiary : swatchColor(for: s.member.name),
+                        return .init(name: s.member.name, color: hide ? Theme.Ink.tertiary : color(for: s.member),
                                      points: s.progressHistory)
                     })
                     .blur(radius: hideOthers ? 4 : 0)
                     HStack(spacing: Theme.Space.sm) {
                         ForEach(challenge.standings) { s in
                             HStack(spacing: 4) {
-                                Circle().fill(swatchColor(for: s.member.name)).frame(width: 8, height: 8)
+                                Circle().fill(color(for: s.member)).frame(width: 8, height: 8)
                                 Text(s.member.name).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
                             }
                         }
@@ -639,7 +644,7 @@ private struct MapTab: View {
                         ForEach(Array(challenge.standings.enumerated()), id: \.element.id) { i, s in
                             let point = coords[i % coords.count]
                             Marker(s.member.name, coordinate: point)
-                                .tint(swatchColor(for: s.member.name))
+                                .tint(challenge.distinctColor(for: s.member.id, meColor: app.meColor))
                         }
                     }
                     .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))

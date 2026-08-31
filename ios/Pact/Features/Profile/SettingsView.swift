@@ -35,7 +35,10 @@ struct SettingsView: View {
                         bodyProfileSection
                         healthSection
                         iCloudSection
+                        appearanceSection
+                        notificationsSection
                         securitySection
+                        demoSection
                         accountSection
 
                         Spacer(minLength: Theme.Space.md)
@@ -205,6 +208,66 @@ struct SettingsView: View {
         case .syncing: "Syncing…"
         case .synced(let date): "Synced \(date.formatted(date: .omitted, time: .shortened))"
         case .failed: "Sync failed — will retry"
+        }
+    }
+
+    private var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            SectionHeader(title: "Appearance")
+            PactCard(tint: Theme.Brand.purple, showsAccent: false) {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                    Text("Theme").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                    Picker("Theme", selection: Binding(get: { app.appearance }, set: { app.appearance = $0 })) {
+                        ForEach(AppearancePreference.allCases) { pref in
+                            Text(pref.label).tag(pref)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+        }
+    }
+
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            SectionHeader(title: "Notifications")
+            PactCard(tint: Theme.Brand.pink, showsAccent: false) {
+                Toggle(isOn: Binding(get: { app.pushNotificationsEnabled }, set: { app.pushNotificationsEnabled = $0 })) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Challenge Notifications").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text("Rank changes, close calls, and last place — on-device alerts, sent with a bit of attitude. Blind-reveal challenges only ever hint that you might be behind, never that you're ahead.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
+                }
+                .tint(Theme.Brand.pink)
+            }
+        }
+    }
+
+    /// Lets someone see what a fully-engaged account looks like — an
+    /// active crew, challenges mid-race, real mood history — without that
+    /// ever being the default a new sign-up sees. Reversible: exiting
+    /// restores whatever was actually here before, exactly.
+    private var demoSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            SectionHeader(title: "Demo Account")
+            PactCard(tint: Theme.Brand.gold, showsAccent: false) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(app.isDemoMode ? "Viewing Demo Data" : "Preview Full Engagement").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        Text(app.isDemoMode
+                             ? "Showing a sample crew, active challenges, and history. Your own data is safe and comes right back."
+                             : "Temporarily loads a sample crew, active challenges, and mood history so you can see how the app looks once someone's actually using it.")
+                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    }
+                    Spacer()
+                }
+                Button(app.isDemoMode ? "Exit Demo" : "Load Demo Data") {
+                    if app.isDemoMode { app.exitDemoMode() } else { app.enterDemoMode() }
+                    dismiss()
+                }
+                .buttonStyle(PactButtonStyle(kind: app.isDemoMode ? .tinted(Theme.Brand.coral) : .outline))
+            }
         }
     }
 

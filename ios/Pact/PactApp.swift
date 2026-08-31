@@ -27,7 +27,7 @@ struct PactApp: App {
             RootView()
                 .environment(app)
                 .environment(sharedChallenges)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(app.appearance.colorScheme)
         }
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Design tokens for Pact 2.0 — a light, high-contrast base built for
 /// legibility (big type, flat white cards, soft shadows — no glass-blur on
@@ -11,24 +12,28 @@ enum Theme {
 
     enum Surface {
         /// Warm paper base every screen sits on — flat, not a gradient.
-        static let bg = Color(hex: 0xF7F4EE)
-        static let bgFlat = Color(hex: 0xF7F4EE)
-        /// Card fill — solid white, not a blur material. Legible first.
-        static let card = Color.white
-        static let glass = Color.black.opacity(0.035)
-        static let glassBright = Color.black.opacity(0.06)
-        static let border = Color.black.opacity(0.08)
-        static let border2 = Color.black.opacity(0.14)
-        /// The dark scrim laid over a hero photo (challenge detail, hero cards).
+        /// Dynamic: resolves dark in Dark Mode (Settings → Appearance).
+        static let bg = Color.dynamic(light: 0xF7F4EE, dark: 0x121214)
+        static let bgFlat = Color.dynamic(light: 0xF7F4EE, dark: 0x121214)
+        /// Card fill — solid, not a blur material. Legible first.
+        static let card = Color.dynamic(light: 0xFFFFFF, dark: 0x1E1E21)
+        static let glass = Color.dynamic(light: 0x000000, dark: 0xFFFFFF).opacity(0.035)
+        static let glassBright = Color.dynamic(light: 0x000000, dark: 0xFFFFFF).opacity(0.06)
+        static let border = Color.dynamic(light: 0x000000, dark: 0xFFFFFF).opacity(0.08)
+        static let border2 = Color.dynamic(light: 0x000000, dark: 0xFFFFFF).opacity(0.14)
+        /// The dark scrim laid over a hero photo (challenge detail, hero cards)
+        /// — unchanged across modes on purpose, since it sits on a photo, not
+        /// the page background.
         static let heroScrimTop = Color.black.opacity(0.05)
         static let heroScrimBottom = Color.black.opacity(0.68)
     }
 
     enum Ink {
-        static let primary = Color(hex: 0x18181B)
-        static let secondary = Color(hex: 0x5C5C63)
-        static let tertiary = Color(hex: 0x96969C)
-        /// Text/icons on a filled accent surface (buttons) or a photo hero.
+        static let primary = Color.dynamic(light: 0x18181B, dark: 0xF2F2F4)
+        static let secondary = Color.dynamic(light: 0x5C5C63, dark: 0xB8B8BE)
+        static let tertiary = Color.dynamic(light: 0x96969C, dark: 0x86868C)
+        /// Text/icons on a filled accent surface (buttons) or a photo hero —
+        /// unchanged across modes; it's never sitting directly on `Surface.bg`.
         static let onBrand = Color.white
     }
 
@@ -40,7 +45,7 @@ enum Theme {
         static let purpleDeep = Color(hex: 0x527A0E) // Deep lime — pressed/gradient shade
         static let blue = Color(hex: 0x3AA6D9)        // Sky — secondary data accent
         static let pink = Color(hex: 0xFF5C77)        // Coral — competitive/energy accent
-        static let cyan = Color(hex: 0x1A1A1D)        // Ink black — structural chrome (tab bar, dark buttons)
+        static let cyan = Color.dynamic(light: 0x1A1A1D, dark: 0x2C2C30) // Ink black — structural chrome (tab bar, dark buttons); lighter in Dark Mode so it still reads as a distinct surface against an even-darker page
         static let lime = Color(hex: 0x2FA84F)        // Win green — distinct from primary, "ahead/won"
         static let gold = Color(hex: 0xFBBF24)        // Unchanged — reward/streak
         static let coral = Color(hex: 0x9C97A3)       // Muted slate — "loss/behind", desaturated on purpose
@@ -129,5 +134,17 @@ extension Color {
             blue: Double(hex & 0xFF) / 255,
             opacity: alpha
         )
+    }
+
+    /// Resolves to a different hex depending on the *current* trait
+    /// environment instead of being fixed at declaration time — what lets
+    /// a whole palette of `static let` tokens support Dark Mode without
+    /// turning every one of them into a view-scoped computed property.
+    /// `.preferredColorScheme(_:)` (set from `AppearancePreference` in
+    /// Settings) is what actually drives which branch resolves.
+    static func dynamic(light: UInt32, dark: UInt32) -> Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(Color(hex: dark)) : UIColor(Color(hex: light))
+        })
     }
 }

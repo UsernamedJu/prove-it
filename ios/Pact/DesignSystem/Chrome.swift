@@ -1242,15 +1242,20 @@ private struct PillTabItem: View {
             .background {
                 if isOn {
                     // Real Liquid Glass, not a hand-rolled material stack —
-                    // `.tint` carries the same cyan the old fill used,
-                    // `.interactive()` gives it the same press-response
-                    // every system glass control has.
+                    // `.tint` carries the same cyan the old fill used. No
+                    // `.interactive()` here: that adds its own press-gesture
+                    // layer on top of the Button's, and the two competing
+                    // for the same tap — worse right as this pill is mid-
+                    // flight through matchedGeometryEffect between tabs —
+                    // is what made switching tabs sometimes take a couple
+                    // taps to register.
                     Capsule()
-                        .glassEffect(.regular.tint(Theme.Brand.cyan.opacity(0.92)).interactive(), in: Capsule())
+                        .glassEffect(.regular.tint(Theme.Brand.cyan.opacity(0.92)), in: Capsule())
                         .matchedGeometryEffect(id: "activeTabPill", in: namespace)
                 }
             }
             .clipShape(Capsule())
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onChange(of: isOn) { _, newValue in

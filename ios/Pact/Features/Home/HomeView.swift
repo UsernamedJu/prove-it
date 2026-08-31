@@ -175,7 +175,7 @@ struct HomeView: View {
 
             HStack(spacing: Theme.Space.sm) {
                 heroStat(value: "\(s.suggestedDuration)d", label: "Duration")
-                heroStat(value: s.kind.rawValue, label: "Kind")
+                heroStat(value: s.goalLabel, label: "Goal to Win")
             }
             // No `.fixedSize` here on purpose — every suggestion's payoff
             // text is a different length, and forcing this to its
@@ -191,7 +191,7 @@ struct HomeView: View {
             .photoOverlaySurface(cornerRadius: Theme.Radius.pill)
 
             NavigationLink(value: Route.createChallenge(s)) {
-                Text("Start This Challenge")
+                Text(app.usedSuggestionIDs.contains(s.id) ? "Set Up Another Like This" : "Start This Challenge")
             }
             .buttonStyle(PactButtonStyle(kind: .primary))
         }

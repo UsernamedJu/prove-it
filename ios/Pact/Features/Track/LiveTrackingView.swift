@@ -2,22 +2,29 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-/// Live GPS recording for a single challenge session — draws the real trail
-/// as it's walked or run, keeps a running distance/duration, and calls
-/// walking vs. running from actual GPS speed (see `LocationTracker`). On
-/// finish, the trail and a measured progress log are handed to
-/// `AppModel.applyTrackedSession`. Needs a real device in motion to say
-/// anything meaningful; the Simulator can drive it with a dragged or
-/// scripted location, but won't produce a realistic moving trail on its own.
+/// Live recording for a single challenge session — draws the real trail as
+/// it's walked or run, keeps a running distance/step count/duration, and
+/// calls walking vs. running from actual GPS speed (see `LocationTracker`).
+/// Backed by `LocationTracker.shared`, not a screen-owned instance —
+/// closing this view (the toolbar "Close") only dismisses the screen; the
+/// recording keeps running until "Finish" is tapped, from here or after
+/// reopening this same screen later. On finish, the trail and a measured
+/// progress log are handed to `AppModel.applyTrackedSession`. Needs a real
+/// device in motion to say anything meaningful; the Simulator can drive
+/// location with a dragged or scripted point but has no real step data at
+/// all.
 struct LiveTrackingView: View {
     let challengeID: UUID
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var tracker = LocationTracker()
+    private let tracker = LocationTracker.shared
     @State private var showingSummary = false
     @State private var summary: TrackedSession?
 
     private var challenge: Challenge? { app.challenges.first { $0.id == challengeID } }
+    /// True when some *other* challenge's session is already running —
+    /// only one live recording at a time, since it's one phone's GPS/steps.
+    private var trackingElsewhere: Bool { tracker.isTracking && tracker.challengeID != challengeID }
 
     var body: some View {
         ZStack {
@@ -31,11 +38,8 @@ struct LiveTrackingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Close") {
-                    if tracker.isTracking { tracker.stop() }
-                    dismiss()
-                }
-                .foregroundStyle(Theme.Ink.secondary)
+                Button("Close") { dismiss() }
+                    .foregroundStyle(Theme.Ink.secondary)
             }
         }
         .onAppear { tracker.requestPermission() }
@@ -79,8 +83,9 @@ struct LiveTrackingView: View {
 
     private var statsPanel: some View {
         VStack(spacing: Theme.Space.lg) {
-            HStack(spacing: Theme.Space.xl) {
+            HStack(spacing: Theme.Space.lg) {
                 stat("DISTANCE", String(format: "%.2f mi", tracker.distanceMiles))
+                stat("STEPS", tracker.steps.formatted())
                 stat("TIME", elapsedText)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("STATUS").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
@@ -95,6 +100,9 @@ struct LiveTrackingView: View {
 
             if !tracker.canTrack {
                 Text("Waiting on location permission…").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+            } else if trackingElsewhere {
+                Text("Already tracking another challenge — finish that one first.")
+                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
             }
 
             Button {
@@ -103,7 +111,7 @@ struct LiveTrackingView: View {
                     summary = session
                     showingSummary = true
                 } else {
-                    tracker.start()
+                    tracker.start(for: challengeID)
                 }
             } label: {
                 HStack(spacing: 6) {
@@ -113,7 +121,7 @@ struct LiveTrackingView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(PactButtonStyle(kind: tracker.isTracking ? .tinted(Theme.Brand.coral) : .primary))
-            .disabled(!tracker.canTrack)
+            .disabled(!tracker.canTrack || trackingElsewhere)
         }
         .padding(Theme.Space.lg)
         .background(.ultraThinMaterial)
@@ -157,6 +165,11 @@ private struct TrackingSummaryView: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text("Distance").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                                 Text(String(format: "%.2f mi", session.distanceMiles)).font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
+                            }
+                            Spacer()
+                            VStack(alignment: .center, spacing: 1) {
+                                Text("Steps").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                                Text(session.steps.formatted()).font(Theme.Font.h2()).foregroundStyle(Theme.Ink.primary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 1) {

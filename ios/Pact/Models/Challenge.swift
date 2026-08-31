@@ -93,6 +93,21 @@ struct Standing: Identifiable {
     /// rather than the manual "Log Today" tap — lets the UI show a
     /// "Verified" badge instead of taking every entry on the honor system.
     var lastLogVerified: Bool = false
+    /// Real cumulative HealthKit total since the challenge's `startDate`
+    /// (steps or miles, matching `kind`) — re-queried and *set* on every
+    /// sync rather than incremented, so syncing five times in a row reads
+    /// the same real total instead of stacking five separate credits.
+    var healthTotal: Double = 0
+    /// Sum of finished `LiveTrackingView` sessions' measured distance —
+    /// additive, since each one is a genuinely new event that a Health
+    /// total-since-start query wouldn't otherwise double as (this app
+    /// never writes tracked sessions back into HealthKit as workouts).
+    var trackedTotal: Double = 0
+    /// The calendar day `progressHistory`'s last entry represents — a
+    /// second sync later the same day updates that entry in place instead
+    /// of appending a duplicate "day," which is what made a 1-day-old
+    /// challenge's Journey chart show several points.
+    var lastLoggedDay: Date?
 }
 
 struct Challenge: Identifiable {
@@ -122,12 +137,23 @@ struct Challenge: Identifiable {
     var routeCoordinates: [CLLocationCoordinate2D]?
     /// Set once `resolveChallenge` runs, so the reveal only ever plays once.
     var winnerName: String?
+    /// When tracking actually began — the baseline every Health sync
+    /// measures *since*, so steps or miles from before the challenge
+    /// started never count toward it. Defaults to now for the rare
+    /// caller (fixtures/previews) that omits it.
+    var startDate: Date = Date()
+    /// The total steps/miles that auto-wins the challenge for whoever hits
+    /// it first — distinct from `dailyTarget`, which is just the day-to-day
+    /// pace shown in the UI. `nil` for freeform/custom challenges with no
+    /// sensible auto-computed total; falls back to `effectiveGoalTarget`.
+    var goalTarget: Double? = nil
 
     var tint: Color { swatchColor(for: title) }
     var displayUnit: String { customMetric?.isEmpty == false ? customMetric! : kind.unit }
     var participantsCount: Int { standings.count }
     var myStanding: Standing? { standings.first { $0.member.id == myMemberID } }
     var isDistanceBased: Bool { kind == .distance }
+    var effectiveGoalTarget: Double { goalTarget ?? Double(dailyTarget) * Double(durationDays) }
 }
 
 /// A not-yet-created challenge the Home screen proposes — exactly one shown
@@ -142,6 +168,11 @@ struct ChallengeSuggestion: Identifiable, Hashable {
     var line: String
     var suggestedDuration: Int
     var payoff: Payoff
+    /// A real total to race to, e.g. 50,000 steps or 20 miles over the
+    /// suggested duration — a stretch relative to a straightforward daily
+    /// pace, not a trivial one, but reachable if someone actually pushes.
+    var goalTarget: Double
+    var goalLabel: String { kind == .distance ? "\(Int(goalTarget)) mi" : "\(Int(goalTarget).formatted()) \(kind.unit)" }
 
     static func == (lhs: ChallengeSuggestion, rhs: ChallengeSuggestion) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

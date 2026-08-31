@@ -1,6 +1,27 @@
 import SwiftUI
 import Foundation
 
+enum AppearancePreference: String, CaseIterable, Identifiable, Codable {
+    case system, light, dark
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+    /// `nil` for `.system` — that's what tells `.preferredColorScheme(_:)`
+    /// to stop overriding and defer back to the OS setting.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
 enum Tab: String, CaseIterable, Identifiable {
     case home = "Home"
     case challenges = "Challenges"
@@ -65,9 +86,77 @@ final class AppModel {
     var crew: [Member] = []
     var groups: [ContactGroup] = []
     var challenges: [Challenge] = []
+    /// Which suggestion carousel cards have already spawned a real
+    /// challenge — swaps that card's CTA so re-swiping back to it doesn't
+    /// read as a fresh, never-used suggestion. Session-only on purpose:
+    /// the pool itself rotates weekly, so there's nothing worth persisting.
+    var usedSuggestionIDs: Set<UUID> = []
     var moodHistory: [MoodCheckIn] = [] { didSet { persistSession() } }
     var moodStreak = 0
     var moodLoggedToday = false
+
+    // MARK: Demo mode — lets someone see what a fully-engaged account looks
+    // like (an active crew, challenges mid-race, mood history) without
+    // that ever being what a real new sign-up sees by default. In-memory
+    // only: never written through `persistSession()`, so it can't leak
+    // into CloudKit or survive a relaunch by accident. Snapshots the real
+    // state once on entry and restores it exactly on exit, rather than
+    // resetting to another clean slate — someone's actual in-progress data
+    // shouldn't be at risk just from peeking at the demo.
+    var isDemoMode = false
+
+    private struct DemoSnapshot {
+        var crew: [Member]
+        var groups: [ContactGroup]
+        var challenges: [Challenge]
+        var moodHistory: [MoodCheckIn]
+        var moodStreak: Int
+        var directMessages: [UUID: [ChatMessage]]
+        var groupMessages: [UUID: [ChatMessage]]
+        var unreadDirectIDs: Set<UUID>
+        var unreadGroupIDs: Set<UUID>
+    }
+    private var preDemoSnapshot: DemoSnapshot?
+
+    func enterDemoMode() {
+        guard !isDemoMode else { return }
+        preDemoSnapshot = DemoSnapshot(crew: crew, groups: groups, challenges: challenges, moodHistory: moodHistory,
+                                        moodStreak: moodStreak, directMessages: directMessages, groupMessages: groupMessages,
+                                        unreadDirectIDs: unreadDirectIDs, unreadGroupIDs: unreadGroupIDs)
+        isDemoMode = true
+        // moodHistory is the one field here CloudKit-syncs on write (see
+        // persistSession) — suppressed the same way restoring a saved
+        // session is, so a crash mid-demo can't leave demo data persisted
+        // as if it were real.
+        isApplyingRestoredSession = true
+        crew = Fixtures.crew
+        groups = Fixtures.groups
+        challenges = Fixtures.challenges
+        moodHistory = Fixtures.moodHistory
+        moodStreak = 6
+        directMessages = Fixtures.directMessages
+        groupMessages = Fixtures.groupMessages
+        unreadDirectIDs = Fixtures.unreadDirectIDs
+        unreadGroupIDs = Fixtures.unreadGroupIDs
+        isApplyingRestoredSession = false
+    }
+
+    func exitDemoMode() {
+        guard isDemoMode, let snapshot = preDemoSnapshot else { return }
+        isDemoMode = false
+        isApplyingRestoredSession = true
+        crew = snapshot.crew
+        groups = snapshot.groups
+        challenges = snapshot.challenges
+        moodHistory = snapshot.moodHistory
+        moodStreak = snapshot.moodStreak
+        directMessages = snapshot.directMessages
+        groupMessages = snapshot.groupMessages
+        unreadDirectIDs = snapshot.unreadDirectIDs
+        unreadGroupIDs = snapshot.unreadGroupIDs
+        isApplyingRestoredSession = false
+        preDemoSnapshot = nil
+    }
 
     // MARK: Personalization — height/weight/sex/age/activity, feeding the
     // step-target and calorie-burn calculations. "Me" only; crew don't need it.
@@ -90,6 +179,23 @@ final class AppModel {
     // once per fresh launch either way, since HKObserverQuery registrations
     // don't survive a relaunch on their own — this is just what tells
     // init() that it should bother trying.
+    /// Local-only, same reasoning as `healthKitConnected` below — a display
+    /// preference is inherently per-screen/per-device, not something
+    /// worth round-tripping through CloudKit.
+    var appearance: AppearancePreference = .system {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Self.appearanceDefaultsKey) }
+    }
+    private static let appearanceDefaultsKey = "com.jean.pact.appearance"
+
+    /// Local-only opt-in for the rank-change/behind/about-to-win local
+    /// notifications (see `NotificationCopy` + `checkChallengeCompletion`'s
+    /// callers) — off leaves challenge state exactly as informative, just
+    /// silent.
+    var pushNotificationsEnabled = false {
+        didSet { UserDefaults.standard.set(pushNotificationsEnabled, forKey: Self.pushNotificationsDefaultsKey) }
+    }
+    private static let pushNotificationsDefaultsKey = "com.jean.pact.pushNotificationsEnabled"
+
     var healthKitConnected = false {
         didSet { UserDefaults.standard.set(healthKitConnected, forKey: Self.healthKitConnectedDefaultsKey) }
     }
@@ -131,10 +237,15 @@ final class AppModel {
 
     // MARK: Chat — keyed by Member.id / ContactGroup.id. No real backend:
     // sending appends immediately, then a canned reply lands a beat later.
-    var directMessages: [UUID: [ChatMessage]] = Fixtures.directMessages
-    var groupMessages: [UUID: [ChatMessage]] = Fixtures.groupMessages
-    var unreadDirectIDs: Set<UUID> = Fixtures.unreadDirectIDs
-    var unreadGroupIDs: Set<UUID> = Fixtures.unreadGroupIDs
+    // Empty by default, same clean-slate reasoning as crew/groups/challenges
+    // above — these used to default straight to Fixtures' demo threads,
+    // which meant a brand-new user's nav bar could show an unread dot for a
+    // conversation with "Sam" they never had, from a crew member they never
+    // added.
+    var directMessages: [UUID: [ChatMessage]] = [:]
+    var groupMessages: [UUID: [ChatMessage]] = [:]
+    var unreadDirectIDs: Set<UUID> = []
+    var unreadGroupIDs: Set<UUID> = []
     /// The thread currently on screen, if any — suppresses the unread
     /// badge for a reply that lands while you're already looking at it.
     var openDirectChatID: UUID?
@@ -269,6 +380,7 @@ final class AppModel {
         for shared in SharedChallengeStore.shared.challenges where shared.kind != .custom {
             await SharedChallengeStore.shared.syncTodayFromHealth(challengeLocalID: shared.localID, myLocalID: me.id)
         }
+        checkExpiredChallenges()
     }
 
     /// Pulls today's totals and recent runs — called whenever a screen
@@ -325,23 +437,23 @@ final class AppModel {
         ]
     }
 
-    /// Pulls today's real activity from Health — steps or distance,
-    /// whichever the challenge tracks — and logs it in place of the manual
-    /// "Log Today" tap. Falls back to doing nothing if Health isn't
-    /// connected or has no data yet; the caller decides whether to fall
-    /// back to a manual log in that case.
+    /// Pulls the *real cumulative total* since this challenge started —
+    /// not "today's" total — so progress only ever reflects steps/miles
+    /// that happened after joining. Sets `healthTotal` to that absolute
+    /// number every time rather than adding to it, so a Health sync that
+    /// fires five times in a row (background delivery, a screen re-
+    /// appearing, a manual re-tap) reads the same real progress instead of
+    /// crediting the same steps five times over.
     func syncTodayFromHealth(for challengeID: UUID) async {
         guard healthKitConnected, let challenge = challenges.first(where: { $0.id == challengeID }) else { return }
-        let target = Double(challenge.dailyTarget)
-        guard target > 0 else { return }
         let measured: Double?
         switch challenge.kind {
-        case .steps: measured = await HealthKitManager.shared.fetchTodaySteps().map(Double.init)
-        case .distance: measured = await HealthKitManager.shared.fetchTodayDistanceMiles()
+        case .steps: measured = await HealthKitManager.shared.fetchTotalSteps(since: challenge.startDate).map(Double.init)
+        case .distance: measured = await HealthKitManager.shared.fetchTotalDistanceMiles(since: challenge.startDate)
         case .custom: measured = nil
         }
         guard let measured else { return }
-        logActivity(for: challengeID, hitTarget: measured >= target, measuredRatio: measured / target)
+        applyMeasuredTotal(for: challengeID, healthTotal: measured)
     }
 
     /// Logs a just-finished `LiveTrackingView` recording against a
@@ -351,32 +463,38 @@ final class AppModel {
     /// anyone has moved. Distance challenges log the tracked miles
     /// directly; steps challenges convert distance using the common
     /// ~2,000-steps-per-mile estimate, since GPS has no way to count
-    /// footfalls directly. Custom challenges have nothing GPS can verify,
-    /// so the session still saves the trail but skips logging progress.
+    /// footfalls directly. Added on top of (never replacing) the Health
+    /// total, since this app doesn't write tracked sessions back into
+    /// HealthKit as workouts — a synced Health total wouldn't otherwise
+    /// know this session happened. Custom challenges have nothing GPS can
+    /// verify, so the session still saves the trail but skips progress.
     func applyTrackedSession(_ session: TrackedSession, to challengeID: UUID) {
         guard let idx = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
         if !session.coordinates.isEmpty {
             challenges[idx].routeCoordinates = session.coordinates
         }
-        let target = Double(challenges[idx].dailyTarget)
-        guard target > 0 else { return }
         let measured: Double?
         switch challenges[idx].kind {
-        case .steps: measured = session.distanceMiles * 2000
+        // Real pedometer steps when available — falls back to the
+        // ~2,000-steps-per-mile GPS estimate only if CMPedometer had
+        // nothing (e.g. unsupported hardware), since actual step data
+        // beats an estimate derived from distance the GPS may have barely
+        // registered on a short walk.
+        case .steps: measured = session.steps > 0 ? Double(session.steps) : session.distanceMiles * 2000
         case .distance: measured = session.distanceMiles
         case .custom: measured = nil
         }
         guard let measured, measured > 0 else { return }
-        logActivity(for: challengeID, hitTarget: measured >= target, measuredRatio: measured / target)
+        applyMeasuredTotal(for: challengeID, addTrackedAmount: measured)
     }
 
     // MARK: Activity — appends real history, so charts read actual data
 
-    /// `measuredRatio` is how much of the daily target a real HealthKit
-    /// reading actually covered (1.0 == exactly hit it) — when present, the
-    /// day's progress scales with it instead of always crediting the same
-    /// fixed amount, and the entry is marked verified. Manual "Log Today"
-    /// taps pass `nil` and keep the flat honor-system increment.
+    /// The manual honor-system path — one flat, once-a-day-feeling notch
+    /// per tap, unrelated to any real measurement. This is the only path
+    /// left that's additive by design: someone tapping "Log Today" by hand
+    /// has no real total to set progress *to*, only a "yes, I did
+    /// something today" to credit.
     func logActivity(for challengeID: UUID, hitTarget: Bool, measuredRatio: Double? = nil) {
         guard let idx = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
         if let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) {
@@ -388,6 +506,73 @@ final class AppModel {
             challenges[idx].standings[sIdx].lastLogVerified = measuredRatio != nil
         }
         recomputeRanks(at: idx)
+        checkChallengeCompletion(at: idx)
+    }
+
+    /// The absolute-measurement path — HealthKit sync and Track Live both
+    /// go through here. `healthTotal`, when passed, *replaces* the stored
+    /// value (idempotent — the same real total always produces the same
+    /// progress); `addTrackedAmount` accumulates, since each finished
+    /// tracking session is a genuinely new, distinct event. Progress is
+    /// `max`'d against whatever it already was rather than overwritten
+    /// outright, so real evidence only ever raises it — the same way a
+    /// trip odometer doesn't run backwards. One entry gets appended to
+    /// `progressHistory` per real calendar day; a second sync the same day
+    /// updates that entry in place instead of appending a duplicate.
+    private func applyMeasuredTotal(for challengeID: UUID, healthTotal: Double? = nil, addTrackedAmount: Double = 0) {
+        guard let idx = challenges.firstIndex(where: { $0.id == challengeID }),
+              let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) else { return }
+        if let healthTotal { challenges[idx].standings[sIdx].healthTotal = healthTotal }
+        if addTrackedAmount > 0 { challenges[idx].standings[sIdx].trackedTotal += addTrackedAmount }
+        let combined = challenges[idx].standings[sIdx].healthTotal + challenges[idx].standings[sIdx].trackedTotal
+        let ratio = min(1, combined / challenges[idx].effectiveGoalTarget)
+        let previous = challenges[idx].standings[sIdx].progress
+        let next = max(previous, ratio)
+        guard next != previous || addTrackedAmount > 0 else { return }
+        challenges[idx].standings[sIdx].progress = next
+        challenges[idx].standings[sIdx].lastLogVerified = true
+        let deltaPct = Int(((next - previous) * 100).rounded())
+        challenges[idx].standings[sIdx].trendDelta = deltaPct == 0 ? "—" : String(format: "%+d%%", deltaPct)
+
+        let today = Calendar.current.startOfDay(for: Date())
+        if let lastDay = challenges[idx].standings[sIdx].lastLoggedDay, Calendar.current.isDate(lastDay, inSameDayAs: today) {
+            let lastIdx = challenges[idx].standings[sIdx].progressHistory.count - 1
+            if lastIdx >= 0 { challenges[idx].standings[sIdx].progressHistory[lastIdx] = next }
+        } else {
+            challenges[idx].standings[sIdx].progressHistory.append(next)
+            challenges[idx].standings[sIdx].lastLoggedDay = today
+        }
+        recomputeRanks(at: idx)
+        checkChallengeCompletion(at: idx)
+    }
+
+    /// Auto-resolves a challenge the moment either condition is real: the
+    /// goal's been hit outright (first past the post wins immediately,
+    /// same beat as a real race), or the duration's run out with nobody
+    /// reaching it (highest real progress wins instead of leaving it
+    /// hanging forever — `resolveChallenge` already picks that winner by
+    /// actual progress). Called after anything that could change progress,
+    /// plus a periodic sweep from `autoSyncFromHealth` so a challenge whose
+    /// last day passes without a fresh log still actually ends.
+    private func checkChallengeCompletion(at idx: Int) {
+        guard challenges[idx].status == .active else { return }
+        let goalHit = challenges[idx].standings.contains { $0.progress >= 1 }
+        let daysElapsed = Calendar.current.dateComponents([.day], from: challenges[idx].startDate, to: Date()).day ?? 0
+        let timeUp = daysElapsed >= challenges[idx].durationDays
+        guard goalHit || timeUp else { return }
+        resolveChallenge(challenges[idx].id)
+    }
+
+    /// Sweeps every active challenge for the time-based completion case —
+    /// unlike the goal-hit case, nothing else naturally triggers a check
+    /// on the exact day a challenge's duration runs out if nobody happens
+    /// to log anything that day, so this needs its own periodic call.
+    func checkExpiredChallenges() {
+        for challenge in challenges where challenge.status == .active {
+            if let idx = challenges.firstIndex(where: { $0.id == challenge.id }) {
+                checkChallengeCompletion(at: idx)
+            }
+        }
     }
 
     /// `rank` was only ever set once, at challenge creation, and never
@@ -407,9 +592,17 @@ final class AppModel {
 
     // MARK: Challenges
 
+    /// `goalTarget`, when passed (a suggestion's own "hit 50,000 steps this
+    /// week to win"), is used as-is. Otherwise it's computed here from this
+    /// specific group's own typical daily pace — `personalizedStepTarget`
+    /// for steps, a moderate 3 mi/day baseline for distance — times the
+    /// duration, stretched 15% past a straightforward pace so it takes
+    /// real, sustained effort to win outright rather than making it a
+    /// given. Not scaled by participant count: it's an individual target
+    /// everyone races toward independently, not a pooled group total.
     func createChallenge(title: String, icon: String, kind: ChallengeKind, venue: String, rules: String,
                           photoName: String, duration: Int, customMetric: String?, payoff: Payoff,
-                          blindReveal: Bool, fairPlay: Bool, invitees: [Member]) {
+                          blindReveal: Bool, fairPlay: Bool, invitees: [Member], goalTarget: Double? = nil) {
         var standings = [Standing(member: me, rank: 1, progress: 0, trendDelta: "—", progressHistory: [0])]
         for (i, m) in invitees.enumerated() {
             standings.append(Standing(member: m, rank: i + 2, progress: 0, trendDelta: "—", progressHistory: [0]))
@@ -419,13 +612,21 @@ final class AppModel {
             case .distance: 2
             case .custom: 1
         }
+        let stretchFactor = 1.15
+        let resolvedGoal: Double? = goalTarget ?? {
+            switch kind {
+            case .steps: return Double(personalizedStepTarget) * Double(duration) * stretchFactor
+            case .distance: return 3.0 * Double(duration) * stretchFactor
+            case .custom: return nil
+            }
+        }()
         let challenge = Challenge(id: UUID(), title: title, icon: icon, kind: kind,
                                    venue: venue, rules: rules, photoName: photoName,
                                    durationDays: duration, daysLeft: duration, dailyTarget: dailyTarget,
                                    customMetric: customMetric, payoff: payoff,
                                    standings: standings, myMemberID: me.id,
                                    blindReveal: blindReveal, fairPlay: fairPlay, status: .active,
-                                   routeCoordinates: nil, winnerName: nil)
+                                   routeCoordinates: nil, winnerName: nil, startDate: Date(), goalTarget: resolvedGoal)
         challenges.insert(challenge, at: 0)
         justCreated = true
     }
@@ -612,6 +813,10 @@ final class AppModel {
            let saved = try? JSONDecoder().decode(PersistedSession.self, from: data) {
             apply(saved)
         }
+        if let raw = UserDefaults.standard.string(forKey: Self.appearanceDefaultsKey), let pref = AppearancePreference(rawValue: raw) {
+            appearance = pref
+        }
+        pushNotificationsEnabled = UserDefaults.standard.bool(forKey: Self.pushNotificationsDefaultsKey)
         Task { await reconcileWithCloud() }
         if UserDefaults.standard.bool(forKey: Self.healthKitConnectedDefaultsKey) {
             // Re-verifies (near-instant, no re-prompt, since it's already
@@ -619,6 +824,10 @@ final class AppModel {
             // see connectHealthKit().
             Task { await connectHealthKit() }
         }
+        // Catches a challenge whose duration ran out while the app was
+        // closed, so it doesn't just sit at .active forever until someone
+        // happens to log something again.
+        checkExpiredChallenges()
     }
 
     /// Suppresses `persistSession()` while `apply(_:)` is bulk-assigning

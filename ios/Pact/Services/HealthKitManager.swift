@@ -134,6 +134,21 @@ final class HealthKitManager {
         return meters / 1609.344
     }
 
+    /// Steps/distance since an arbitrary date — a challenge's own
+    /// `startDate` — so progress only ever reflects activity that happened
+    /// *after* joining, never whatever steps already existed that day
+    /// before the challenge began.
+    func fetchTotalSteps(since date: Date) async -> Int? {
+        guard isAvailable, let stepType else { return nil }
+        return await sum(for: stepType, since: date).map { Int($0) }
+    }
+
+    func fetchTotalDistanceMiles(since date: Date) async -> Double? {
+        guard isAvailable, let distanceType else { return nil }
+        guard let meters = await sum(for: distanceType, unit: .meter(), since: date) else { return nil }
+        return meters / 1609.344
+    }
+
     private func sum(for type: HKQuantityType, unit: HKUnit = .count(), since start: Date) async -> Double? {
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
         return await withCheckedContinuation { continuation in

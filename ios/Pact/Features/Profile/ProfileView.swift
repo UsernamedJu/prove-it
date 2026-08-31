@@ -177,7 +177,10 @@ struct ProfileView: View {
                         MilestoneBadge(milestone: milestone)
                     }
                 }
-                .padding(.horizontal, 1)
+                // The ring's stroke straddles its Circle's exact edge, so
+                // without this the top/bottom couple points of it get
+                // clipped by the ScrollView's own bounds.
+                .padding(4)
             }
         }
     }

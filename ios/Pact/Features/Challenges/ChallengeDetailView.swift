@@ -305,8 +305,43 @@ private struct BoardRow: View {
 
 private struct ProgressTab: View {
     let challenge: Challenge
+    @Environment(AppModel.self) private var app
 
     private var mine: Standing? { challenge.myStanding }
+
+    /// Real days elapsed since the challenge started, clamped so a same-day
+    /// challenge or one just past its end doesn't produce a 0 or negative
+    /// divisor anywhere below.
+    private var daysElapsed: Int {
+        max(1, min(challenge.durationDays, Calendar.current.dateComponents([.day], from: challenge.startDate, to: Date()).day ?? 1))
+    }
+
+    /// Projects a day-`durationDays` score from an actual average daily
+    /// rate — the user's real trailing-30-day Health average when
+    /// connected (the only real signal available before this challenge has
+    /// enough of its own history to extrapolate from), falling back to
+    /// this challenge's own rate-so-far otherwise. Never shown once the
+    /// challenge is already over — at that point the real result is the
+    /// number that matters, not an estimate of it.
+    private var projectedFinishText: String? {
+        guard challenge.status == .active, challenge.kind != .custom, daysElapsed < challenge.durationDays,
+              let mine else { return nil }
+        let combinedSoFar = mine.healthTotal + mine.trackedTotal
+        let avgDaily: Double
+        switch challenge.kind {
+        case .steps:
+            avgDaily = app.monthlySteps.map { Double($0) / 30.0 } ?? combinedSoFar / Double(daysElapsed)
+        case .distance:
+            avgDaily = app.monthlyDistanceMiles.map { $0 / 30.0 } ?? combinedSoFar / Double(daysElapsed)
+        case .custom:
+            return nil
+        }
+        guard avgDaily > 0 else { return nil }
+        let remainingDays = challenge.durationDays - daysElapsed
+        let projectedTotal = combinedSoFar + avgDaily * Double(remainingDays)
+        let projectedProgress = min(1, projectedTotal / challenge.effectiveGoalTarget)
+        return "At your average pace, you're on track for about \(Int((projectedProgress * 100).rounded()))% by day \(challenge.durationDays)."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
@@ -320,6 +355,13 @@ private struct ProgressTab: View {
                     ProgressPill(progress: mine?.progress ?? 0, tint: challenge.tint, height: 10)
                     Text("\(challenge.durationDays - challenge.daysLeft) of \(challenge.durationDays) days in")
                         .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    if let projectedFinishText {
+                        Divider().overlay(Theme.Surface.border)
+                        HStack(spacing: 6) {
+                            Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 12)).foregroundStyle(challenge.tint)
+                            Text(projectedFinishText).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.secondary)
+                        }
+                    }
                 }
             }
 
@@ -505,12 +547,16 @@ private struct DetailsTab: View {
             }
 
             if challenge.status == .active, challenge.kind != .custom {
+                let isLive = LocationTracker.shared.isTracking && LocationTracker.shared.challengeID == challenge.id
                 Button {
                     showingLiveTracking = true
                 } label: {
-                    HStack(spacing: 6) { Image(systemName: "location.fill"); Text("Track Live") }
+                    HStack(spacing: 6) {
+                        Image(systemName: isLive ? "dot.radiowaves.up.forward" : "location.fill")
+                        Text(isLive ? "Resume Live Tracking" : "Track Live")
+                    }
                 }
-                .buttonStyle(PactButtonStyle(kind: .outline))
+                .buttonStyle(PactButtonStyle(kind: isLive ? .tinted(Theme.Brand.lime) : .outline))
             }
 
             if challenge.status == .active || challenge.status == .revealReady {

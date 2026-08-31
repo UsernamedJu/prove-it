@@ -28,8 +28,12 @@ struct CreateChallengeView: View {
     /// Locked whenever this challenge started from a suggestion; free to
     /// pick or write your own otherwise.
     private let isPayoffLocked: Bool
+    private let seedID: UUID?
+    private let seedGoal: Double?
 
     init(seed: ChallengeSuggestion?) {
+        seedID = seed?.id
+        seedGoal = seed?.goalTarget
         _title = State(initialValue: seed?.title ?? "")
         _kind = State(initialValue: seed?.kind ?? .steps)
         _venue = State(initialValue: seed?.venue ?? "Citywide · San Diego")
@@ -314,7 +318,9 @@ struct CreateChallengeView: View {
                     HStack(spacing: Theme.Space.sm) {
                         HStack(spacing: -12) {
                             ForEach(participantMembers) { member in
-                                InitialBadge(name: member.name, size: 36)
+                                InitialBadge(name: member.name, size: 36,
+                                             overrideColor: member.id == app.me.id ? app.meColor : nil,
+                                             photoData: member.id == app.me.id ? app.myProfilePhotoData : nil)
                                     .overlay(Circle().stroke(Theme.Surface.card, lineWidth: 2))
                             }
                         }
@@ -370,7 +376,8 @@ struct CreateChallengeView: View {
         app.createChallenge(title: title, icon: ChallengeKind.suggestedIcon(title: title, venue: venue, kind: kind), kind: kind, venue: venue, rules: rules,
                              photoName: photoName, duration: duration,
                              customMetric: kind == .custom ? customMetric : nil, payoff: selectedPayoff,
-                             blindReveal: blindReveal, fairPlay: fairPlay, invitees: invitees)
+                             blindReveal: blindReveal, fairPlay: fairPlay, invitees: invitees, goalTarget: seedGoal)
+        if let seedID { app.usedSuggestionIDs.insert(seedID) }
         dismiss()
     }
 }

@@ -213,59 +213,17 @@ struct ProfileView: View {
 /// logo/wordmark, not a flat tint.
 private struct FitnessRing: View {
     let score: Int
-    /// Starts at 0 and animates up to `score` on appear, so the ring visibly
-    /// draws in every time you land on Profile instead of just materializing
-    /// already-full.
-    @State private var animatedScore: Int = 0
-    /// The arc's rotation — starts a full turn behind its resting -90°
-    /// (12 o'clock) position and spins forward into place *while* filling,
-    /// so the ring visibly circles in rather than just growing in place.
-    @State private var rotationDegrees: Double = -90 - 360
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// A bouncy spring is the wrong tool for a *full rotation* — with
-    /// dampingFraction 0.78 it visibly overshot past -90° and oscillated
-    /// back before settling, which reads as the ring wobbling rather than
-    /// circling smoothly into place. A timing-curve (strictly monotonic —
-    /// no overshoot possible) at a slower 2.2s gives a clean, deliberate
-    /// decelerate-to-a-stop instead.
-    private static let fillAnimation = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 2.2)
 
     var body: some View {
         ZStack {
             Circle().stroke(Theme.Ink.tertiary.opacity(0.15), lineWidth: 8)
             Circle()
-                .trim(from: 0, to: CGFloat(animatedScore) / 100)
+                .trim(from: 0, to: CGFloat(score) / 100)
                 .stroke(Theme.Brand.holo, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                .rotationEffect(.degrees(rotationDegrees))
-            Text("\(animatedScore)")
-                .font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
-                // Without this, the ring sweeps smoothly but the number
-                // itself just snaps straight from 0 to the final value —
-                // Text content isn't interpolated by default. This makes it
-                // visibly count up in sync with the ring instead.
-                .contentTransition(.numericText(value: Double(animatedScore)))
+                .rotationEffect(.degrees(-90))
+            Text("\(score)").font(Theme.Font.number(20)).foregroundStyle(Theme.Ink.primary)
         }
         .frame(width: 64, height: 64)
-        .onAppear {
-            // `MainTabView` wraps every tab switch in `.transaction { $0.animation
-            // = nil }` so the page itself cuts instantly — but that transaction
-            // also swallows a plain `withAnimation` called from `onAppear`, since
-            // the ring appears as part of that same no-animation commit. Deferring
-            // to the next run-loop tick via `asyncAfter` starts a fresh
-            // transaction the tab switch's override can't reach.
-            animatedScore = 0
-            rotationDegrees = reduceMotion ? -90 : -90 - 360
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(reduceMotion ? Self.fillAnimation.speed(3) : Self.fillAnimation) {
-                    animatedScore = score
-                    rotationDegrees = -90
-                }
-            }
-        }
-        .onChange(of: score) { _, newValue in
-            withAnimation(Self.fillAnimation) { animatedScore = newValue }
-        }
     }
 }
 

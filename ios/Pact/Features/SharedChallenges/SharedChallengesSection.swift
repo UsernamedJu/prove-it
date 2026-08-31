@@ -14,7 +14,7 @@ struct SharedChallengesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            SectionHeader(title: "Real Challenges")
+            SectionHeader(title: "Group Challenges")
             Text("Invite one buddy — synced over iCloud, not the demo crew.")
                 .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
 

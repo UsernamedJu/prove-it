@@ -18,7 +18,15 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.lg) {
                 header
-                moodBubble
+                // Once today's check-in is done, the bubble disappears
+                // entirely instead of just relabeling itself — it comes
+                // back on its own the next calendar day, since
+                // moodLoggedToday is derived fresh from the real history
+                // (see AppModel.recomputeMoodStreakState) rather than a
+                // flag that would need manually clearing at midnight.
+                if !app.moodLoggedToday {
+                    moodBubble
+                }
                 suggestedCard
                 if let dc = distanceChallenge { mapPreview(dc) }
                 activeSection

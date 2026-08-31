@@ -148,13 +148,24 @@ struct PactButtonStyle: ButtonStyle {
         Group {
             switch kind {
             case .primary:
+                // Real Liquid Glass with a color tint reads noticeably
+                // lighter/more translucent than a flat fill — fine for a
+                // secondary action, risky for the app's main CTA, which
+                // needs to stay the most legible thing on screen. This
+                // keeps a fully opaque purple base for contrast, and gets
+                // its "candy" gloss from a glass highlight layered on top
+                // instead of replacing the fill itself.
                 configuration.label
                     .font(Theme.Font.button())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
                     .background(Theme.Brand.purple)
+                    .overlay(
+                        LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0)], startPoint: .top, endPoint: .center)
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 1))
                     .shadow(color: Theme.Brand.purple.opacity(0.35),
                             radius: configuration.isPressed ? 4 : 12, y: configuration.isPressed ? 2 : 6)
             case .outline:
@@ -163,16 +174,14 @@ struct PactButtonStyle: ButtonStyle {
                     .foregroundStyle(Theme.Ink.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
-                    .glassSurface(cornerRadius: Theme.Radius.md)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
             case .tinted(let c):
                 configuration.label
                     .font(Theme.Font.button())
                     .foregroundStyle(c)
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
-                    .background(c.opacity(0.14))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous).stroke(c.opacity(0.3), lineWidth: 1.2))
+                    .glassEffect(.regular.tint(c.opacity(0.5)).interactive(), in: RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
             }
         }
         .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -708,51 +717,38 @@ struct PactSlider: View {
 // (scrollTargetLayout/scrollPosition/scrollTargetBehavior) rather than
 // hand-rolled drag math, so the momentum/bounce feel is the system's own.
 
+// A real timer-style wheel — the same UIPickerView-derived control the
+// Clock app's timer uses, via SwiftUI's native `.wheel` picker style,
+// rather than a hand-built horizontal ruler. Everything about how it
+// centers the selection, fades neighboring rows, and scrolls/snaps is the
+// system's own — the previous horizontal tick-mark version read as too
+// far from that familiar "spin a wheel of numbers" feel.
 struct RulerScale: View {
     @Binding var value: Double
     var range: ClosedRange<Double>
     var step: Double = 1
     var tint: Color = Theme.Brand.purple
-    /// Every Nth tick is drawn taller/darker as a labeled anchor point.
-    var majorEvery: Int = 5
 
-    @State private var scrollPosition: Int?
+    private var values: [Int] {
+        Array(stride(from: Int(range.lowerBound), through: Int(range.upperBound), by: max(1, Int(step))))
+    }
 
-    private var stepCount: Int { Int(((range.upperBound - range.lowerBound) / step).rounded()) }
-    private func stepValue(_ i: Int) -> Double { range.lowerBound + Double(i) * step }
-    private func index(for v: Double) -> Int {
-        let raw = Int(((v - range.lowerBound) / step).rounded())
-        return min(max(raw, 0), stepCount)
+    private var selection: Binding<Int> {
+        Binding(
+            get: { Int(value.rounded()) },
+            set: { newValue in value = Double(newValue) }
+        )
     }
 
     var body: some View {
-        GeometryReader { geo in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(0...stepCount, id: \.self) { i in
-                        let isMajor = i % majorEvery == 0
-                        Rectangle()
-                            .fill(isMajor ? Theme.Ink.secondary : Theme.Ink.tertiary.opacity(0.5))
-                            .frame(width: isMajor ? 2 : 1, height: isMajor ? 30 : 15)
-                            .frame(height: 44, alignment: .bottom)
-                            .id(i)
-                    }
-                }
-                .scrollTargetLayout()
-                .padding(.horizontal, geo.size.width / 2)
+        Picker("", selection: selection) {
+            ForEach(values, id: \.self) { v in
+                Text("\(v)").font(Theme.Font.h2()).foregroundStyle(tint).tag(v)
             }
-            .scrollPosition(id: $scrollPosition, anchor: .center)
-            .scrollTargetBehavior(.viewAligned)
-            .overlay(Rectangle().fill(tint).frame(width: 3, height: 44))
         }
-        .frame(height: 56)
-        .onAppear { scrollPosition = index(for: value) }
-        .onChange(of: scrollPosition) { _, newIndex in
-            guard let newIndex else { return }
-            let newValue = stepValue(newIndex)
-            if newValue != value { value = newValue }
-        }
-        .sensoryFeedback(.selection, trigger: scrollPosition)
+        .pickerStyle(.wheel)
+        .frame(height: 130)
+        .sensoryFeedback(.selection, trigger: value)
     }
 }
 
@@ -919,6 +915,8 @@ struct PactBackground: View {
 
 struct PactMark: View {
     var size: CGFloat = 32
+    @State private var hue: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -932,6 +930,13 @@ struct PactMark: View {
                 .offset(x: size * 0.22)
         }
         .frame(width: size * 1.5, height: size)
+        .hueRotation(.degrees(hue))
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.linear(duration: 6).repeatForever(autoreverses: false)) {
+                hue = 360
+            }
+        }
     }
 }
 

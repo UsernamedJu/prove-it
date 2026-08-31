@@ -80,7 +80,7 @@ struct CreateSharedChallengeSheet: View {
                     .padding(Theme.Space.lg)
                 }
             }
-            .navigationTitle("Real Challenge")
+            .navigationTitle("Group Challenge")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

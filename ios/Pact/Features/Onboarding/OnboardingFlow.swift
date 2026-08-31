@@ -181,39 +181,40 @@ struct OnboardingFlow: View {
     // the system permission dialog or is on a device where HealthKit
     // genuinely isn't available.
 
+    /// A full redesign, not a tweak of the previous version — a big
+    /// pulsing hero icon instead of a cramped info row, with the three
+    /// things actually being read shown as their own glass rows that
+    /// visibly check off once connected.
     private var healthSetupStep: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.lg) {
+        VStack(spacing: Theme.Space.lg) {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 Text("Connect Apple Health").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
-                Text("Provyr reads your steps and runs straight from Health — including anything your Apple Watch already logs — so challenge progress is real, not just self-reported.")
+                Text("So challenge progress is real, not self-reported.")
                     .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, Theme.Space.xl)
 
-            PactCard(tint: app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan) {
-                VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                    HStack(spacing: Theme.Space.sm) {
-                        Image(systemName: app.healthKitConnected ? "checkmark.circle.fill" : "heart.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
-                        Text(app.healthKitConnected ? "Connected" : "Not connected yet")
-                            .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Spacer()
-                    }
-                    Divider().overlay(Theme.Surface.border)
-                    HStack(spacing: 0) {
-                        healthReadItem(icon: "shoeprints.fill", label: "Steps")
-                        healthReadItem(icon: "location.fill", label: "Distance")
-                        healthReadItem(icon: "figure.run", label: "Runs")
-                    }
-                    Text(app.healthKitConnected
-                         ? "Provyr can now verify your progress instead of taking it on the honor system."
-                         : "That's everything Provyr ever reads from Health — nothing else.")
-                        .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                }
+            Spacer(minLength: Theme.Space.md)
+
+            ZStack {
+                Circle().fill((app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan).opacity(0.12))
+                    .frame(width: 176, height: 176)
+                Circle().fill((app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan).opacity(0.22))
+                    .frame(width: 124, height: 124)
+                Image(systemName: app.healthKitConnected ? "checkmark.circle.fill" : "heart.fill")
+                    .font(.system(size: 52, weight: .bold))
+                    .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
+                    .symbolEffect(.pulse, options: .repeating, isActive: !app.healthKitConnected)
             }
 
-            Spacer()
+            VStack(spacing: Theme.Space.sm) {
+                healthReadRow(icon: "shoeprints.fill", label: "Steps")
+                healthReadRow(icon: "location.fill", label: "Distance")
+                healthReadRow(icon: "figure.run", label: "Runs")
+            }
+
+            Spacer(minLength: Theme.Space.md)
 
             if app.healthKitConnected {
                 Button("Continue →") { goTo(4) }
@@ -243,13 +244,20 @@ struct OnboardingFlow: View {
         .padding(.horizontal, Theme.Space.lg)
     }
 
-    private func healthReadItem(icon: String, label: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 18))
+    private func healthReadRow(icon: String, label: String) -> some View {
+        HStack(spacing: Theme.Space.sm) {
+            Image(systemName: icon).font(.system(size: 16)).frame(width: 22)
                 .foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
-            Text(label).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+            Text(label).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+            Spacer()
+            Image(systemName: "checkmark")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Theme.Brand.lime)
+                .opacity(app.healthKitConnected ? 1 : 0)
         }
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Theme.Space.md)
+        .frame(height: 48)
+        .glassSurface(cornerRadius: Theme.Radius.sm, tint: app.healthKitConnected ? Theme.Brand.lime : nil)
     }
 
     // MARK: Step 4 — why they're here, which quietly steers the recommendation later

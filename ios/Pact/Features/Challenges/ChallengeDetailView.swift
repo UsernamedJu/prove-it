@@ -457,6 +457,7 @@ private struct DetailsTab: View {
     @Environment(AppModel.self) private var app
     let challenge: Challenge
     @State private var showingForfeitConfirm = false
+    @State private var showingLiveTracking = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
@@ -503,6 +504,15 @@ private struct DetailsTab: View {
                 .buttonStyle(PactButtonStyle(kind: .primary))
             }
 
+            if challenge.status == .active, challenge.kind != .custom {
+                Button {
+                    showingLiveTracking = true
+                } label: {
+                    HStack(spacing: 6) { Image(systemName: "location.fill"); Text("Track Live") }
+                }
+                .buttonStyle(PactButtonStyle(kind: .outline))
+            }
+
             if challenge.status == .active || challenge.status == .revealReady {
                 Button(role: .destructive) {
                     showingForfeitConfirm = true
@@ -524,6 +534,9 @@ private struct DetailsTab: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This ends the challenge right now and counts as a loss — the stakes still apply. This can't be undone.")
+        }
+        .fullScreenCover(isPresented: $showingLiveTracking) {
+            NavigationStack { LiveTrackingView(challengeID: challenge.id) }
         }
     }
 

@@ -344,6 +344,32 @@ final class AppModel {
         logActivity(for: challengeID, hitTarget: measured >= target, measuredRatio: measured / target)
     }
 
+    /// Logs a just-finished `LiveTrackingView` recording against a
+    /// challenge, and replaces the map's route with the trail actually
+    /// walked or run — a real GPS path is more honest there than the
+    /// generic directions-to-venue line `ensureRealRoute` draws before
+    /// anyone has moved. Distance challenges log the tracked miles
+    /// directly; steps challenges convert distance using the common
+    /// ~2,000-steps-per-mile estimate, since GPS has no way to count
+    /// footfalls directly. Custom challenges have nothing GPS can verify,
+    /// so the session still saves the trail but skips logging progress.
+    func applyTrackedSession(_ session: TrackedSession, to challengeID: UUID) {
+        guard let idx = challenges.firstIndex(where: { $0.id == challengeID }) else { return }
+        if !session.coordinates.isEmpty {
+            challenges[idx].routeCoordinates = session.coordinates
+        }
+        let target = Double(challenges[idx].dailyTarget)
+        guard target > 0 else { return }
+        let measured: Double?
+        switch challenges[idx].kind {
+        case .steps: measured = session.distanceMiles * 2000
+        case .distance: measured = session.distanceMiles
+        case .custom: measured = nil
+        }
+        guard let measured, measured > 0 else { return }
+        logActivity(for: challengeID, hitTarget: measured >= target, measuredRatio: measured / target)
+    }
+
     // MARK: Activity — appends real history, so charts read actual data
 
     /// `measuredRatio` is how much of the daily target a real HealthKit

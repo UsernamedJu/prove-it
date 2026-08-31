@@ -53,7 +53,14 @@ struct MapExploreView: View {
             .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll, showsTraffic: false))
             .mapControlVisibility(.hidden)
             .colorScheme(.dark)
-            .ignoresSafeArea(edges: .bottom)
+            // No longer ignoring the bottom safe area on purpose: this map
+            // is full of tappable pins (every live challenge and
+            // suggestion), and letting them render underneath the floating
+            // glass tab bar meant a tap that looked like it landed on the
+            // tab bar could actually hit a pin sitting behind it — a real
+            // "accidentally opened the wrong screen" bug, not just a visual
+            // nitpick. The tab bar's own reserved safe-area inset now
+            // keeps the map's interactive content from ever reaching there.
             .onAppear { fitCamera() }
             .task {
                 // Real routes (see AppModel.ensureRealRoute /

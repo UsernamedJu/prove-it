@@ -465,7 +465,7 @@ struct BodyProfileEditor: View {
                         let hw = profile.heightFeetInches
                         VStack(alignment: .leading, spacing: 8) {
                             Text("\(hw.feet) ft \(hw.inches) in").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                            GradientRangeSlider(value: Binding(
+                            RulerScale(value: Binding(
                                 get: { profile.heightCm / 2.54 },
                                 set: { profile.heightCm = $0 * 2.54 }
                             ), range: 40...84, step: 1)
@@ -473,7 +473,7 @@ struct BodyProfileEditor: View {
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("\(Int(profile.heightCm)) cm").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                            GradientRangeSlider(value: $profile.heightCm, range: 100...230, step: 1)
+                            RulerScale(value: $profile.heightCm, range: 100...230, step: 1)
                         }
                     }
                 } else if units == .imperial {
@@ -488,7 +488,7 @@ struct BodyProfileEditor: View {
                 if units == .imperial {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(Int(profile.weightLb)) lb").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        GradientRangeSlider(value: Binding(
+                        RulerScale(value: Binding(
                             get: { profile.weightLb },
                             set: { profile.setWeightLb($0) }
                         ), range: 60...400, step: 1)
@@ -496,7 +496,7 @@ struct BodyProfileEditor: View {
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(Int(profile.weightKg)) kg").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        GradientRangeSlider(value: $profile.weightKg, range: 30...180, step: 1)
+                        RulerScale(value: $profile.weightKg, range: 30...180, step: 1)
                     }
                 }
             }
@@ -505,7 +505,7 @@ struct BodyProfileEditor: View {
                 if allowsIdentityEditing {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(profile.age) years old").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        GradientRangeSlider(value: Binding(
+                        RulerScale(value: Binding(
                             get: { Double(profile.age) },
                             set: { profile.age = Int($0) }
                         ), range: 13...100, step: 1)
@@ -700,48 +700,59 @@ struct PactSlider: View {
     }
 }
 
-// MARK: - Green-gradient range slider (onboarding/settings body-profile fields)
-// A custom track instead of the system Slider, since Slider's `.tint()` only
-// takes a flat Color — no way to get a gradient fill on it. Mirrors
-// PactSlider's drag mechanics but generalized to an arbitrary range/step.
+// MARK: - Ruler scale (onboarding/settings body-profile fields: height,
+// weight, age) — a horizontally-scrubbable tick-mark ruler with a fixed
+// center indicator, the same picker language as Apple's own Health app for
+// entering exactly this kind of value, in place of the plain capsule-track
+// slider these fields used before. Built on the real scroll-snapping APIs
+// (scrollTargetLayout/scrollPosition/scrollTargetBehavior) rather than
+// hand-rolled drag math, so the momentum/bounce feel is the system's own.
 
-struct GradientRangeSlider: View {
+struct RulerScale: View {
     @Binding var value: Double
     var range: ClosedRange<Double>
     var step: Double = 1
+    var tint: Color = Theme.Brand.purple
+    /// Every Nth tick is drawn taller/darker as a labeled anchor point.
+    var majorEvery: Int = 5
 
-    @GestureState private var isDragging = false
+    @State private var scrollPosition: Int?
+
+    private var stepCount: Int { Int(((range.upperBound - range.lowerBound) / step).rounded()) }
+    private func stepValue(_ i: Int) -> Double { range.lowerBound + Double(i) * step }
+    private func index(for v: Double) -> Int {
+        let raw = Int(((v - range.lowerBound) / step).rounded())
+        return min(max(raw, 0), stepCount)
+    }
 
     var body: some View {
         GeometryReader { geo in
-            let width = geo.size.width
-            let fraction = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.Surface.border2).frame(height: 6)
-                Capsule().fill(Theme.Brand.greenHolo).frame(width: max(14, width * fraction), height: 6)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 24, height: 24)
-                    .overlay(Circle().stroke(Color(hex: 0x16A34A), lineWidth: 3))
-                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
-                    .scaleEffect(isDragging ? 1.3 : 1.0)
-                    .offset(x: max(0, min(width, width * fraction)) - 12)
-                    .animation(Theme.Motion.pop, value: isDragging)
-            }
-            .frame(height: 24)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($isDragging) { _, state, _ in state = true }
-                    .onChanged { g in
-                        let frac = min(max(0, g.location.x / width), 1)
-                        let raw = range.lowerBound + Double(frac) * (range.upperBound - range.lowerBound)
-                        value = (raw / step).rounded() * step
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(0...stepCount, id: \.self) { i in
+                        let isMajor = i % majorEvery == 0
+                        Rectangle()
+                            .fill(isMajor ? Theme.Ink.secondary : Theme.Ink.tertiary.opacity(0.5))
+                            .frame(width: isMajor ? 2 : 1, height: isMajor ? 30 : 15)
+                            .frame(height: 44, alignment: .bottom)
+                            .id(i)
                     }
-            )
+                }
+                .scrollTargetLayout()
+                .padding(.horizontal, geo.size.width / 2)
+            }
+            .scrollPosition(id: $scrollPosition, anchor: .center)
+            .scrollTargetBehavior(.viewAligned)
+            .overlay(Rectangle().fill(tint).frame(width: 3, height: 44))
         }
-        .frame(height: 24)
-        .sensoryFeedback(.selection, trigger: value)
+        .frame(height: 56)
+        .onAppear { scrollPosition = index(for: value) }
+        .onChange(of: scrollPosition) { _, newIndex in
+            guard let newIndex else { return }
+            let newValue = stepValue(newIndex)
+            if newValue != value { value = newValue }
+        }
+        .sensoryFeedback(.selection, trigger: scrollPosition)
     }
 }
 

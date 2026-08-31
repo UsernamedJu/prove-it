@@ -133,21 +133,32 @@ enum Fixtures {
     static var challenges: [Challenge] { [familyTargetRun, finestCitySteps, laJollaCoastal, petcoParkFanWalk, balboaParkFamily] }
     static var activeChallenges: [Challenge] { challenges.filter { $0.status != .complete } }
 
-    // MARK: Suggested challenges (Home shows exactly one at a time, cycling through these)
-    // Grounded in San Diego's actual race calendar — the Balboa Park 5K Running
-    // Tour genuinely runs on Sundays, which is why it leads as "today."
-
-    // Each suggestion's payoff is bespoke, distinct from every other payoff
-    // in the app, and tied to *that specific venue's* actual character —
-    // Balboa Park's museums, the Gaslamp's nightlife, Mission Bay's chill
-    // mornings — rather than a generic stake that could belong to any
-    // challenge. Locked in once a challenge starts from one of these (see
-    // CreateChallengeView.isPayoffLocked) — the stake is part of the pitch,
-    // not a starting suggestion you're free to swap out.
-    static let suggestions: [ChallengeSuggestion] = [
+    // MARK: Suggested challenges — a real weekly rotation, not a fixed list
+    //
+    // `suggestionPool` holds every candidate; `suggestions` (below) picks a
+    // window of 4 from it keyed to the actual calendar week
+    // (Calendar.weekOfYear), so which four show up genuinely changes week
+    // to week — the same real place can still recur later in the rotation,
+    // the same way an actual weekly event calendar would repeat, but any
+    // given week shows a different four than the last. Every entry is
+    // still grounded in an actual San Diego neighborhood/venue and a
+    // plausible real event there — the Balboa Park 5K Running Tour
+    // genuinely runs on Sundays, Little Italy's Mercato genuinely runs
+    // Sundays, etc. — not generic "steps challenge #6" filler.
+    //
+    // Photos are reused from the app's existing kind-generic assets
+    // (photo-steps/photo-distance) for venues that don't have their own
+    // dedicated photo, the same way the fixture challenges already do for
+    // citywide-style challenges — no new image assets exist to add here.
+    //
+    // Each payoff is bespoke and tied to that specific venue's actual
+    // character, and locked in once a challenge starts from one of these
+    // (see CreateChallengeView.isPayoffLocked) — the stake is part of the
+    // pitch, not a starting suggestion you're free to swap out.
+    static let suggestionPool: [ChallengeSuggestion] = [
         ChallengeSuggestion(title: "Balboa Park 5K — Race Day", icon: "figure.run", kind: .distance,
                              venue: "Balboa Park", photoName: "photo-balboa5k",
-                             line: "The Balboa Park 5K Running Tour starts today. Set a pace goal and race it together.",
+                             line: "The Balboa Park 5K Running Tour runs Sundays. Set a pace goal and race it together.",
                              suggestedDuration: 1, payoff: Payoff(icon: "building.columns.fill", text: "Loser gives the museum tour, tour-voice and all")),
         ChallengeSuggestion(title: "Gaslamp Quarter Step Circuit", icon: "figure.walk", kind: .steps,
                              venue: "Gaslamp Quarter", photoName: "photo-gaslamp",
@@ -161,7 +172,43 @@ enum Fixtures {
                              venue: "Mission Bay", photoName: "photo-missionbay",
                              line: "Early miles around the bay. Built for consistency, not intensity.",
                              suggestedDuration: 10, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser delivers smoothies to everyone's door")),
+        ChallengeSuggestion(title: "Little Italy Mercato Sunday Walk", icon: "cart.fill", kind: .steps,
+                             venue: "Little Italy", photoName: "photo-steps",
+                             line: "The Mercato farmers market takes over Little Italy every Sunday morning. Walk the whole stretch.",
+                             suggestedDuration: 1, payoff: Payoff(icon: "bag.fill", text: "Loser carries everyone's Mercato bags home")),
+        ChallengeSuggestion(title: "Ocean Beach Pier Walk", icon: "fish.fill", kind: .distance,
+                             venue: "Ocean Beach", photoName: "photo-distance",
+                             line: "Out to the end of OB Pier and back, most evenings the sunset's worth the walk alone.",
+                             suggestedDuration: 3, payoff: Payoff(icon: "fork.knife", text: "Loser buys everyone fish tacos at the pier café")),
+        ChallengeSuggestion(title: "North Park Brewery Steps", icon: "mug.fill", kind: .steps,
+                             venue: "North Park", photoName: "photo-steps",
+                             line: "North Park packs more breweries per block than anywhere else in the city. Walk between a few.",
+                             suggestedDuration: 7, payoff: Payoff(icon: "car.fill", text: "Loser's the designated driver for the whole crawl")),
+        ChallengeSuggestion(title: "Pacific Beach Boardwalk Circuit", icon: "beach.umbrella.fill", kind: .distance,
+                             venue: "Pacific Beach", photoName: "photo-distance",
+                             line: "The PB boardwalk runs the whole coastline — bikes, skaters, and a lot of people to race past.",
+                             suggestedDuration: 5, payoff: Payoff(icon: "sun.max.fill", text: "Loser's on sunscreen-reapplication duty all day")),
+        ChallengeSuggestion(title: "Liberty Station Promenade Walk", icon: "building.2.fill", kind: .steps,
+                             venue: "Liberty Station", photoName: "photo-steps",
+                             line: "The old naval base's promenade and public market make for an easy, flat weekday loop.",
+                             suggestedDuration: 1, payoff: Payoff(icon: "takeoutbag.and.cup.and.straw.fill", text: "Loser picks up everyone's Liberty Public Market lunch")),
+        ChallengeSuggestion(title: "Sunset Cliffs Coastal Trail", icon: "sun.horizon.fill", kind: .distance,
+                             venue: "Sunset Cliffs", photoName: "photo-distance",
+                             line: "One of the city's most dramatic coastlines, best walked right before golden hour.",
+                             suggestedDuration: 3, payoff: Payoff(icon: "camera.fill", text: "Loser's on sunset-photo duty for the group chat")),
     ]
+
+    /// Which four of the pool show up this week — keyed to the actual
+    /// calendar week, so the same window is stable all week (reopening the
+    /// app doesn't reshuffle it) but a new week rotates to a different
+    /// four. `weekOfYear` wrapping means the same venue can recur later in
+    /// the year, same as a real recurring weekly event would.
+    static var suggestions: [ChallengeSuggestion] {
+        let week = Calendar.current.component(.weekOfYear, from: Date())
+        let start = week % suggestionPool.count
+        let rotated = Array(suggestionPool[start...] + suggestionPool[..<start])
+        return Array(rotated.prefix(4))
+    }
 
     // MARK: Mood history
 

@@ -920,7 +920,6 @@ struct PactMark: View {
     /// color flow has time to read as anything but a flash. On everywhere
     /// else (Home, Sign In, onboarding, lock screen) by default.
     var animated: Bool = true
-    @State private var angle: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// An angular sweep through the *same three brand colors* `holo`
@@ -928,32 +927,41 @@ struct PactMark: View {
     /// sweeping through the entire spectrum, which meant the logo spent
     /// most of its cycle showing colors nowhere in the app's actual
     /// palette. Rotating an AngularGradient never changes what the colors
-    /// *are*, only where they sit, which is what gives the "lava lamp"
+    /// *are*, only where they sit, which is the "lava lamp"
     /// blobs-of-the-same-colors-drifting feel instead.
-    private var flowingHolo: AngularGradient {
-        AngularGradient(
+    ///
+    /// Driven by `TimelineView` rather than a `@State` angle animated via
+    /// `withAnimation` — a `ShapeStyle` value like `AngularGradient` isn't
+    /// guaranteed to interpolate smoothly frame-to-frame the way an
+    /// `Animatable` view *modifier* (`.hueRotation`, `.rotationEffect`) is,
+    /// and in practice it didn't visibly move at all. Computing the angle
+    /// straight from elapsed wall-clock time and rebuilding the gradient
+    /// every frame sidesteps that entirely — there's no interpolation to
+    /// rely on, just a fresh, correct render each tick.
+    private func flowingHolo(at date: Date) -> AngularGradient {
+        let seconds = date.timeIntervalSinceReferenceDate
+        let cycle = 8.0
+        let progress = (seconds.truncatingRemainder(dividingBy: cycle)) / cycle
+        return AngularGradient(
             colors: [Theme.Brand.purple, Theme.Brand.gold, Theme.Brand.pink, Theme.Brand.purple],
-            center: .center, angle: .degrees(angle)
+            center: .center, angle: .degrees(progress * 360)
         )
     }
 
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(flowingHolo, lineWidth: size * 0.11)
-                .frame(width: size, height: size)
-                .offset(x: -size * 0.22)
-            Circle()
-                .stroke(flowingHolo, lineWidth: size * 0.11)
-                .frame(width: size, height: size)
-                .offset(x: size * 0.22)
-        }
-        .frame(width: size * 1.5, height: size)
-        .onAppear {
-            guard animated, !reduceMotion else { return }
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                angle = 360
+        TimelineView(.animation(paused: !animated || reduceMotion)) { context in
+            let gradient = flowingHolo(at: context.date)
+            ZStack {
+                Circle()
+                    .stroke(gradient, lineWidth: size * 0.11)
+                    .frame(width: size, height: size)
+                    .offset(x: -size * 0.22)
+                Circle()
+                    .stroke(gradient, lineWidth: size * 0.11)
+                    .frame(width: size, height: size)
+                    .offset(x: size * 0.22)
             }
+            .frame(width: size * 1.5, height: size)
         }
     }
 }

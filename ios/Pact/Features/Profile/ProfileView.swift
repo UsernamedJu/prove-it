@@ -85,14 +85,8 @@ struct ProfileView: View {
                     }
                     Spacer()
                 }
-                Text("From your recent mood trend and how often you're logging progress. Used only to recommend workout types and gauge challenge fit — not a currency.")
-                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "bubble.left.fill").font(.system(size: 12)).foregroundStyle(Theme.Brand.cyan)
-                    Text(app.fitnessCoachNote).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.secondary)
-                }
-                .padding(Theme.Space.sm)
-                .glassSurface(cornerRadius: Theme.Radius.sm, tint: Theme.Brand.cyan)
+                Text("From your recent mood trend and how often you're logging progress — \(app.fitnessCoachNote)")
+                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.secondary)
                 Divider().overlay(Theme.Surface.border)
                 HStack {
                     Image(systemName: fit.kind.icon).foregroundStyle(Theme.Brand.cyan)

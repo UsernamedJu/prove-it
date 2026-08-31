@@ -810,6 +810,14 @@ final class AppModel {
         crew.append(Member(name: trimmed))
     }
 
+    /// Adds someone found via `UserDirectory.lookup` — keeps their real
+    /// published ID rather than minting a new local one, and no-ops if
+    /// they're already in the crew (or would somehow resolve to "me").
+    func addMember(id: UUID, name: String) {
+        guard id != me.id, !crew.contains(where: { $0.id == id }) else { return }
+        crew.append(Member(id: id, name: name))
+    }
+
     func createGroup(name: String, memberIDs: [UUID]) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !memberIDs.isEmpty else { return }
@@ -1039,6 +1047,10 @@ final class AppModel {
         )
         guard let data = try? JSONEncoder().encode(saved) else { return }
         UserDefaults.standard.set(data, forKey: Self.sessionDefaultsKey)
+        if isSignedIn && hasOnboarded {
+            let id = me.id, name = me.name, colorIndex = meColorIndex
+            Task { await UserDirectory.shared.publish(id: id, name: name, colorIndex: colorIndex) }
+        }
         Task {
             let succeeded = await CloudSyncManager.shared.upload(data)
             cloudSyncStatus = succeeded ? .synced(Date()) : (await CloudSyncManager.shared.isAvailable ? .failed : .unavailable)

@@ -1,10 +1,15 @@
 import SwiftUI
+import UIKit
 
 struct ContactsView: View {
     @Environment(AppModel.self) private var app
     @State private var newName = ""
     @State private var showNewGroup = false
+    @State private var showLookup = false
     private var shareURL: URL? { Bundle.main.url(forResource: "PactShare", withExtension: "html") }
+    private var inviteMessage: Text {
+        Text("Join me on Provyr — track real challenges together. Add me with my Provyr ID: \(app.me.id.uuidString)")
+    }
 
     var body: some View {
         ScrollView {
@@ -39,9 +44,15 @@ struct ContactsView: View {
                         .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
 
                         if let shareURL {
-                            ShareLink(item: shareURL) {
+                            ShareLink(item: shareURL, message: inviteMessage) {
                                 Label("Send Invite Link", systemImage: "link.badge.plus")
                             }
+                        }
+
+                        Button {
+                            showLookup = true
+                        } label: {
+                            Label("Add by Provyr ID", systemImage: "magnifyingglass")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -77,6 +88,7 @@ struct ContactsView: View {
         .scrollDismissesKeyboard(.immediately)
         .background(PactBackground())
         .sheet(isPresented: $showNewGroup) { NewGroupSheet() }
+        .sheet(isPresented: $showLookup) { LookupByIDSheet() }
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .challenge(let id): ChallengeDetailView(challengeID: id)
@@ -214,6 +226,102 @@ private struct NewGroupSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+/// Looks someone up in the real CloudKit public directory by the ID they
+/// shared — see `UserDirectory`. Also shows this device's own ID up top,
+/// since sharing it is the other half of the same flow.
+private struct LookupByIDSheet: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var idText = ""
+    @State private var isSearching = false
+    @State private var result: UserDirectory.LookupResult?
+    @State private var searched = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                PactBackground()
+                VStack(alignment: .leading, spacing: Theme.Space.lg) {
+                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                        Text("YOUR PROVYR ID").font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.tertiary)
+                        HStack {
+                            Text(app.me.id.uuidString).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.secondary).lineLimit(1)
+                            Spacer()
+                            Button {
+                                UIPasteboard.general.string = app.me.id.uuidString
+                            } label: {
+                                Image(systemName: "doc.on.doc").font(.system(size: 13)).foregroundStyle(Theme.Brand.purple)
+                            }
+                        }
+                    }
+                    .padding(Theme.Space.md)
+                    .glassSurface(cornerRadius: Theme.Radius.md)
+
+                    VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                        Text("Add someone by their ID").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                        TextField("Paste their Provyr ID", text: $idText)
+                            .font(Theme.Font.body())
+                            .foregroundStyle(Theme.Ink.primary)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .padding(.horizontal, Theme.Space.md)
+                            .frame(height: 50)
+                            .glassSurface(cornerRadius: Theme.Radius.md)
+
+                        Button {
+                            search()
+                        } label: {
+                            if isSearching { ProgressView() } else { Text("Look Up") }
+                        }
+                        .buttonStyle(PactButtonStyle(kind: .primary))
+                        .disabled(idText.trimmingCharacters(in: .whitespaces).isEmpty || isSearching)
+                    }
+
+                    if searched {
+                        if let result {
+                            HStack(spacing: Theme.Space.sm) {
+                                InitialBadge(name: result.name, size: 40)
+                                Text(result.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                                Spacer()
+                                Button("Add") {
+                                    app.addMember(id: result.id, name: result.name)
+                                    dismiss()
+                                }
+                                .buttonStyle(PactButtonStyle(kind: .outline))
+                            }
+                            .padding(Theme.Space.sm)
+                            .glassSurface(cornerRadius: Theme.Radius.sm)
+                        } else {
+                            Text("No one found with that ID — check it was copied in full.")
+                                .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(Theme.Space.lg)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.foregroundStyle(Theme.Ink.secondary)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Add by ID").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                }
+            }
+        }
+    }
+
+    private func search() {
+        isSearching = true
+        searched = false
+        Task {
+            result = await UserDirectory.shared.lookup(id: idText)
+            isSearching = false
+            searched = true
+        }
     }
 }
 

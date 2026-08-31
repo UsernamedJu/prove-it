@@ -332,6 +332,25 @@ struct CreateChallengeView: View {
         [app.me] + app.crew.filter { selectedInvitees.contains($0.id) }
     }
 
+    /// Mirrors the same formula `AppModel.createChallenge` actually applies
+    /// — shown here so the goal isn't a silent number that only appears
+    /// after the challenge already exists. Based on this specific group's
+    /// own typical pace (via `app.personalizedStepTarget`), not a generic
+    /// constant — see `createChallenge` for why it's not scaled by
+    /// participant count.
+    private var previewGoal: Double? {
+        if let seedGoal { return seedGoal }
+        switch kind {
+        case .steps: return Double(app.personalizedStepTarget) * Double(duration) * 1.15
+        case .distance: return 3.0 * Double(duration) * 1.15
+        case .custom: return nil
+        }
+    }
+    private var previewGoalText: String {
+        guard let previewGoal else { return "—" }
+        return kind == .distance ? "\(Int(previewGoal)) mi" : "\(Int(previewGoal).formatted()) \(kind.unit)"
+    }
+
     private var reviewStep: some View {
         ScrollView {
         VStack(alignment: .leading, spacing: Theme.Space.lg) {
@@ -345,6 +364,7 @@ struct CreateChallengeView: View {
                     Text(venue).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                     Divider().overlay(Theme.Surface.border)
                     row("Duration", "\(duration) days")
+                    if previewGoal != nil { row("Goal to Win", previewGoalText) }
                     if blindReveal { row("Blind Reveal", "On") }
                     if fairPlay { row("Fair Play", "On") }
                 }

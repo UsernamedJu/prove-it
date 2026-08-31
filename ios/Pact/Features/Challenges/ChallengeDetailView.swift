@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import UIKit
 
 struct ChallengeDetailView: View {
     @Environment(AppModel.self) private var app
@@ -7,6 +8,8 @@ struct ChallengeDetailView: View {
     let challengeID: UUID
 
     @State private var subTab = 0
+    @State private var showingCamera = false
+    @State private var justSentProof = false
 
     private var challenge: Challenge? { app.challenges.first { $0.id == challengeID } }
 
@@ -66,8 +69,57 @@ struct ChallengeDetailView: View {
                                     subtitle: challenge.payoff.text) {
                     app.justRevealedID = nil
                 }
+            } else if justSentProof {
+                CelebrationOverlay(icon: "paperplane.fill", tint: Theme.Brand.lime,
+                                    title: "Sent!", subtitle: "\(challenge.winnerName ?? "They")'ll see it in your chat.") {
+                    justSentProof = false
+                }
             }
         }
+        // Only offered once the trophy celebration above has cleared — both
+        // become true from the same `resolveChallenge` call, but showing a
+        // sheet on top of that overlay at the same moment would step on it.
+        .sheet(isPresented: Binding(
+            get: { app.justRevealedID == nil && app.pendingProofChallengeID == challenge.id },
+            set: { if !$0 { app.skipProofPhoto() } }
+        )) {
+            proofPrompt(challenge)
+        }
+        .fullScreenCover(isPresented: $showingCamera) {
+            CameraCaptureView { image in
+                showingCamera = false
+                guard let image, let data = image.jpegData(compressionQuality: 0.8) else { return }
+                app.sendProofPhoto(for: challenge.id, imageData: data)
+                justSentProof = true
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    /// The loser's prompt after a blind-reveal challenge resolves — send a
+    /// real photo as proof, or skip it. Nothing here changes the result;
+    /// it's purely about whether the stakes actually get collected on.
+    private func proofPrompt(_ challenge: Challenge) -> some View {
+        VStack(spacing: Theme.Space.lg) {
+            Image(systemName: "camera.fill").font(.system(size: 40)).foregroundStyle(Theme.Brand.gold)
+            VStack(spacing: Theme.Space.xs) {
+                Text("Time to pay up").font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
+                Text(challenge.payoff.text)
+                    .font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+                    .multilineTextAlignment(.center)
+                Text("Send \(challenge.winnerName ?? "the winner") a photo as proof.")
+                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
+                    .multilineTextAlignment(.center)
+            }
+            Button { showingCamera = true } label: {
+                HStack(spacing: 6) { Image(systemName: "camera.fill"); Text("Take Photo") }
+            }
+            .buttonStyle(PactButtonStyle(kind: .primary))
+            Button("Skip for now") { app.skipProofPhoto() }
+                .font(Theme.Font.body()).foregroundStyle(Theme.Ink.tertiary)
+        }
+        .padding(Theme.Space.xl)
+        .presentationDetents([.medium])
     }
 
     private func hero(_ challenge: Challenge) -> some View {

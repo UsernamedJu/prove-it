@@ -267,6 +267,33 @@ final class AppModel {
         challenges[idx].status = .complete
         challenges[idx].winnerName = winner.member.name
         justRevealedID = id
+        // A blind-reveal challenge's whole hook is the real-world payoff —
+        // if "me" is the one who lost, that's the moment to actually
+        // collect on it: a real photo, sent to whoever won. Never set for
+        // a challenge I won (nothing to send), or a non-blind-reveal one
+        // (there's no surprise/stakes ritual to it).
+        if challenges[idx].blindReveal && winner.member.id != me.id {
+            pendingProofChallengeID = id
+        }
+    }
+
+    /// Sends the loser's captured proof photo to whoever won, via the same
+    /// direct-message chat every other 1:1 conversation in the app already
+    /// uses — there's no separate "proof" delivery mechanism, this rides
+    /// the existing chat thread with the winner.
+    func sendProofPhoto(for challengeID: UUID, imageData: Data) {
+        guard let challenge = challenges.first(where: { $0.id == challengeID }),
+              let winner = challenge.standings.min(by: { $0.rank < $1.rank }) else { return }
+        sendDirectMessage(to: winner.member.id,
+                           text: "Proof, as promised — you got me on \"\(challenge.title).\"",
+                           imageData: imageData)
+        pendingProofChallengeID = nil
+    }
+
+    /// Declines to send a proof photo right now — doesn't retract the loss
+    /// or the stakes, just dismisses the prompt without sending anything.
+    func skipProofPhoto() {
+        pendingProofChallengeID = nil
     }
 
     // MARK: Contacts + Groups

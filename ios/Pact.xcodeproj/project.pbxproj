@@ -134,6 +134,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PactInfo.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Provyr;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Provyr uses your camera to send proof photos when a blind-reveal challenge doesn't go your way.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Provyr securely with Face ID.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Provyr reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -162,6 +163,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PactInfo.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Provyr;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Provyr uses your camera to send proof photos when a blind-reveal challenge doesn't go your way.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Provyr securely with Face ID.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Provyr reads your step count — including data your Apple Watch logs automatically — to track challenge progress.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

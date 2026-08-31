@@ -120,6 +120,11 @@ final class AppModel {
     /// cleared by the view after its animation plays.
     var justCreated = false
     var justRevealedID: UUID?
+    /// Set right after a *blind-reveal* challenge resolves, only when "me"
+    /// is the one who lost it — the trigger for offering to send the
+    /// winner a proof photo. Never set for a challenge I won, or for a
+    /// non-blind-reveal one (there's no "proof" ritual for those).
+    var pendingProofChallengeID: UUID?
 
     /// Not private — Home binds a paging `TabView` directly to this so
     /// suggestions are swiped through like a real horizontal track instead

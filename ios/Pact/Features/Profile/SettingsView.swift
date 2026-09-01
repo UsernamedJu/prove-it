@@ -248,7 +248,23 @@ struct SettingsView: View {
             PactCard(tint: Theme.Brand.purple) {
                 Toggle("Require Face ID / Touch ID", isOn: Binding(
                     get: { app.appLockEnabled },
-                    set: { app.appLockEnabled = $0 }
+                    set: { newValue in
+                        guard newValue else {
+                            app.appLockEnabled = false
+                            return
+                        }
+                        // Turning this on immediately tests it, rather than
+                        // just flipping the switch and leaving the actual
+                        // system Face ID consent prompt (the real "Would
+                        // Like to Use Face ID" Allow/Don't Allow alert,
+                        // which iOS only ever shows the first time
+                        // evaluatePolicy actually runs) for whenever the
+                        // app happens to lock next. Only commits to
+                        // enabling it if that check actually succeeds.
+                        Task {
+                            app.appLockEnabled = await BiometricLock.unlock(reason: "Confirm Face ID to require it for Provyr")
+                        }
+                    }
                 ))
                 .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 .tint(Theme.Brand.purple)

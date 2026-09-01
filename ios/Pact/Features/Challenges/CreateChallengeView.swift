@@ -1,8 +1,13 @@
 import SwiftUI
+import UIKit
 
 struct CreateChallengeView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    /// Drives the Send button's own send-off animation — a haptic tap,
+    /// the label sliding out and fading as a spinner crosses in, then the
+    /// actual creation + dismiss once that's had a moment to read.
+    @State private var isSending = false
 
     @State private var title: String
     @State private var kind: ChallengeKind
@@ -421,11 +426,25 @@ struct CreateChallengeView: View {
                 }
             }
             Button {
-                send()
+                guard !isSending else { return }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                withAnimation(.easeIn(duration: 0.3)) { isSending = true }
+                Task {
+                    try? await Task.sleep(for: .seconds(0.35))
+                    send()
+                }
             } label: {
-                HStack(spacing: 6) { Image(systemName: "paperplane.fill"); Text("Send Challenge") }
+                ZStack {
+                    HStack(spacing: 6) { Image(systemName: "paperplane.fill"); Text("Send Challenge") }
+                        .offset(x: isSending ? 40 : 0)
+                        .opacity(isSending ? 0 : 1)
+                    if isSending {
+                        ProgressView().tint(.white).transition(.opacity)
+                    }
+                }
             }
             .buttonStyle(PactButtonStyle(kind: .primary))
+            .disabled(isSending)
         }
         .padding(.horizontal, Theme.Space.lg)
         .padding(.bottom, Theme.Space.xl)

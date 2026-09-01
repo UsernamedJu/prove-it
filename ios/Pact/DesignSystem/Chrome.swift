@@ -907,13 +907,58 @@ struct AccordionSection<Content: View>: View {
     }
 }
 
-/// Flat warm paper — no gradient, no ambient glow. A busy backdrop is the
-/// first thing to go when the goal is legibility for older eyes; the two
-/// hero photo moments (challenge detail, suggested card) carry all the
-/// visual richness instead.
+/// Flat paper base, same legibility-first reasoning as ever — plus a very
+/// quiet color wash drifting slowly behind it, in the exact same three
+/// brand colors `PactMark`'s logo animation uses (never the full hue
+/// spectrum, which would drift into off-brand colors). Kept subtle enough
+/// on purpose that it reads as ambience, not content: heavily blurred,
+/// low opacity, slow enough that it's never mid-motion snapshot-worthy
+/// while scanning a list of cards. `.allowsHitTesting(false)` so it never
+/// steals a tap meant for real content sitting on top of it.
 struct PactBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        Theme.Surface.bg.ignoresSafeArea()
+        ZStack {
+            Theme.Surface.bg
+            GeometryReader { geo in
+                TimelineView(.animation(paused: reduceMotion)) { context in
+                    let seconds = context.date.timeIntervalSinceReferenceDate
+                    ZStack {
+                        blob(color: Theme.Brand.purple, size: geo.size, seconds: seconds, phase: 0, speed: 0.05)
+                        blob(color: Theme.Brand.gold, size: geo.size, seconds: seconds, phase: 2.09, speed: 0.038)
+                        blob(color: Theme.Brand.pink, size: geo.size, seconds: seconds, phase: 4.19, speed: 0.044)
+                    }
+                    .blendMode(.plusLighter)
+                }
+            }
+            .blur(radius: 110)
+            .opacity(colorScheme == .dark ? 0.5 : 0.16)
+            .allowsHitTesting(false)
+        }
+        .ignoresSafeArea()
+    }
+
+    /// A small circle on a wide orbit, not a huge one that barely moves —
+    /// three blobs each 85% of the screen's own width (the first version
+    /// of this) never actually separated no matter where they drifted to,
+    /// so all three colors sat on top of each other the entire time and
+    /// mixed down to a flat brown instead of reading as purple/gold/pink.
+    /// `.plusLighter` on top of that means overlap always lightens toward
+    /// each color rather than muddying — the standard trick for blending
+    /// saturated colors without them turning to mud.
+    private func blob(color: Color, size: CGSize, seconds: Double, phase: Double, speed: Double) -> some View {
+        let angle = seconds * speed + phase
+        let orbitX = size.width * 0.4
+        let orbitY = size.height * 0.32
+        return Circle()
+            .fill(color)
+            .frame(width: size.width * 0.42, height: size.width * 0.42)
+            .position(
+                x: size.width * 0.5 + CGFloat(cos(angle)) * orbitX,
+                y: size.height * 0.4 + CGFloat(sin(angle)) * orbitY
+            )
     }
 }
 

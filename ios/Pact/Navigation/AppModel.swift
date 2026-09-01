@@ -769,7 +769,17 @@ final class AppModel {
                                    blindReveal: blindReveal, fairPlay: fairPlay, status: .active,
                                    routeCoordinates: nil, winnerName: nil, startDate: Date(), goalTarget: resolvedGoal)
         challenges.insert(challenge, at: 0)
-        justCreated = true
+        // Delayed rather than set the instant the challenge exists —
+        // this is always called from a screen that's about to dismiss
+        // and pop back to Home, and setting it synchronously meant
+        // CelebrationOverlay's own entrance (scale-in, sparkle burst)
+        // started playing while that pop transition was still visibly
+        // sliding — two competing animations at once, which is what read
+        // as "a little buggy." A short pause lets the pop settle first.
+        Task {
+            try? await Task.sleep(for: .seconds(0.45))
+            justCreated = true
+        }
     }
 
     /// Fetches (or reuses the cached) real walking route for a distance

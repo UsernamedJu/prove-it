@@ -24,7 +24,16 @@ struct ChallengesListView: View {
                 } else {
                     ForEach(app.challenges) { challenge in
                         ChallengeRow(challenge: challenge)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .opacity
+                            ))
                     }
+                    // Keyed to the actual membership/order, not every
+                    // incidental re-render — a freshly-sent challenge
+                    // (always inserted at index 0) now visibly settles
+                    // into the top of the list instead of just appearing.
+                    .animation(Theme.Motion.pop, value: app.challenges.map(\.id))
                 }
             }
             .padding(Theme.Space.lg)

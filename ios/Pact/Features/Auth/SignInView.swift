@@ -199,7 +199,20 @@ struct SignInView: View {
                     .compactMap { $0 }.joined(separator: " ")
                 app.bindSignedInIdentity(credential.user, name: name.isEmpty ? nil : name, method: "Apple")
             }
-        case .failure:
+        case .failure(let error):
+            // A deliberate cancel (tapped Cancel, swiped away the system
+            // sheet, or backed out of Face ID) was being treated exactly
+            // like tapping "Continue without signing in" — silently
+            // routing straight into onboarding as a guest before the
+            // person had actually finished, or even meant to abandon,
+            // signing in. Only a genuine capability failure (no paid
+            // Developer Program entitlement, e.g. in the Simulator) still
+            // falls back to guest mode; a real cancel just leaves them on
+            // this screen to try again or pick something else.
+            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+                appleCoordinator = nil
+                return
+            }
             continueAnyway()
         }
         appleCoordinator = nil

@@ -23,6 +23,13 @@ struct OnboardingFlow: View {
 
     private let totalSteps = 9
     @State private var locationTracker = LocationTracker.shared
+    /// A brief "Hey you" beat before the first real step, same idea as
+    /// SplashView's own one-beat moment before content — landing straight
+    /// on a form field the instant sign-in finishes felt abrupt; this
+    /// gives onboarding its own arrival instead of just being whatever
+    /// screen happened to load next.
+    @State private var showWelcome = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Motivation: String, CaseIterable, Identifiable {
         case family = "Stay accountable with family"
@@ -70,7 +77,30 @@ struct OnboardingFlow: View {
                 ))
                 .id(step)
             }
+
+            if showWelcome {
+                welcomeOverlay
+            }
         }
+        .onAppear {
+            guard showWelcome else { return }
+            let delay = reduceMotion ? 0.5 : 1.1
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                withAnimation(Theme.Motion.fade) { showWelcome = false }
+            }
+        }
+    }
+
+    private var welcomeOverlay: some View {
+        ZStack {
+            Theme.Surface.bg.ignoresSafeArea()
+            VStack(spacing: Theme.Space.sm) {
+                PactMark(size: 40)
+                Text("Hey you 👋").font(Theme.Font.display()).foregroundStyle(Theme.Ink.primary)
+                Text("Let's get you set up.").font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
+            }
+        }
+        .transition(.opacity)
     }
 
     /// Advances or retreats the flow with a direction-aware slide instead of

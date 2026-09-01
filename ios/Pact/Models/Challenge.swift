@@ -56,8 +56,16 @@ enum ChallengeKind: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// `.revealReady` — a distinct "scores are in, tap to reveal" window
+/// before `.complete` — used to exist here, but nothing ever actually
+/// transitioned a real challenge into it: `checkChallengeCompletion`
+/// resolves straight from `.active` to `.complete` the instant the goal's
+/// hit or time runs out, on purpose — a blind-reveal challenge is
+/// supposed to stay blind for its *entire* active run, not open an early
+/// peek window before it's actually over. Removed rather than left as
+/// dead code only one hand-authored fixture could ever reach.
 enum ChallengeStatus {
-    case active, revealReady, complete
+    case active, complete
 }
 
 /// "The Deal" — a fun, non-monetary payoff instead of a points pot. No cash,

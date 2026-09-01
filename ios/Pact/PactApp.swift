@@ -181,24 +181,36 @@ struct SplashView: View {
 /// Hand-rolled tab switch instead of `TabView`, so the bottom bar can be the
 /// floating pill from `PillTabBar` rather than a system tab bar — mirrors
 /// the web build's own state-driven tab switch.
+///
+/// Each tab's whole `NavigationStack` used to be torn down and rebuilt
+/// from scratch on every switch — a `switch` over `app.tab` gives each
+/// case a fresh view identity, so leaving Home and coming back reran every
+/// `.task`/`.onAppear` on it (a Health refresh, an expired-challenge
+/// sweep, real MKDirections route fetches on Map) and rebuilt its entire
+/// body from nothing, every single time. That cost was always there; it
+/// only became visible as lag once the plain instant cut this used to
+/// force became a real cross-fade animation stretched across it. Now
+/// every tab is built once, the first time it's actually visited, and
+/// kept alive after that — switching back to one already visited is just
+/// an opacity change on a view that already exists, not a rebuild.
 struct MainTabView: View {
     @Environment(AppModel.self) private var app
+    @State private var visitedTabs: Set<Tab> = []
 
     var body: some View {
-        Group {
-            switch app.tab {
-            case .home: NavigationStack { HomeView() }
-            case .challenges: NavigationStack { ChallengesListView() }
-            case .map: NavigationStack { MapExploreView() }
-            case .contacts: NavigationStack { ContactsView() }
-            case .me: NavigationStack { ProfileView() }
+        ZStack {
+            ForEach(Tab.allCases) { tab in
+                if visitedTabs.contains(tab) {
+                    tabRoot(tab)
+                        .opacity(app.tab == tab ? 1 : 0)
+                        .allowsHitTesting(app.tab == tab)
+                        .zIndex(app.tab == tab ? 1 : 0)
+                }
             }
         }
-        // A soft cross-fade between tabs instead of the instant cut this
-        // used to force — the switch's onSelect already wraps the state
-        // change in withAnimation(Theme.Motion.push), which is what
-        // actually drives this now that nothing here cancels it out.
-        .transition(.opacity)
+        .onAppear { visitedTabs.insert(app.tab) }
+        .onChange(of: app.tab) { _, newTab in visitedTabs.insert(newTab) }
+        .animation(Theme.Motion.fade, value: app.tab)
         .safeAreaInset(edge: .bottom) {
             PillTabBar(selection: app.tab, onSelect: { tab in withAnimation(Theme.Motion.push) { app.tab = tab } })
                 .padding(.horizontal, Theme.Space.xs)
@@ -206,6 +218,17 @@ struct MainTabView: View {
         }
         .background(Theme.Surface.bg.ignoresSafeArea())
         .tint(Theme.Brand.purple)
+    }
+
+    @ViewBuilder
+    private func tabRoot(_ tab: Tab) -> some View {
+        switch tab {
+        case .home: NavigationStack { HomeView() }
+        case .challenges: NavigationStack { ChallengesListView() }
+        case .map: NavigationStack { MapExploreView() }
+        case .contacts: NavigationStack { ContactsView() }
+        case .me: NavigationStack { ProfileView() }
+        }
     }
 }
 

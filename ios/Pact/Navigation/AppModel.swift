@@ -845,7 +845,7 @@ final class AppModel {
     /// natural resolution.
     func forfeitChallenge(_ id: UUID) {
         guard let idx = challenges.firstIndex(where: { $0.id == id }),
-              challenges[idx].status == .active || challenges[idx].status == .revealReady,
+              challenges[idx].status == .active,
               let sIdx = challenges[idx].standings.firstIndex(where: { $0.member.id == me.id }) else { return }
         challenges[idx].standings[sIdx].progress = 0
         recomputeRanks(at: idx)

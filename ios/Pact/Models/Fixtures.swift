@@ -99,8 +99,8 @@ enum Fixtures {
             Standing(member: me, rank: 1, progress: 1.0, trendDelta: "+1", progressHistory: history(days: 7, end: 1.0)),
             Standing(member: dad, rank: 2, progress: 0.9, trendDelta: "—", progressHistory: history(days: 7, end: 0.9)),
         ],
-        myMemberID: me.id, blindReveal: true, fairPlay: false, status: .revealReady,
-        routeCoordinates: nil, winnerName: nil, startDate: daysAgo(7)
+        myMemberID: me.id, blindReveal: true, fairPlay: false, status: .complete,
+        routeCoordinates: nil, winnerName: "You", startDate: daysAgo(7)
     )
 
     static let balboaParkFamily = Challenge(

@@ -26,9 +26,7 @@ struct ChallengeDetailView: View {
             VStack(spacing: 0) {
                 hero(challenge)
 
-                if challenge.status == .revealReady {
-                    revealBanner(challenge)
-                } else if challenge.status == .complete, let winner = challenge.winnerName {
+                if challenge.status == .complete, let winner = challenge.winnerName {
                     settledBanner(challenge, winner: winner)
                 } else if challenge.status == .complete {
                     forfeitedBanner(challenge)
@@ -166,26 +164,6 @@ struct ChallengeDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Space.sm)
         .photoOverlaySurface(cornerRadius: Theme.Radius.md)
-    }
-
-    private func revealBanner(_ challenge: Challenge) -> some View {
-        HStack(spacing: Theme.Space.sm) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Ready to reveal").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                Text("Scores are locked. Reveal to see the final standings.")
-                    .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-            }
-            Spacer()
-            Button {
-                withAnimation(Theme.Motion.pop) { app.resolveChallenge(challenge.id) }
-            } label: {
-                HStack(spacing: 6) { Image(systemName: "sparkles"); Text("Reveal") }
-            }
-            .buttonStyle(PactButtonStyle(kind: .tinted(Theme.Brand.lime), height: 44))
-            .fixedSize()
-        }
-        .padding(Theme.Space.md)
-        .background(Theme.Brand.gold.opacity(0.14))
     }
 
     private func settledBanner(_ challenge: Challenge, winner: String) -> some View {
@@ -571,15 +549,6 @@ private struct DetailsTab: View {
                 }
             }
 
-            if challenge.status == .revealReady {
-                Button {
-                    withAnimation(Theme.Motion.pop) { app.resolveChallenge(challenge.id) }
-                } label: {
-                    HStack(spacing: 6) { Image(systemName: "sparkles"); Text("Reveal Results") }
-                }
-                .buttonStyle(PactButtonStyle(kind: .primary))
-            }
-
             if challenge.status == .active, challenge.kind != .custom {
                 let isLive = LocationTracker.shared.isTracking && LocationTracker.shared.challengeID == challenge.id
                 Button {
@@ -593,7 +562,7 @@ private struct DetailsTab: View {
                 .buttonStyle(PactButtonStyle(kind: isLive ? .tinted(Theme.Brand.lime) : .outline))
             }
 
-            if challenge.status == .active || challenge.status == .revealReady {
+            if challenge.status == .active {
                 Button(role: .destructive) {
                     showingForfeitConfirm = true
                 } label: {

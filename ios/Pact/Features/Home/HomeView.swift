@@ -379,8 +379,6 @@ struct ChallengeRow: View {
                             }
                             .font(Theme.Font.caption()).foregroundStyle(Theme.Brand.purple)
                             .disabled(isSyncing)
-                        case .revealReady:
-                            TagBadge(text: "Reveal!", icon: "sparkles", tint: Theme.Brand.lime, filled: true)
                         case .complete:
                             TagBadge(text: "Complete", icon: "checkmark.circle.fill", tint: Theme.Ink.tertiary)
                         }

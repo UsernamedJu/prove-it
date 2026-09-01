@@ -930,11 +930,18 @@ struct PactBackground: View {
                         blob(color: Theme.Brand.gold, size: geo.size, seconds: seconds, phase: 2.09, speed: 0.038)
                         blob(color: Theme.Brand.pink, size: geo.size, seconds: seconds, phase: 4.19, speed: 0.044)
                     }
-                    .blendMode(.plusLighter)
+                    // .plusLighter only ever lightens *toward white* — on
+                    // an already near-white paper base (Surface.bg in
+                    // light mode) that's almost a no-op, which is why this
+                    // was invisible in light mode. Dark mode keeps it: a
+                    // near-black base has all the headroom for it to
+                    // actually glow. Light mode uses a plain alpha blend
+                    // instead, which reads as a real (if gentle) tint.
+                    .blendMode(colorScheme == .dark ? .plusLighter : .normal)
                 }
             }
             .blur(radius: 110)
-            .opacity(colorScheme == .dark ? 0.5 : 0.16)
+            .opacity(colorScheme == .dark ? 0.5 : 0.22)
             .allowsHitTesting(false)
         }
         .ignoresSafeArea()

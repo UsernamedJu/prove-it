@@ -23,11 +23,13 @@ struct ChallengesListView: View {
                         .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
                 } else {
                     ForEach(app.challenges) { challenge in
-                        ChallengeRow(challenge: challenge)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .top).combined(with: .opacity),
-                                removal: .opacity
-                            ))
+                        SwipeToDeleteRow(onDelete: { app.deleteChallenge(challenge.id) }) {
+                            ChallengeRow(challenge: challenge)
+                        }
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .opacity
+                        ))
                     }
                     // Keyed to the actual membership/order, not every
                     // incidental re-render — a freshly-sent challenge

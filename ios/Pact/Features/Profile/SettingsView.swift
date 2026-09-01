@@ -105,14 +105,9 @@ struct SettingsView: View {
             }
 
             PactCard(tint: Theme.Ink.tertiary, showsAccent: false) {
-                Toggle(isOn: $showAgeRange) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Show age range on profile").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Displays your age band (e.g. \"\(AgeBand.forAge(bodyProfile.age).rawValue)\") under your name.")
-                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                    }
-                }
-                .tint(Theme.Brand.purple)
+                Toggle("Show age range on profile", isOn: $showAgeRange)
+                    .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
+                    .tint(Theme.Brand.purple)
             }
         }
     }
@@ -144,11 +139,7 @@ struct SettingsView: View {
             PactCard(tint: app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan) {
                 HStack(spacing: Theme.Space.sm) {
                     Image(systemName: "heart.fill").foregroundStyle(app.healthKitConnected ? Theme.Brand.lime : Theme.Brand.cyan)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(app.healthKitConnected ? "Connected" : "Not connected").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Reads your steps, distance, and runs — including everything your Apple Watch logs — and updates challenge progress on its own the moment Health has something new.")
-                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                    }
+                    Text(app.healthKitConnected ? "Connected" : "Not connected").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                     Spacer()
                     Toggle(isOn: Binding(
                         get: { app.healthKitConnected },
@@ -182,18 +173,13 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     HStack(spacing: Theme.Space.sm) {
                         Image(systemName: "icloud.fill").foregroundStyle(cloudStatusTint)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(cloudStatusTitle).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                            Text("Your profile and mood history follow you to your other devices and survive a reinstall. Crew, groups, and challenges aren't synced this way yet.")
-                                .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                        }
+                        Text(cloudStatusTitle).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                         Spacer()
                     }
                     Divider().overlay(Theme.Surface.border)
-                    Toggle(isOn: Binding(get: { app.iCloudSyncEnabled }, set: { app.iCloudSyncEnabled = $0 })) {
-                        Text("Sync with iCloud").font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
-                    }
-                    .tint(Theme.Brand.purple)
+                    Toggle("Sync with iCloud", isOn: Binding(get: { app.iCloudSyncEnabled }, set: { app.iCloudSyncEnabled = $0 }))
+                        .font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
+                        .tint(Theme.Brand.purple)
                 }
             }
         }
@@ -241,16 +227,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             SectionHeader(title: "Notifications")
             PactCard(tint: Theme.Brand.pink, showsAccent: false) {
-                Toggle(isOn: Binding(get: { app.pushNotificationsEnabled }, set: { newValue in
+                Toggle("Challenge Notifications", isOn: Binding(get: { app.pushNotificationsEnabled }, set: { newValue in
                     app.pushNotificationsEnabled = newValue
                     if newValue { ChallengeNotifier.requestPermissionIfNeeded() }
-                })) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Challenge Notifications").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Rank changes, close calls, and last place — on-device alerts, sent with a bit of attitude. Blind-reveal challenges only ever hint that you might be behind, never that you're ahead.")
-                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                    }
-                }
+                }))
+                .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 .tint(Theme.Brand.pink)
             }
         }
@@ -287,15 +268,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             SectionHeader(title: "Security")
             PactCard(tint: Theme.Brand.purple) {
-                Toggle(isOn: Binding(
+                Toggle("Require Face ID / Touch ID", isOn: Binding(
                     get: { app.appLockEnabled },
                     set: { app.appLockEnabled = $0 }
-                )) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Require Face ID / Touch ID").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text("Locks Prove it whenever it's reopened.").font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                    }
-                }
+                ))
+                .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 .tint(Theme.Brand.purple)
             }
         }

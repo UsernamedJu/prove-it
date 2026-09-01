@@ -182,8 +182,11 @@ final class AppModel {
     // init() that it should bother trying.
     /// Local-only, same reasoning as `healthKitConnected` below — a display
     /// preference is inherently per-screen/per-device, not something
-    /// worth round-tripping through CloudKit.
-    var appearance: AppearancePreference = .system {
+    /// worth round-tripping through CloudKit. Defaults to dark rather than
+    /// following the system — a deliberate app-identity choice, not just
+    /// "whatever the phone happens to be set to." Still fully overridable
+    /// in Settings.
+    var appearance: AppearancePreference = .dark {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Self.appearanceDefaultsKey) }
     }
     private static let appearanceDefaultsKey = "com.jean.pact.appearance"
@@ -867,6 +870,15 @@ final class AppModel {
             // "-1%" in the handful of progress displays that don't clamp.
             resolveChallenge(id)
         }
+    }
+
+    /// Removes a challenge outright — swipe-to-delete on its row. Distinct
+    /// from forfeiting: forfeiting ends an active challenge as a loss but
+    /// keeps its result on record (in "Recent Challenges," in the win/loss
+    /// count); this just takes it off the list entirely, active or
+    /// already settled, with nothing left behind.
+    func deleteChallenge(_ id: UUID) {
+        challenges.removeAll { $0.id == id }
     }
 
     /// Declines to send a proof photo right now — doesn't retract the loss

@@ -290,7 +290,9 @@ struct HomeView: View {
                     .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
             } else {
                 ForEach(app.activeChallenges) { challenge in
-                    ChallengeRow(challenge: challenge, transitionNamespace: challengeTransition)
+                    SwipeToDeleteRow(onDelete: { app.deleteChallenge(challenge.id) }) {
+                        ChallengeRow(challenge: challenge, transitionNamespace: challengeTransition)
+                    }
                 }
             }
         }

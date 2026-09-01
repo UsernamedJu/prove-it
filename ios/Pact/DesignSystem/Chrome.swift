@@ -915,6 +915,63 @@ struct AccordionSection<Content: View>: View {
 /// low opacity, slow enough that it's never mid-motion snapshot-worthy
 /// while scanning a list of cards. `.allowsHitTesting(false)` so it never
 /// steals a tap meant for real content sitting on top of it.
+/// Right-to-left swipe reveals a red Delete action underneath, then
+/// confirms before actually deleting — the standard iOS gesture, hand-
+/// built because it only comes for free inside a `List`, and this app
+/// uses plain `ScrollView` + `VStack` everywhere for its own card styling
+/// instead. A `DragGesture` with a real minimum distance is what lets a
+/// plain tap still reach the content underneath (a `NavigationLink`, in
+/// every current use) undisturbed — only a real horizontal drag ever
+/// engages this at all.
+struct SwipeToDeleteRow<Content: View>: View {
+    let onDelete: () -> Void
+    @ViewBuilder var content: () -> Content
+
+    @State private var offset: CGFloat = 0
+    @State private var showingConfirm = false
+    private let revealWidth: CGFloat = 84
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button {
+                showingConfirm = true
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "trash.fill").font(.system(size: 16, weight: .semibold))
+                    Text("Delete").font(Theme.Font.eyebrow())
+                }
+                .foregroundStyle(.white)
+                .frame(width: revealWidth)
+                .frame(maxHeight: .infinity)
+            }
+            .background(Theme.Brand.coral)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .opacity(offset < -8 ? 1 : 0)
+
+            content()
+                .offset(x: offset)
+                .gesture(
+                    DragGesture(minimumDistance: 16)
+                        .onChanged { value in
+                            guard value.translation.width < 0 else { return }
+                            offset = max(value.translation.width, -revealWidth - 24)
+                        }
+                        .onEnded { value in
+                            withAnimation(Theme.Motion.pop) {
+                                offset = value.translation.width < -(revealWidth / 2) ? -revealWidth : 0
+                            }
+                        }
+                )
+        }
+        .confirmationDialog("Delete this challenge?", isPresented: $showingConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { onDelete() }
+            Button("Cancel", role: .cancel) { withAnimation(Theme.Motion.pop) { offset = 0 } }
+        } message: {
+            Text("This can't be undone.")
+        }
+    }
+}
+
 struct PactBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme

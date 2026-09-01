@@ -1064,6 +1064,22 @@ final class AppModel {
         recomputeMoodStreakState()
     }
 
+    /// Re-checks iCloud availability and re-syncs — exposed so Settings can
+    /// call this itself every time the iCloud Sync section actually
+    /// appears. The one-shot call at cold launch (below) can catch
+    /// `CKContainer.accountStatus()` before CloudKit has finished
+    /// initializing and get back `.couldNotDetermine` even on a device
+    /// that's genuinely signed in, and nothing was ever re-checking it —
+    /// so a transient false negative at launch meant "Not signed into
+    /// iCloud" stuck for the rest of the session regardless of the real
+    /// state. Safe to call repeatedly: it only actually pushes/pulls
+    /// anything when the compared timestamps say one side is genuinely
+    /// newer.
+    func refreshCloudStatus() async {
+        guard iCloudSyncEnabled else { return }
+        await reconcileWithCloud()
+    }
+
     /// Compares the local copy against whatever's in the user's private
     /// CloudKit database and keeps whichever is newer — covers both
     /// directions: a fresh reinstall with nothing local yet pulls the cloud

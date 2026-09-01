@@ -37,6 +37,7 @@ struct InitialBadge: View {
     var breathes: Bool = true
 
     @State private var breathe = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fill: Color { overrideColor ?? swatchColor(for: name) }
     private var photoImage: UIImage? { photoData.flatMap(UIImage.init(data:)) }
@@ -60,7 +61,7 @@ struct InitialBadge: View {
         .overlay(Circle().stroke(Theme.Ink.primary.opacity(0.1), lineWidth: 1))
         .scaleEffect(breathe ? 1.045 : 1.0)
         .onAppear {
-            guard breathes else { return }
+            guard breathes, !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { breathe = true }
         }
     }

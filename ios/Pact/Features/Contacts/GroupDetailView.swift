@@ -7,8 +7,7 @@ struct GroupDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let groupID: UUID
 
-    @State private var orbitRotation: Double = 0
-    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var group: ContactGroup? { app.groups.first { $0.id == groupID } }
 
@@ -68,54 +67,75 @@ struct GroupDetailView: View {
     }
 
     // MARK: Orbit — you at the center, members ringed around at even angles
+    //
+    // Driven by TimelineView from wall-clock time rather than a @State var
+    // animated via withAnimation(...repeatForever()) — the same pattern
+    // PactMark's logo and PactBackground's color wash already use. A
+    // 60-second repeatForever kept SwiftUI's animation system actively
+    // interpolating this whole view's transforms indefinitely for as long
+    // as the screen was on screen, which is what made it read as laggy
+    // once it was running alongside everything else (the background wash,
+    // a kept-alive tab). Computing the angle directly from the current
+    // frame's timestamp is cheaper and, as a real bonus, finally respects
+    // Reduce Motion — the old version spun regardless.
 
     private func orbit(_ members: [Member]) -> some View {
         let radius: CGFloat = 118
-        return ZStack {
+        return TimelineView(.animation(paused: reduceMotion)) { context in
+            let seconds = context.date.timeIntervalSinceReferenceDate
+            let orbitRotation = (seconds.truncatingRemainder(dividingBy: 60) / 60) * 360
             ZStack {
-                ForEach([0.55, 0.78, 1.0], id: \.self) { scale in
-                    Circle()
-                        .stroke(Theme.Surface.border, lineWidth: 1)
-                        .frame(width: radius * 2 * scale, height: radius * 2 * scale)
-                }
-            }
-            .rotationEffect(.degrees(orbitRotation * 0.4))
-
-            ZStack {
-                ForEach(Array(members.enumerated()), id: \.element.id) { i, member in
-                    let angle = (2 * Double.pi / Double(max(members.count, 1))) * Double(i) - .pi / 2
-                    let x = cos(angle) * radius
-                    let y = sin(angle) * radius
-                    NavigationLink(value: Route.member(member.id)) {
-                        VStack(spacing: 4) {
-                            InitialBadge(name: member.name, size: 54)
-                                .overlay(Circle().stroke(swatchColor(for: member.name), lineWidth: 2))
-                            Text(member.name.split(separator: " ").first.map(String.init) ?? member.name)
-                                .font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.secondary)
-                        }
-                        .rotationEffect(.degrees(-orbitRotation))
+                ZStack {
+                    ForEach([0.55, 0.78, 1.0], id: \.self) { scale in
+                        Circle()
+                            .stroke(Theme.Surface.border, lineWidth: 1)
+                            .frame(width: radius * 2 * scale, height: radius * 2 * scale)
                     }
-                    .buttonStyle(.plain)
-                    .offset(x: x, y: y)
                 }
-            }
-            .rotationEffect(.degrees(orbitRotation))
+                .rotationEffect(.degrees(orbitRotation * 0.4))
 
-            VStack(spacing: 4) {
-                InitialBadge(name: app.me.name, size: 74, overrideColor: app.meColor, photoData: app.myProfilePhotoData)
-                    .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: 3).padding(-5))
-                    .shadow(color: app.meColor.opacity(0.45), radius: 16)
-                    .scaleEffect(pulse ? 1.06 : 1.0)
-                Text(app.me.name).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.primary)
+                ZStack {
+                    ForEach(Array(members.enumerated()), id: \.element.id) { i, member in
+                        let angle = (2 * Double.pi / Double(max(members.count, 1))) * Double(i) - .pi / 2
+                        let x = cos(angle) * radius
+                        let y = sin(angle) * radius
+                        NavigationLink(value: Route.member(member.id)) {
+                            VStack(spacing: 4) {
+                                InitialBadge(name: member.name, size: 54)
+                                    .overlay(Circle().stroke(swatchColor(for: member.name), lineWidth: 2))
+                                Text(member.name.split(separator: " ").first.map(String.init) ?? member.name)
+                                    .font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.secondary)
+                            }
+                            .rotationEffect(.degrees(-orbitRotation))
+                        }
+                        .buttonStyle(.plain)
+                        .offset(x: x, y: y)
+                    }
+                }
+                .rotationEffect(.degrees(orbitRotation))
+
+                VStack(spacing: 4) {
+                    InitialBadge(name: app.me.name, size: 74, overrideColor: app.meColor, photoData: app.myProfilePhotoData)
+                        .overlay(Circle().stroke(Theme.Ink.primary, lineWidth: 3).padding(-5))
+                        .shadow(color: app.meColor.opacity(0.45), radius: 16)
+                        .scaleEffect(reduceMotion ? 1.0 : pulseScale(seconds))
+                    Text(app.me.name).font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.primary)
+                }
             }
         }
         .frame(width: radius * 2 + 60, height: radius * 2 + 60)
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Space.md)
-        .onAppear {
-            withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) { orbitRotation = 360 }
-            withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { pulse = true }
-        }
+    }
+
+    /// A sine wave standing in for easeInOut's shape, evaluated directly
+    /// from the clock instead of needing withAnimation's own repeatForever
+    /// interpolation to reproduce the same gentle breathing feel.
+    private func pulseScale(_ seconds: Double) -> CGFloat {
+        let cycle = 2.6
+        let t = (seconds.truncatingRemainder(dividingBy: cycle)) / cycle
+        let eased = (sin(t * 2 * .pi - .pi / 2) + 1) / 2
+        return 1.0 + eased * 0.06
     }
 
     private func membersList(_ members: [Member]) -> some View {

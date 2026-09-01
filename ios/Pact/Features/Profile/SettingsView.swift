@@ -38,7 +38,6 @@ struct SettingsView: View {
                         appearanceSection
                         notificationsSection
                         securitySection
-                        demoSection
                         accountSection
 
                         Spacer(minLength: Theme.Space.md)
@@ -49,6 +48,12 @@ struct SettingsView: View {
                     .padding(Theme.Space.lg)
                 }
             }
+            // Catches a real iCloud account that was signed in the whole
+            // time but got read as unavailable at cold launch (CloudKit
+            // not fully initialized yet when AppModel first checked) — see
+            // AppModel.refreshCloudStatus. Cheap and safe to run every time
+            // this screen opens.
+            .task { await app.refreshCloudStatus() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }.foregroundStyle(Theme.Ink.secondary)
@@ -233,33 +238,6 @@ struct SettingsView: View {
                 }))
                 .font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                 .tint(Theme.Brand.pink)
-            }
-        }
-    }
-
-    /// Lets someone see what a fully-engaged account looks like — an
-    /// active crew, challenges mid-race, real mood history — without that
-    /// ever being the default a new sign-up sees. Reversible: exiting
-    /// restores whatever was actually here before, exactly.
-    private var demoSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
-            SectionHeader(title: "Demo Account")
-            PactCard(tint: Theme.Brand.gold, showsAccent: false) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(app.isDemoMode ? "Viewing Demo Data" : "Preview Full Engagement").font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
-                        Text(app.isDemoMode
-                             ? "Showing a sample crew, active challenges, and history. Your own data is safe and comes right back."
-                             : "Temporarily loads a sample crew, active challenges, and mood history so you can see how the app looks once someone's actually using it.")
-                            .font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)
-                    }
-                    Spacer()
-                }
-                Button(app.isDemoMode ? "Exit Demo" : "Load Demo Data") {
-                    if app.isDemoMode { app.exitDemoMode() } else { app.enterDemoMode() }
-                    dismiss()
-                }
-                .buttonStyle(PactButtonStyle(kind: app.isDemoMode ? .tinted(Theme.Brand.coral) : .outline))
             }
         }
     }

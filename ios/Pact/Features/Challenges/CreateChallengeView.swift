@@ -27,7 +27,12 @@ struct CreateChallengeView: View {
     @State private var customGoal: Double?
     @State private var step = 0
     @State private var navigatingBack = false
-    private let photoName: String
+    /// `nil` for a freeform challenge (no suggestion behind it) — resolved
+    /// at send time via `photoName`, which picks something that isn't
+    /// already showing on one of this account's own challenges, instead of
+    /// the flat "photo-steps" every freeform challenge used to get
+    /// regardless of kind or what else was already using it.
+    private let seedPhotoName: String?
 
     private let totalSteps = 3
     private let durationOptions = [3, 7, 14, 30]
@@ -47,7 +52,7 @@ struct CreateChallengeView: View {
         _kind = State(initialValue: seed?.kind ?? .steps)
         _venue = State(initialValue: seed?.venue ?? "Citywide · San Diego")
         _duration = State(initialValue: seed?.suggestedDuration ?? 14)
-        photoName = seed?.photoName ?? "photo-steps"
+        seedPhotoName = seed?.photoName
         isPayoffLocked = seed != nil
         if let seedPayoff = seed?.payoff, let idx = Payoff.presets.firstIndex(of: seedPayoff) {
             _payoffIdx = State(initialValue: idx)
@@ -364,6 +369,10 @@ struct CreateChallengeView: View {
         }
     }
     private var finalGoal: Double? { customGoal ?? suggestedGoal }
+    /// A suggestion's own photo is locked in like its payoff; a freeform
+    /// challenge gets whichever stock photo AppModel says isn't already
+    /// in use, resolved fresh at send time.
+    private var photoName: String { seedPhotoName ?? app.nextAvailableChallengePhoto(for: kind) }
     private func goalText(_ value: Double?) -> String {
         guard let value else { return "—" }
         return kind == .distance ? "\(Int(value)) mi" : "\(Int(value).formatted()) \(kind.unit)"

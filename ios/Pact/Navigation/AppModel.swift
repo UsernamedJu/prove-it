@@ -736,6 +736,36 @@ final class AppModel {
 
     // MARK: Challenges
 
+    /// Every stock photo a freeform challenge could reasonably use — the
+    /// three generic per-kind images plus the venue photos that back the
+    /// suggestion pool (fine to reuse here too: they're just scenic San
+    /// Diego shots, not exclusive to any one suggestion).
+    private static let stockChallengePhotos = [
+        "photo-steps", "photo-distance", "photo-custom",
+        "photo-balboa5k", "photo-balboafamily", "photo-coronado", "photo-gaslamp", "photo-missionbay",
+    ]
+
+    /// Picks a stock photo for a freeform (non-suggestion) challenge —
+    /// never one already showing on one of this account's own current
+    /// challenges, so two challenges never look identical in every list
+    /// that shows their photo the way every freeform challenge used to
+    /// (all of them got the same flat "photo-steps", regardless of kind).
+    /// Leans toward the kind's own generic photo first when it's free, so
+    /// a steps challenge still tends to look like one; falls back to
+    /// letting it repeat only once every single stock photo is already
+    /// in use, which for a normal crew size won't happen.
+    func nextAvailableChallengePhoto(for kind: ChallengeKind) -> String {
+        let inUse = Set(challenges.map(\.photoName))
+        let preferred: String = switch kind {
+            case .steps: "photo-steps"
+            case .distance: "photo-distance"
+            case .custom: "photo-custom"
+        }
+        if !inUse.contains(preferred) { return preferred }
+        if let free = Self.stockChallengePhotos.first(where: { !inUse.contains($0) }) { return free }
+        return preferred
+    }
+
     /// `goalTarget`, when passed (a suggestion's own "hit 50,000 steps this
     /// week to win"), is used as-is. Otherwise it's computed here from this
     /// specific group's own typical daily pace — `personalizedStepTarget`

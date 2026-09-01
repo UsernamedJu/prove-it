@@ -35,6 +35,14 @@ enum Fixtures {
         return .init(latitude: 32.7157, longitude: -117.1611) // Citywide · Downtown San Diego
     }
 
+    /// Backdates a fixture's `startDate` to match how many days into its
+    /// own `history(days:end:)` it's meant to already be — otherwise every
+    /// preview challenge would compute as freshly started today regardless
+    /// of what its seeded progress history implies.
+    private static func daysAgo(_ n: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: -n, to: Date()) ?? Date()
+    }
+
     /// A plausible, monotonically-rising day-by-day history ending at
     /// `end` — real stored data for charts to read, not runtime noise.
     private static func history(days: Int, end: Double, wobble: Double = 0.06) -> [Double] {
@@ -51,7 +59,7 @@ enum Fixtures {
         id: UUID(), title: "America's Finest City Steps Challenge", icon: "footprints", kind: .steps,
         venue: "Citywide · San Diego", rules: "Ranked by % of each person's personalized daily step target (Fair Play scoring).",
         photoName: "photo-steps",
-        durationDays: 14, daysLeft: 6, dailyTarget: 8_000,
+        durationDays: 14, dailyTarget: 8_000,
         payoff: Payoff(icon: "cup.and.saucer.fill", text: "Loser buys coffee for everyone"),
         standings: [
             Standing(member: grandmaRose, rank: 1, progress: 0.82, trendDelta: "+2", progressHistory: history(days: 8, end: 0.82)),
@@ -60,14 +68,14 @@ enum Fixtures {
             Standing(member: dad, rank: 4, progress: 0.52, trendDelta: "-1", progressHistory: history(days: 8, end: 0.52)),
         ],
         myMemberID: me.id, blindReveal: false, fairPlay: true, status: .active,
-        routeCoordinates: nil, winnerName: nil
+        routeCoordinates: nil, winnerName: nil, startDate: daysAgo(8)
     )
 
     static let laJollaCoastal = Challenge(
         id: UUID(), title: "La Jolla Coastal 5K Series", icon: "figure.run", kind: .distance,
         venue: "La Jolla Shores", rules: "Cumulative distance over the series. Scores stay hidden until the final 72 hours.",
         photoName: "photo-distance",
-        durationDays: 30, daysLeft: 18, dailyTarget: 2,
+        durationDays: 30, dailyTarget: 2,
         payoff: Payoff(icon: "trophy.fill", text: "Bragging rights for a week"),
         standings: [
             Standing(member: sam, rank: 1, progress: 0.68, trendDelta: "+4", progressHistory: history(days: 12, end: 0.68)),
@@ -78,28 +86,28 @@ enum Fixtures {
         // `AppModel.ensureRealRoute` fills this in with a real MKDirections
         // walking route the first time a map view for this challenge
         // appears, rather than seeding it with a fake, hand-drawn loop.
-        routeCoordinates: nil, winnerName: nil
+        routeCoordinates: nil, winnerName: nil, startDate: daysAgo(12)
     )
 
     static let petcoParkFanWalk = Challenge(
         id: UUID(), title: "Petco Park Fan Walk", icon: "baseball.fill", kind: .custom,
         venue: "Petco Park · Gaslamp Quarter", rules: "Highest single-day effort score wins. Reveal opens once the week closes.",
         photoName: "photo-custom",
-        durationDays: 7, daysLeft: 0, dailyTarget: 1,
+        durationDays: 7, dailyTarget: 1,
         payoff: Payoff(icon: "mic.fill", text: "Loser gives a toast at the next family dinner"),
         standings: [
             Standing(member: me, rank: 1, progress: 1.0, trendDelta: "+1", progressHistory: history(days: 7, end: 1.0)),
             Standing(member: dad, rank: 2, progress: 0.9, trendDelta: "—", progressHistory: history(days: 7, end: 0.9)),
         ],
         myMemberID: me.id, blindReveal: true, fairPlay: false, status: .revealReady,
-        routeCoordinates: nil, winnerName: nil
+        routeCoordinates: nil, winnerName: nil, startDate: daysAgo(7)
     )
 
     static let balboaParkFamily = Challenge(
         id: UUID(), title: "Balboa Park Family Circuit", icon: "footprints", kind: .steps,
         venue: "Balboa Park", rules: "Ranked by % of each person's personalized daily step target (Fair Play scoring).",
         photoName: "photo-balboafamily",
-        durationDays: 14, daysLeft: 0, dailyTarget: 7_500,
+        durationDays: 14, dailyTarget: 7_500,
         payoff: Payoff(icon: "tshirt.fill", text: "Loser wears the shame shirt to the next hangout"),
         standings: [
             Standing(member: me, rank: 1, progress: 1.0, trendDelta: "+3", progressHistory: history(days: 14, end: 1.0)),
@@ -107,7 +115,7 @@ enum Fixtures {
             Standing(member: grandmaRose, rank: 3, progress: 0.81, trendDelta: "-1", progressHistory: history(days: 14, end: 0.81)),
         ],
         myMemberID: me.id, blindReveal: false, fairPlay: true, status: .complete,
-        routeCoordinates: nil, winnerName: "You"
+        routeCoordinates: nil, winnerName: "You", startDate: daysAgo(14)
     )
 
     /// Fresh, just-started, and freely editable — the one to actually try
@@ -118,7 +126,7 @@ enum Fixtures {
         id: UUID(), title: "Family Target Run", icon: "cart.fill", kind: .steps,
         venue: "Target · Mission Valley", rules: "Ranked by % of each person's personalized daily step target (Fair Play scoring).",
         photoName: "photo-steps",
-        durationDays: 1, daysLeft: 1, dailyTarget: 6_000,
+        durationDays: 1, dailyTarget: 6_000,
         payoff: Payoff(icon: "cart.fill", text: "Loser pushes the cart the whole trip"),
         standings: [
             Standing(member: me, rank: 1, progress: 0, trendDelta: "—", progressHistory: [0]),

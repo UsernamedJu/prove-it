@@ -452,12 +452,21 @@ final class SharedChallengeStore {
         challenges[idx].entries[entryIdx].progressHistory.append(next)
         challenges[idx].entries[entryIdx].lastLogVerified = measuredRatio != nil
 
+        // Captured before either `await` below — `refresh()` can wholesale
+        // reassign `challenges` while this is suspended (a concurrent
+        // silent push, or another refresh call racing this one), which
+        // would make reusing `idx`/`entryIdx` afterward read a different
+        // participant's data, or crash on an index that's gone out of
+        // bounds in the reassigned array.
         let database = challenges[idx].isOwnedByMe ? container.privateCloudDatabase : container.sharedCloudDatabase
         let recordID = challenges[idx].entries[entryIdx].recordID
+        let progressHistory = challenges[idx].entries[entryIdx].progressHistory
+        let verified = measuredRatio != nil
+
         guard let record = try? await database.record(for: recordID) else { return }
         record["progress"] = next
-        record["progressHistory"] = challenges[idx].entries[entryIdx].progressHistory
-        record["lastLogVerified"] = measuredRatio != nil ? Int64(1) : Int64(0)
+        record["progressHistory"] = progressHistory
+        record["lastLogVerified"] = verified ? Int64(1) : Int64(0)
         _ = try? await database.modifyRecords(saving: [record], deleting: [])
     }
 

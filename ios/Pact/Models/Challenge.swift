@@ -123,7 +123,6 @@ struct Challenge: Identifiable {
     /// every challenge looks distinct.
     var photoName: String
     var durationDays: Int
-    var daysLeft: Int
     var dailyTarget: Int
     /// Only set when `kind == .custom` — what the group is actually tracking
     /// (e.g. "push-ups"), overriding the generic "pts" unit for display.
@@ -154,6 +153,14 @@ struct Challenge: Identifiable {
     var myStanding: Standing? { standings.first { $0.member.id == myMemberID } }
     var isDistanceBased: Bool { kind == .distance }
     var effectiveGoalTarget: Double { goalTarget ?? Double(dailyTarget) * Double(durationDays) }
+    /// Real days remaining, computed from `startDate`/`durationDays` on
+    /// every read — not a number set once at creation and never revisited.
+    /// A week into a 14-day challenge now actually shows 7 days left,
+    /// whatever it happened to say the day it was created.
+    var daysLeft: Int {
+        let elapsed = Calendar.current.dateComponents([.day], from: startDate, to: Date()).day ?? 0
+        return max(0, durationDays - elapsed)
+    }
 
     /// The real target a specific member's progress is measured against.
     /// With Fair Play on for a steps challenge, that's *their own* age-band

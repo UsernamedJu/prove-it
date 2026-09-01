@@ -89,8 +89,13 @@ struct RootView: View {
         .task {
             // Cold-launch case: the app wasn't running when a share link
             // was tapped, so this picks up whatever CloudShareDelegate
-            // already stashed before this view ever appeared.
-            if let metadata = CloudShareDelegate.pendingMetadata {
+            // already stashed before this view ever appeared. Only
+            // consumed once onboarding's actually done — handleIncoming-
+            // Share needs a real "me" to accept as, and clearing this
+            // before that exists would lose the invite for good. Left in
+            // place otherwise, for the onChange below to pick up the
+            // moment onboarding finishes.
+            if app.hasOnboarded, let metadata = CloudShareDelegate.pendingMetadata {
                 CloudShareDelegate.pendingMetadata = nil
                 await handleIncomingShare(metadata)
             }
@@ -100,6 +105,20 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: CloudShareDelegate.didReceiveShareMetadata)) { note in
             guard let metadata = note.object as? CKShare.Metadata else { return }
+            if app.hasOnboarded {
+                Task { await handleIncomingShare(metadata) }
+            } else {
+                // A live share arriving mid-onboarding (the app was
+                // already open and running through onboarding when the
+                // link was tapped) — stash it the same way a cold-launch
+                // share is, so it isn't silently dropped by
+                // handleIncomingShare's own hasOnboarded guard.
+                CloudShareDelegate.pendingMetadata = metadata
+            }
+        }
+        .onChange(of: app.hasOnboarded) { _, completed in
+            guard completed, let metadata = CloudShareDelegate.pendingMetadata else { return }
+            CloudShareDelegate.pendingMetadata = nil
             Task { await handleIncomingShare(metadata) }
         }
     }

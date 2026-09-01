@@ -20,9 +20,23 @@ final class UserDirectory {
     /// whenever the session persists while signed in — see
     /// `AppModel.persistSession`. Silently no-ops without iCloud/network;
     /// being discoverable by ID is a bonus, nothing else here depends on it.
+    ///
+    /// Fetches the existing record first (same pattern as
+    /// `CloudSyncManager.upload`) rather than always constructing a fresh
+    /// `CKRecord` — saving a brand-new record object against an ID
+    /// CloudKit already has one for (no change tag attached) is the
+    /// standard conflict case, and `try?` here was swallowing it silently:
+    /// the very first publish after onboarding would succeed, but every
+    /// later name/color change would silently fail to actually update it.
     func publish(id: UUID, name: String, colorIndex: Int) async {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        let record = CKRecord(recordType: Self.recordType, recordID: CKRecord.ID(recordName: id.uuidString))
+        let recordID = CKRecord.ID(recordName: id.uuidString)
+        let record: CKRecord
+        if let existing = try? await container.publicCloudDatabase.record(for: recordID) {
+            record = existing
+        } else {
+            record = CKRecord(recordType: Self.recordType, recordID: recordID)
+        }
         record["name"] = name
         record["colorIndex"] = colorIndex
         _ = try? await container.publicCloudDatabase.save(record)

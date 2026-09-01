@@ -763,7 +763,7 @@ final class AppModel {
         }()
         let challenge = Challenge(id: UUID(), title: title, icon: icon, kind: kind,
                                    venue: venue, rules: rules, photoName: photoName,
-                                   durationDays: duration, daysLeft: duration, dailyTarget: dailyTarget,
+                                   durationDays: duration, dailyTarget: dailyTarget,
                                    customMetric: customMetric, payoff: payoff,
                                    standings: standings, myMemberID: me.id,
                                    blindReveal: blindReveal, fairPlay: fairPlay, status: .active,
@@ -911,6 +911,13 @@ final class AppModel {
         let context = sharedChallengeContext(for: memberID)
         Task {
             try? await Task.sleep(for: .seconds(Double.random(in: 1.1...2.4)))
+            // Signing into a different identity or toggling Demo Mode
+            // during this delay wholesale-replaces `crew` — without this
+            // check, the reply lands under a member ID that may no longer
+            // exist in the new crew, and ChatListView (which only ever
+            // iterates `app.crew`) could never surface it, while the
+            // unread dot it sets below still counts it forever.
+            guard crew.contains(where: { $0.id == memberID }) else { return }
             let reply = imageData != nil ? "Nice pic." : ChatBanter.reply(from: member, sharedChallenge: context, seed: seed)
             directMessages[memberID, default: []].append(ChatMessage(senderID: memberID, text: reply))
             if openDirectChatID != memberID { unreadDirectIDs.insert(memberID) }
@@ -926,6 +933,11 @@ final class AppModel {
         let context = sharedChallengeContext(for: replier.id)
         Task {
             try? await Task.sleep(for: .seconds(Double.random(in: 1.2...2.6)))
+            // Same reasoning as sendDirectMessage's reply — a different
+            // identity signing in or Demo Mode toggling during this delay
+            // wholesale-replaces `groups`, and this group may not exist in
+            // the new one at all.
+            guard groups.contains(where: { $0.id == groupID }) else { return }
             let reply = imageData != nil ? "Nice pic." : ChatBanter.reply(from: replier, sharedChallenge: context, seed: seed)
             groupMessages[groupID, default: []].append(ChatMessage(senderID: replier.id, text: reply))
             if openGroupChatID != groupID { unreadGroupIDs.insert(groupID) }

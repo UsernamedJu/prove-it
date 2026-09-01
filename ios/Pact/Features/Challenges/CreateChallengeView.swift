@@ -296,7 +296,7 @@ struct CreateChallengeView: View {
                         }
                     } label: {
                         HStack(spacing: Theme.Space.sm) {
-                            InitialBadge(name: member.name, size: 36)
+                            InitialBadge(name: member.name, size: 36, photoData: member.photoData)
                             Text(member.name).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
                             Spacer()
                             Image(systemName: on ? "checkmark.circle.fill" : "circle")
@@ -414,7 +414,7 @@ struct CreateChallengeView: View {
                             ForEach(participantMembers) { member in
                                 InitialBadge(name: member.name, size: 36,
                                              overrideColor: member.id == app.me.id ? app.meColor : nil,
-                                             photoData: member.id == app.me.id ? app.myProfilePhotoData : nil)
+                                             photoData: member.id == app.me.id ? app.myProfilePhotoData : member.photoData)
                                     .overlay(Circle().stroke(Theme.Surface.card, lineWidth: 2))
                             }
                         }

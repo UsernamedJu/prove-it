@@ -32,6 +32,7 @@ struct GroupDetailView: View {
         }
         .background(PactBackground())
         .toolbar(.hidden, for: .navigationBar)
+        .task { await app.refreshCrewProfiles() }
         .safeAreaInset(edge: .top) {
             HStack {
                 Button { dismiss() } label: {
@@ -101,7 +102,7 @@ struct GroupDetailView: View {
                         let y = sin(angle) * radius
                         NavigationLink(value: Route.member(member.id)) {
                             VStack(spacing: 4) {
-                                InitialBadge(name: member.name, size: 54)
+                                InitialBadge(name: member.name, size: 54, photoData: member.photoData)
                                     .overlay(Circle().stroke(swatchColor(for: member.name), lineWidth: 2))
                                 Text(member.name.split(separator: " ").first.map(String.init) ?? member.name)
                                     .font(Theme.Font.eyebrow()).foregroundStyle(Theme.Ink.secondary)
@@ -144,7 +145,7 @@ struct GroupDetailView: View {
             ForEach(members) { member in
                 NavigationLink(value: Route.member(member.id)) {
                     HStack(spacing: Theme.Space.sm) {
-                        InitialBadge(name: member.name, size: 40)
+                        InitialBadge(name: member.name, size: 40, photoData: member.photoData)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(member.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                             Text(member.ageBand.rawValue).font(Theme.Font.caption()).foregroundStyle(Theme.Ink.tertiary)

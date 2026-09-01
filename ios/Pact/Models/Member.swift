@@ -40,11 +40,17 @@ struct Member: Identifiable, Hashable {
     let id: UUID
     var name: String
     var ageBand: AgeBand
+    /// Only ever set for someone added by real Provyr ID (an invite or a
+    /// lookup) — see `UserDirectory` and `AppModel.refreshCrewProfiles()`.
+    /// A locally-typed crew name never has one, since there's no real
+    /// person behind it to fetch a photo from.
+    var photoData: Data? = nil
 
-    init(id: UUID = UUID(), name: String, ageBand: AgeBand = .adult) {
+    init(id: UUID = UUID(), name: String, ageBand: AgeBand = .adult, photoData: Data? = nil) {
         self.id = id
         self.name = name
         self.ageBand = ageBand
+        self.photoData = photoData
     }
 }
 

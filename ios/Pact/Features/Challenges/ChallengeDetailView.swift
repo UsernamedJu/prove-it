@@ -46,6 +46,7 @@ struct ChallengeDetailView: View {
         }
         .background(PactBackground())
         .toolbar(.hidden, for: .navigationBar)
+        .task { await app.refreshCrewProfiles() }
         .safeAreaInset(edge: .top) {
             HStack {
                 Button { dismiss() } label: {
@@ -264,7 +265,7 @@ private struct BoardRow: View {
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack(spacing: Theme.Space.sm) {
                     medal
-                    InitialBadge(name: standing.member.name, size: 38, overrideColor: color)
+                    InitialBadge(name: standing.member.name, size: 38, overrideColor: color, photoData: standing.member.photoData)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
                             Text(standing.member.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
@@ -537,7 +538,7 @@ private struct DetailsTab: View {
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
                     ForEach(challenge.standings) { s in
                         HStack(spacing: Theme.Space.sm) {
-                            InitialBadge(name: s.member.name, size: 34)
+                            InitialBadge(name: s.member.name, size: 34, photoData: s.member.photoData)
                             Text(s.member.name).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
                             Spacer()
                             if s.member.id == challenge.myMemberID {

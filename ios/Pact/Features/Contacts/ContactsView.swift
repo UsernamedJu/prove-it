@@ -84,6 +84,7 @@ struct ContactsView: View {
         // adding the contact, so the button reads as broken.
         .scrollDismissesKeyboard(.immediately)
         .background(PactBackground())
+        .task { await app.refreshCrewProfiles() }
         .sheet(isPresented: $showNewGroup) { NewGroupSheet() }
         .sheet(isPresented: $showLookup) { LookupByIDSheet() }
         .sheet(isPresented: $showInvite) { InviteLinkSheet() }
@@ -149,7 +150,7 @@ private struct ContactRow: View {
         NavigationLink(value: Route.member(member.id)) {
             PactCard(tint: swatchColor(for: member.name)) {
                 HStack(spacing: Theme.Space.sm) {
-                    InitialBadge(name: member.name, size: 44)
+                    InitialBadge(name: member.name, size: 44, photoData: member.photoData)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(member.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                         Text("\(member.ageBand.rawValue) · \(sharedChallenges) shared challenge\(sharedChallenges == 1 ? "" : "s")")
@@ -195,7 +196,7 @@ private struct NewGroupSheet: View {
                                 if on { selected.remove(member.id) } else { selected.insert(member.id) }
                             } label: {
                                 HStack(spacing: Theme.Space.sm) {
-                                    InitialBadge(name: member.name, size: 36)
+                                    InitialBadge(name: member.name, size: 36, photoData: member.photoData)
                                     Text(member.name).font(Theme.Font.body()).foregroundStyle(Theme.Ink.primary)
                                     Spacer()
                                     Image(systemName: on ? "checkmark.circle.fill" : "circle")
@@ -346,11 +347,11 @@ private struct LookupByIDSheet: View {
                     if searched {
                         if let result {
                             HStack(spacing: Theme.Space.sm) {
-                                InitialBadge(name: result.name, size: 40)
+                                InitialBadge(name: result.name, size: 40, photoData: result.photoData)
                                 Text(result.name).font(Theme.Font.h3()).foregroundStyle(Theme.Ink.primary)
                                 Spacer()
                                 Button("Add") {
-                                    app.addMember(id: result.id, name: result.name)
+                                    app.addMember(id: result.id, name: result.name, photoData: result.photoData)
                                     dismiss()
                                 }
                                 .buttonStyle(PactButtonStyle(kind: .outline))

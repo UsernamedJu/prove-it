@@ -24,7 +24,7 @@ struct MemberDetailView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.lg) {
                 HStack(spacing: Theme.Space.md) {
-                    InitialBadge(name: member.name, size: 64)
+                    InitialBadge(name: member.name, size: 64, photoData: member.photoData)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(member.name).font(Theme.Font.h1()).foregroundStyle(Theme.Ink.primary)
                         Text(member.ageBand.rawValue).font(Theme.Font.body()).foregroundStyle(Theme.Ink.secondary)
@@ -84,6 +84,7 @@ struct MemberDetailView: View {
         }
         .background(PactBackground())
         .toolbar(.hidden, for: .navigationBar)
+        .task { await app.refreshCrewProfiles() }
         .safeAreaInset(edge: .top) {
             HStack {
                 Button { dismiss() } label: {

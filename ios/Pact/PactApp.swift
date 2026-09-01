@@ -140,7 +140,13 @@ struct RootView: View {
         // kinds of invite (a crew invite vs. a challenge invite) correctly.
         if metadata.rootRecord?.recordType == CrewInviteService.recordType {
             if let inviter = await CrewInviteService.shared.acceptInvite(metadata: metadata) {
-                app.addMember(id: inviter.id, name: inviter.name)
+                // The invite record itself only ever carries a name — the
+                // full current profile (including whatever photo they
+                // have *right now*, not whatever existed when the invite
+                // was created) lives in UserDirectory, the same place
+                // AppModel.refreshCrewProfiles() checks back with later.
+                let profile = await UserDirectory.shared.lookup(id: inviter.id.uuidString)
+                app.addMember(id: inviter.id, name: profile?.name ?? inviter.name, photoData: profile?.photoData)
             }
             return
         }

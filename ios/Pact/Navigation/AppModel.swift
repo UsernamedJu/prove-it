@@ -898,9 +898,26 @@ final class AppModel {
     /// Adds someone found via `UserDirectory.lookup` — keeps their real
     /// published ID rather than minting a new local one, and no-ops if
     /// they're already in the crew (or would somehow resolve to "me").
-    func addMember(id: UUID, name: String) {
+    func addMember(id: UUID, name: String, photoData: Data? = nil) {
         guard id != me.id, !crew.contains(where: { $0.id == id }) else { return }
-        crew.append(Member(id: id, name: name))
+        crew.append(Member(id: id, name: name, photoData: photoData))
+    }
+
+    /// Re-fetches the current published name/photo for every crew member
+    /// who has a real Provyr ID behind them — called whenever a screen
+    /// that shows their photo appears (Crew, a group's orbit, a
+    /// challenge's board), so someone else updating their own profile
+    /// picture actually reaches everywhere they show up here instead of
+    /// freezing at whatever it was the moment they were added. A plain
+    /// locally-typed crew name has no real record to look up, so this is
+    /// a harmless no-op for them — `UserDirectory.lookup` just returns nil.
+    func refreshCrewProfiles() async {
+        for member in crew {
+            guard let result = await UserDirectory.shared.lookup(id: member.id.uuidString) else { continue }
+            guard let idx = crew.firstIndex(where: { $0.id == member.id }) else { continue }
+            crew[idx].name = result.name
+            crew[idx].photoData = result.photoData
+        }
     }
 
     func createGroup(name: String, memberIDs: [UUID]) {
@@ -1171,8 +1188,8 @@ final class AppModel {
         guard let data = try? JSONEncoder().encode(saved) else { return }
         UserDefaults.standard.set(data, forKey: Self.sessionDefaultsKey)
         if isSignedIn && hasOnboarded {
-            let id = me.id, name = me.name, colorIndex = meColorIndex
-            Task { await UserDirectory.shared.publish(id: id, name: name, colorIndex: colorIndex) }
+            let id = me.id, name = me.name, colorIndex = meColorIndex, photo = myProfilePhotoData
+            Task { await UserDirectory.shared.publish(id: id, name: name, colorIndex: colorIndex, photoData: photo) }
         }
         guard iCloudSyncEnabled else {
             cloudSyncStatus = .unavailable

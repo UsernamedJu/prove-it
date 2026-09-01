@@ -920,17 +920,35 @@ struct AccordionSection<Content: View>: View {
 /// confirms before actually deleting — the standard iOS gesture, hand-
 /// built because it only comes for free inside a `List`, and this app
 /// uses plain `ScrollView` + `VStack` everywhere for its own card styling
-/// instead. A `DragGesture` with a real minimum distance is what lets a
-/// plain tap still reach the content underneath (a `NavigationLink`, in
-/// every current use) undisturbed — only a real horizontal drag ever
-/// engages this at all.
+/// instead.
+///
+/// Two things the first version got wrong, both fixed here:
+/// - Dragging right once revealed did nothing at all — `onChanged` flatly
+///   ignored any positive delta, so there was no way to cancel a swipe by
+///   dragging the row back other than releasing and hoping the snap-back
+///   threshold caught it. `committedOffset` + `@GestureState`'s
+///   `dragTranslation` (which always measures from THIS touch's start,
+///   composed with wherever the row was already resting) makes a drag in
+///   either direction move the row continuously and symmetrically.
+/// - `.gesture(...)` directly on the same content a `NavigationLink` wraps
+///   can win priority over that link's own tap recognizer, making a quick
+///   tap feel like it sometimes needs a second try. `.simultaneousGesture`
+///   lets both recognize at once — a real drag still engages this (it
+///   only ever starts registering once movement clears `minimumDistance`,
+///   which a tap never does), but a tap is never blocked waiting to see
+///   if the drag claims it first.
 struct SwipeToDeleteRow<Content: View>: View {
     let onDelete: () -> Void
     @ViewBuilder var content: () -> Content
 
-    @State private var offset: CGFloat = 0
+    @State private var committedOffset: CGFloat = 0
+    @GestureState private var dragTranslation: CGFloat = 0
     @State private var showingConfirm = false
     private let revealWidth: CGFloat = 84
+
+    private var visualOffset: CGFloat {
+        min(0, max(-revealWidth - 24, committedOffset + dragTranslation))
+    }
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -947,26 +965,32 @@ struct SwipeToDeleteRow<Content: View>: View {
             }
             .background(Theme.Brand.coral)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .opacity(offset < -8 ? 1 : 0)
+            .opacity(visualOffset < -8 ? 1 : 0)
 
             content()
-                .offset(x: offset)
-                .gesture(
-                    DragGesture(minimumDistance: 16)
-                        .onChanged { value in
-                            guard value.translation.width < 0 else { return }
-                            offset = max(value.translation.width, -revealWidth - 24)
+                .offset(x: visualOffset)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .updating($dragTranslation) { value, state, _ in
+                            // Only actually engages once movement is
+                            // clearly more horizontal than vertical, so a
+                            // normal vertical scroll starting on a row
+                            // never gets read as a swipe attempt.
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            state = value.translation.width
                         }
                         .onEnded { value in
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            let projected = committedOffset + value.translation.width
                             withAnimation(Theme.Motion.pop) {
-                                offset = value.translation.width < -(revealWidth / 2) ? -revealWidth : 0
+                                committedOffset = projected < -(revealWidth / 2) ? -revealWidth : 0
                             }
                         }
                 )
         }
         .confirmationDialog("Delete this challenge?", isPresented: $showingConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { onDelete() }
-            Button("Cancel", role: .cancel) { withAnimation(Theme.Motion.pop) { offset = 0 } }
+            Button("Cancel", role: .cancel) { withAnimation(Theme.Motion.pop) { committedOffset = 0 } }
         } message: {
             Text("This can't be undone.")
         }
